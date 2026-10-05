@@ -1,13 +1,16 @@
 import { computeIndicators } from "./indicators";
 import { getCandles, getFundamentals, getMacro, gramGoldTRY } from "./data";
 import { finalSignal, fundamentalScore, technicalScore } from "./scoring";
+import { findBistCompany } from "./bist";
 import type { AnalysisResult, AssetType, FundamentalResult, Fundamentals } from "./types";
 
 export async function analyzeSymbol(
   ticker: string,
   type: AssetType
 ): Promise<AnalysisResult> {
-  const { name, currency, candles, closes } = await getCandles(ticker);
+  const { name: rawName, currency, candles, closes } = await getCandles(ticker);
+  const bist = findBistCompany(ticker);
+  const name = bist ? bist.name : rawName;
   const ind = computeIndicators(closes);
   const tech = technicalScore(closes, ind);
 

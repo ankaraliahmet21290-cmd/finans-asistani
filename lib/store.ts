@@ -9,8 +9,12 @@ const memory = new Map<string, string>();
 let kvClient: Promise<KvLike | null> | null = null;
 let kvBroken = false;
 
+function kvEnvPresent(): boolean {
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
 async function getKv(): Promise<KvLike | null> {
-  if (kvBroken) return null;
+  if (kvBroken || !kvEnvPresent()) return null;
   if (!kvClient) {
     kvClient = (async () => {
       try {

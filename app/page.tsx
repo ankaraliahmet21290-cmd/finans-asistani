@@ -1,5 +1,5 @@
-import WatchlistTable from "@/components/WatchlistTable";
+import HomeDashboard from "@/components/HomeDashboard";
 
 export default function Home() {
-  return <WatchlistTable />;
+  return <HomeDashboard />;
 }
