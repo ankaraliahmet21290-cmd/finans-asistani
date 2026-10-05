@@ -46,7 +46,19 @@ function useChart(build: (chart: IChartApi, el: HTMLDivElement) => void, deps: u
     build(chart, el);
     chart.timeScale().fitContent();
 
-    return () => chart.remove();
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!entries[0]) return;
+      const { width } = entries[0].contentRect;
+      if (width > 0) {
+        chart.applyOptions({ width });
+      }
+    });
+    resizeObserver.observe(el);
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 

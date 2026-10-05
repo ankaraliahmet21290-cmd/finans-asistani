@@ -23,17 +23,18 @@ function StockRankingCard({
 
   return (
     <div
-      className={`flex flex-col rounded-2xl border p-5 shadow-xl transition backdrop-blur-sm ${
+      className={`flex flex-col rounded-2xl border p-4 sm:p-5 shadow-xl transition backdrop-blur-md overflow-hidden ${
         isBuy
-          ? "border-emerald-900/40 bg-gradient-to-b from-emerald-950/20 to-zinc-900/40"
-          : "border-red-900/40 bg-gradient-to-b from-red-950/20 to-zinc-900/40"
+          ? "border-emerald-900/40 bg-gradient-to-b from-emerald-950/20 via-zinc-900/70 to-zinc-950/90"
+          : "border-red-900/40 bg-gradient-to-b from-red-950/20 via-zinc-900/70 to-zinc-950/90"
       }`}
     >
-      <div className="mb-4 flex items-start justify-between">
-        <div>
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
-              className={`flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold ${
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
                 isBuy
                   ? "bg-emerald-500/20 text-emerald-400"
                   : "bg-red-500/20 text-red-400"
@@ -41,14 +42,15 @@ function StockRankingCard({
             >
               {isBuy ? "▲" : "▼"}
             </span>
-            <h2 className="text-lg font-semibold tracking-tight text-zinc-100">
+            <h2 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-100 truncate">
               {title}
             </h2>
           </div>
-          <p className="mt-1 text-xs text-zinc-400">{subtitle}</p>
+          <p className="mt-0.5 text-xs text-zinc-400 truncate">{subtitle}</p>
         </div>
+
         <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${
+          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
             isBuy
               ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
               : "border border-red-500/30 bg-red-500/10 text-red-400"
@@ -59,11 +61,11 @@ function StockRankingCard({
       </div>
 
       {loading ? (
-        <div className="space-y-3 py-2">
+        <div className="space-y-3 py-1">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="h-16 animate-pulse rounded-xl border border-zinc-800 bg-zinc-900/40"
+              className="h-20 animate-pulse rounded-xl border border-zinc-800 bg-zinc-900/50"
             />
           ))}
         </div>
@@ -77,73 +79,75 @@ function StockRankingCard({
             const isUp = (stock.change ?? 0) >= 0;
 
             return (
-              <li key={stock.ticker}>
+              <li key={stock.ticker} className="min-w-0">
                 <Link
                   href={`/symbol/${encodeURIComponent(stock.ticker)}`}
-                  className="group flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-3 transition hover:border-zinc-700 hover:bg-zinc-800/60 sm:flex-row sm:items-center"
+                  className="group block rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-3 transition hover:border-zinc-700 hover:bg-zinc-850 hover:shadow-lg"
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-semibold ${
-                        idx === 0
-                          ? isBuy
-                            ? "bg-emerald-500 text-zinc-950"
-                            : "bg-red-500 text-zinc-950"
-                          : "bg-zinc-800 text-zinc-400"
-                      }`}
-                    >
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-zinc-100 group-hover:text-sky-400">
-                          {stock.code}
-                        </span>
-                        <span className="truncate text-xs text-zinc-400">
-                          {stock.name}
-                        </span>
-                      </div>
-                      {stock.reasons.length > 0 && (
-                        <p className="mt-0.5 truncate text-[11px] text-zinc-500">
-                          {stock.reasons[0]}
-                        </p>
-                      )}
+                  {/* Top line: Rank, Code, Name and Price */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-[11px] font-bold ${
+                          idx === 0
+                            ? isBuy
+                              ? "bg-emerald-500 text-zinc-950 font-black"
+                              : "bg-red-500 text-zinc-950 font-black"
+                            : "bg-zinc-800 text-zinc-400"
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="font-bold text-sm text-zinc-100 group-hover:text-sky-400 shrink-0 font-mono">
+                        {stock.code}
+                      </span>
+                      <span className="truncate text-xs text-zinc-400">
+                        {stock.name}
+                      </span>
                     </div>
-                  </div>
 
-                  <div className="mt-2 flex shrink-0 items-center justify-between gap-4 border-t border-zinc-800/60 pt-2 sm:mt-0 sm:border-0 sm:pt-0">
-                    <div className="text-right">
-                      <div className="font-medium tabular-nums text-zinc-200">
+                    <div className="shrink-0 text-right">
+                      <span className="font-semibold tabular-nums text-xs sm:text-sm text-zinc-100">
                         {formatPrice(stock.price, stock.currency)}
-                      </div>
-                      <div
-                        className={`text-xs tabular-nums ${
+                      </span>
+                      <span
+                        className={`ml-1.5 text-[11px] font-medium tabular-nums ${
                           isUp ? "text-emerald-400" : "text-red-400"
                         }`}
                       >
                         {formatPercent(stock.changePercent)}
-                      </div>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom line: Reason preview + Tech/Fund score + Signal Badge */}
+                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-800/50 pt-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      {stock.reasons.length > 0 ? (
+                        <p className="truncate text-[11px] text-zinc-400" title={stock.reasons[0]}>
+                          {stock.reasons[0]}
+                        </p>
+                      ) : (
+                        <span className="text-[11px] text-zinc-500">Teknik trend nötr</span>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <div
-                          className={`font-semibold tabular-nums text-xs ${
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-right">
+                        <span className="hidden sm:inline-block text-[10px] text-zinc-500 font-mono">
+                          T:{formatSigned(stock.techScore, 1)} F:{stock.fundScore != null ? formatSigned(stock.fundScore, 1) : "—"}
+                        </span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-xs font-bold tabular-nums ${
                             stock.score > 0
-                              ? "text-emerald-400"
+                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                               : stock.score < 0
-                              ? "text-red-400"
-                              : "text-zinc-400"
+                              ? "bg-red-500/15 text-red-400 border border-red-500/30"
+                              : "bg-zinc-800 text-zinc-400"
                           }`}
                         >
-                          Skor {formatSigned(stock.score)}
-                        </div>
-                        <div className="text-[10px] text-zinc-500">
-                          T: {formatSigned(stock.techScore)} | F:{" "}
-                          {stock.fundScore != null
-                            ? formatSigned(stock.fundScore)
-                            : "—"}
-                        </div>
+                          {formatSigned(stock.score)}
+                        </span>
                       </div>
                       <SignalBadge signal={stock.signal} size="sm" />
                     </div>
@@ -194,14 +198,14 @@ export default function TopSignals() {
         <div>
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <h2 className="text-xl font-semibold tracking-tight text-zinc-100">
+            <h2 className="text-xl font-bold tracking-tight text-zinc-100">
               Lider Sinyaller
             </h2>
           </div>
           <p className="mt-1 text-xs text-zinc-400">
             BIST lider hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları
             {data?.updatedAt && (
-              <span> · {new Date(data.updatedAt).toLocaleTimeString("tr-TR")}</span>
+              <span> · Güncellenme: {new Date(data.updatedAt).toLocaleTimeString("tr-TR")}</span>
             )}
           </p>
         </div>
@@ -209,10 +213,10 @@ export default function TopSignals() {
         <button
           onClick={() => void fetchSignals(true)}
           disabled={loading || refreshing}
-          className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-700 hover:text-zinc-100 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/90 px-3.5 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-zinc-700 hover:bg-zinc-800 disabled:opacity-50"
         >
           <svg
-            className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+            className={`h-3.5 w-3.5 ${refreshing ? "animate-spin text-sky-400" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -236,14 +240,14 @@ export default function TopSignals() {
         <div className="grid gap-5 md:grid-cols-2">
           <StockRankingCard
             title="En Yüksek AL Puanı"
-            subtitle="Teknik & Temel göstergeleri en pozitif olan şirketler"
+            subtitle="Teknik & Temel göstergeleri en pozitif hisseler"
             variant="buy"
             items={data?.buys ?? []}
             loading={loading}
           />
           <StockRankingCard
             title="En Yüksek SAT Puanı"
-            subtitle="Teknik & Temel göstergeleri en negatif / satış baskılı olan şirketler"
+            subtitle="Teknik & Temel göstergeleri en negatif hisseler"
             variant="sell"
             items={data?.sells ?? []}
             loading={loading}

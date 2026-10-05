@@ -4,6 +4,7 @@ import { useState } from "react";
 import BistCombobox from "./BistCombobox";
 import SelectedCompanyPreview from "./SelectedCompanyPreview";
 import TopSignals from "./TopSignals";
+import TimeframeSignals from "./TimeframeSignals";
 import WatchlistTable from "./WatchlistTable";
 import { findBistCompany, type BistCompany } from "@/lib/bist";
 
@@ -87,6 +88,9 @@ export default function HomeDashboard() {
           onClose={() => setSelectedCompany(null)}
         />
       )}
+
+      {/* Multi-Timeframe Categorized Signals (1h, 2h, 4h, 1wk, 1mo) with 15 min mail trigger */}
+      <TimeframeSignals />
 
       {/* Top AL and SAT Signals Ranking */}
       <TopSignals />

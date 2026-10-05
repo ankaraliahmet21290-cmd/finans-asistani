@@ -1,0 +1,269 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { formatPrice } from "@/lib/format";
+import type { CategorizedSignals, CategoryTimeframeKey, TimeframeStockSignal } from "@/lib/multitimeframe";
+
+const TIMEFRAME_TABS: Array<{ key: "all" | CategoryTimeframeKey; label: string; badge: string }> = [
+  { key: "all", label: "Tüm Periyotlar", badge: "Özet" },
+  { key: "1h", label: "1 Saatlik", badge: "1S" },
+  { key: "2h", label: "2 Saatlik", badge: "2S" },
+  { key: "4h", label: "4 Saatlik", badge: "4S" },
+  { key: "1wk", label: "Haftalık", badge: "1H" },
+  { key: "1mo", label: "Aylık", badge: "1A" },
+];
+
+export default function TimeframeSignals() {
+  const [data, setData] = useState<CategorizedSignals | null>(null);
+  const [activeTab, setActiveTab] = useState<"all" | CategoryTimeframeKey>("all");
+  const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async (force = false) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/signals/timeframes${force ? "?force=true" : ""}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: CategorizedSignals = await res.json();
+      setData(json);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Zaman dilimi sinyalleri yüklenemedi");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const triggerScanAndMail = async () => {
+    setScanning(true);
+    setScanMessage(null);
+    try {
+      const res = await fetch("/api/cron/multi-timeframe?force=true", { cache: "no-store" });
+      const json = await res.json();
+      if (json.ok) {
+        setScanMessage(
+          json.mailed
+            ? "✓ 15 dk taraması tamamlandı ve e-posta başarıyla gönderildi!"
+            : `✓ Tarama tamamlandı. (${json.signalsCount} sinyal bulundu)`
+        );
+        void fetchData(true);
+      } else {
+        setScanMessage(`Hata: ${json.message}`);
+      }
+    } catch (e) {
+      setScanMessage(e instanceof Error ? e.message : "Tarama sırasında hata oluştu.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const activeCategories: CategoryTimeframeKey[] = (
+    activeTab === "all"
+      ? (["1h", "2h", "4h", "1wk", "1mo"] as CategoryTimeframeKey[])
+      : [activeTab]
+  ).filter((k) => data?.categories?.[k]);
+
+  return (
+    <section className="w-full">
+      {/* Schedule & Banner Info */}
+      <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-900/40 bg-gradient-to-r from-sky-950/30 via-zinc-900/80 to-zinc-900/90 p-4 sm:p-5 backdrop-blur-md">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+            </span>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-zinc-100 flex items-center gap-2">
+                Çoklu Zaman Dilimi AL/SAT Taraması
+                <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[11px] font-mono font-semibold text-sky-400">
+                  15 Dk Otomatik
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Pazartesi - Cuma · <strong>09:50 - 18:00</strong> seans saatlerinde her 15 dakikada bir otomatik kategorize e-posta gönderir.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={triggerScanAndMail}
+              disabled={scanning}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-sky-600/20 transition hover:from-sky-500 hover:to-indigo-500 disabled:opacity-50"
+            >
+              <svg
+                className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+              </svg>
+              {scanning ? "Taranıyor & Gönderiliyor…" : "Şimdi Tara & Mail Gönder"}
+            </button>
+          </div>
+        </div>
+
+        {scanMessage && (
+          <div className="rounded-xl border border-sky-500/30 bg-sky-950/40 px-3 py-2 text-xs font-medium text-sky-300">
+            {scanMessage}
+          </div>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-4 flex overflow-x-auto pb-1 scrollbar-none gap-2">
+        {TIMEFRAME_TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
+                isActive
+                  ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-sm shadow-sky-500/10"
+                  : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`rounded px-1 text-[10px] ${
+                  isActive ? "bg-sky-500/30 text-sky-300" : "bg-zinc-800 text-zinc-500"
+                }`}
+              >
+                {tab.badge}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-40 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900/50" />
+          ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-4 text-xs text-red-400">
+          {error}
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-2">
+          {activeCategories.map((tfKey) => {
+            const cat = data?.categories[tfKey];
+            if (!cat) return null;
+            const buys = cat.buys;
+            const sells = cat.sells;
+
+            return (
+              <div
+                key={tfKey}
+                className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5 shadow-lg backdrop-blur-md"
+              >
+                <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-sky-400">
+                      [{tfKey.toUpperCase()}]
+                    </span>
+                    <h3 className="font-bold text-sm sm:text-base text-zinc-100">{cat.label}</h3>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 font-medium">
+                    {buys.length} AL · {sells.length} SAT
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {/* BUY Section */}
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+                      <span>🟢 AL Sinyalleri</span>
+                      <span className="text-zinc-500">({buys.length})</span>
+                    </div>
+
+                    {buys.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-zinc-800 p-3 text-center text-[11px] text-zinc-500">
+                        Aktif AL sinyali yok
+                      </div>
+                    ) : (
+                      buys.slice(0, 4).map((b: TimeframeStockSignal) => (
+                        <Link
+                          key={b.ticker}
+                          href={`/symbol/${encodeURIComponent(b.ticker)}`}
+                          className="group block rounded-xl border border-emerald-950/40 bg-emerald-950/15 p-2.5 transition hover:border-emerald-800/80 hover:bg-emerald-950/30"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs font-bold text-emerald-300 group-hover:text-emerald-200">
+                              {b.code}
+                            </span>
+                            <span className="text-xs font-bold text-zinc-100 tabular-nums">
+                              {formatPrice(b.price, "TRY")}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-[11px]">
+                            <span className="text-zinc-400 truncate max-w-[120px]">{b.name}</span>
+                            <span className="font-bold text-emerald-400">+{b.score}</span>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+
+                  {/* SELL Section */}
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-red-400 flex items-center justify-between">
+                      <span>🔴 SAT Sinyalleri</span>
+                      <span className="text-zinc-500">({sells.length})</span>
+                    </div>
+
+                    {sells.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-zinc-800 p-3 text-center text-[11px] text-zinc-500">
+                        Aktif SAT sinyali yok
+                      </div>
+                    ) : (
+                      sells.slice(0, 4).map((s: TimeframeStockSignal) => (
+                        <Link
+                          key={s.ticker}
+                          href={`/symbol/${encodeURIComponent(s.ticker)}`}
+                          className="group block rounded-xl border border-red-950/40 bg-red-950/15 p-2.5 transition hover:border-red-800/80 hover:bg-red-950/30"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs font-bold text-red-300 group-hover:text-red-200">
+                              {s.code}
+                            </span>
+                            <span className="text-xs font-bold text-zinc-100 tabular-nums">
+                              {formatPrice(s.price, "TRY")}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-[11px]">
+                            <span className="text-zinc-400 truncate max-w-[120px]">{s.name}</span>
+                            <span className="font-bold text-red-400">{s.score}</span>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}

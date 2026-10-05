@@ -104,8 +104,24 @@ export default function PriceChart({ candles, sma50, sma200, bb }: PriceChartPro
 
     chart.timeScale().fitContent();
 
-    return () => chart.remove();
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!entries[0]) return;
+      const { width } = entries[0].contentRect;
+      if (width > 0) {
+        chart.applyOptions({ width });
+      }
+    });
+    resizeObserver.observe(el);
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+    };
   }, [candles, sma50, sma200, bb]);
 
-  return <div ref={ref} className="h-[420px] w-full" />;
+  return (
+    <div className="relative w-full overflow-hidden">
+      <div ref={ref} className="h-[420px] w-full" />
+    </div>
+  );
 }
