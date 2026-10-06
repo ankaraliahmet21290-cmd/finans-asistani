@@ -553,7 +553,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   </span>
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  RSI, Stokastik, MACD, EMA20/50, SMA50/200 Cross, Bollinger, ADX Trend Gücü, Hacim ve ATR Riski ile 10 boyutlu teknik analiz.
+                  Ana Trend (%35), Trend Gücü (%25), Momentum (%25) ve Hacim (%15) kategorik ağırlıklarıyla hesaplanan teknik model.
                 </p>
               </div>
             </div>
@@ -563,7 +563,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 <SignalBadge signal={currentResult.tech.signal} size="md" />
               </div>
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-right">
-                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Teknik Skor</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Ağırlıklı Skor</span>
                 <span
                   className={`font-mono text-base font-extrabold tabular-nums ${
                     currentResult.tech.score > 0
@@ -574,6 +574,101 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   }`}
                 >
                   {formatSigned(currentResult.tech.score)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Technical Category Weights & Sub-Scores */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                <span>Ana Trend (Ortalamalar)</span>
+                <span className="font-mono text-sky-400 font-bold">%35</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-zinc-200">SMA200 & EMA20/50</span>
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    (currentResult.tech.categoryScores?.trend ?? 0) > 0
+                      ? "text-emerald-400"
+                      : (currentResult.tech.categoryScores?.trend ?? 0) < 0
+                      ? "text-red-400"
+                      : "text-zinc-400"
+                  }`}
+                >
+                  {currentResult.tech.categoryScores?.trend != null
+                    ? formatSigned(currentResult.tech.categoryScores.trend)
+                    : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                <span>Trend Gücü & Rejim</span>
+                <span className="font-mono text-indigo-400 font-bold">%25</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-zinc-200">ADX(14) Filtresi</span>
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    (currentResult.tech.categoryScores?.regime ?? 0) > 0
+                      ? "text-emerald-400"
+                      : (currentResult.tech.categoryScores?.regime ?? 0) < 0
+                      ? "text-red-400"
+                      : "text-zinc-400"
+                  }`}
+                >
+                  {currentResult.tech.categoryScores?.regime != null
+                    ? formatSigned(currentResult.tech.categoryScores.regime)
+                    : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                <span>Momentum & Zamanlama</span>
+                <span className="font-mono text-violet-400 font-bold">%25</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-zinc-200">MACD, RSI, Stoch</span>
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    (currentResult.tech.categoryScores?.momentum ?? 0) > 0
+                      ? "text-emerald-400"
+                      : (currentResult.tech.categoryScores?.momentum ?? 0) < 0
+                      ? "text-red-400"
+                      : "text-zinc-400"
+                  }`}
+                >
+                  {currentResult.tech.categoryScores?.momentum != null
+                    ? formatSigned(currentResult.tech.categoryScores.momentum)
+                    : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+              <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                <span>Hacim & Volatilite</span>
+                <span className="font-mono text-amber-400 font-bold">%15</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-zinc-200">Hacim & Bollinger</span>
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    (currentResult.tech.categoryScores?.volume ?? 0) > 0
+                      ? "text-emerald-400"
+                      : (currentResult.tech.categoryScores?.volume ?? 0) < 0
+                      ? "text-red-400"
+                      : "text-zinc-400"
+                  }`}
+                >
+                  {currentResult.tech.categoryScores?.volume != null
+                    ? formatSigned(currentResult.tech.categoryScores.volume)
+                    : "—"}
                 </span>
               </div>
             </div>
@@ -844,7 +939,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   </span>
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Değerleme (F/K, PD/DD, PEG), Kârlılık (ROE, ROA, Net & Faaliyet Marjı), Borçluluk (Borç/Özkaynak, Cari Oran) ve Büyüme göstergeleri.
+                  Kârlılık (%35), Değerleme (%30), Borçluluk (%25) ve Büyüme (%10) kurumsal ağırlıklı model ile hesaplanan bilanço skoru.
                 </p>
               </div>
             </div>
@@ -854,7 +949,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 <SignalBadge signal={currentResult.fund?.signal ?? "TUT"} size="md" />
               </div>
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-right">
-                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Temel Skor</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Ağırlıklı Skor</span>
                 <span
                   className={`font-mono text-base font-extrabold tabular-nums ${
                     (currentResult.fund?.score ?? 0) > 0
@@ -872,12 +967,107 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
           {currentResult.fund ? (
             <>
+              {/* Fundamental Category Weights & Sub-Scores */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                    <span>Kârlılık & Marjlar</span>
+                    <span className="font-mono text-emerald-400 font-bold">%35</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-xs font-semibold text-zinc-200">Net/Faal. Marj & ROE</span>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        (currentResult.fund?.categoryScores?.profitability ?? 0) > 0
+                          ? "text-emerald-400"
+                          : (currentResult.fund?.categoryScores?.profitability ?? 0) < 0
+                          ? "text-red-400"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {currentResult.fund?.categoryScores?.profitability != null
+                        ? formatSigned(currentResult.fund.categoryScores.profitability)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                    <span>Değerleme & Çarpanlar</span>
+                    <span className="font-mono text-amber-400 font-bold">%30</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-xs font-semibold text-zinc-200">PEG, F/K, PD/DD</span>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        (currentResult.fund?.categoryScores?.valuation ?? 0) > 0
+                          ? "text-emerald-400"
+                          : (currentResult.fund?.categoryScores?.valuation ?? 0) < 0
+                          ? "text-red-400"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {currentResult.fund?.categoryScores?.valuation != null
+                        ? formatSigned(currentResult.fund.categoryScores.valuation)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                    <span>Mali Sağlamlık & Borç</span>
+                    <span className="font-mono text-sky-400 font-bold">%25</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-xs font-semibold text-zinc-200">Cari Oran & Borç/Öz</span>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        (currentResult.fund?.categoryScores?.solvency ?? 0) > 0
+                          ? "text-emerald-400"
+                          : (currentResult.fund?.categoryScores?.solvency ?? 0) < 0
+                          ? "text-red-400"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {currentResult.fund?.categoryScores?.solvency != null
+                        ? formatSigned(currentResult.fund.categoryScores.solvency)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                    <span>Büyüme & Temettü</span>
+                    <span className="font-mono text-violet-400 font-bold">%10</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-xs font-semibold text-zinc-200">Gelir & Kâr Payı</span>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        (currentResult.fund?.categoryScores?.growth ?? 0) > 0
+                          ? "text-emerald-400"
+                          : (currentResult.fund?.categoryScores?.growth ?? 0) < 0
+                          ? "text-red-400"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {currentResult.fund?.categoryScores?.growth != null
+                        ? formatSigned(currentResult.fund.categoryScores.growth)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* 4-Category Institutional Breakdown */}
               <div className="grid gap-5 md:grid-cols-2">
                 {/* 1. Değerleme & Çarpanlar */}
                 <Panel
-                  title="📊 Değerleme & Çarpanlar"
-                  subtitle="Piyasa fiyatının şirket kârı ve defter değerine oranı"
+                  title="📊 Değerleme & Çarpanlar (%30 Ağırlık)"
+                  subtitle="Piyasa fiyatının kâra ve defter değerine oranı (PEG ve F/K öncelikli)"
                 >
                   <div className="space-y-2.5">
                     {currentResult.fund.metrics
@@ -890,6 +1080,11 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                              {m.weight != null && (
+                                <span className="rounded bg-zinc-800 px-1.5 py-0.2 font-mono text-[10px] text-zinc-400">
+                                  Ağırlık: x{m.weight}
+                                </span>
+                              )}
                             </div>
                             <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
                           </div>
@@ -911,8 +1106,8 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
                 {/* 2. Kârlılık & Verimlilik */}
                 <Panel
-                  title="💼 Kârlılık & Marjlar"
-                  subtitle="Özkaynak, aktif varlık ve satışların kârlılığı"
+                  title="💼 Kârlılık & Marjlar (%35 Ağırlık)"
+                  subtitle="Şirketin nakit kâr üretme gücü ve sermaye verimi (En Yüksek Öncelik)"
                 >
                   <div className="space-y-2.5">
                     {currentResult.fund.metrics
@@ -929,6 +1124,11 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                              {m.weight != null && (
+                                <span className="rounded bg-zinc-800 px-1.5 py-0.2 font-mono text-[10px] text-zinc-400">
+                                  Ağırlık: x{m.weight}
+                                </span>
+                              )}
                             </div>
                             <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
                           </div>
@@ -950,8 +1150,8 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
                 {/* 3. Mali Sağlamlık & Borçluluk */}
                 <Panel
-                  title="🛡️ Mali Sağlamlık & Likidite"
-                  subtitle="Borç yükü ve kısa vadeli borç ödeme kapasitesi"
+                  title="🛡️ Mali Sağlamlık & Likidite (%25 Ağırlık)"
+                  subtitle="Kısa vadeli likidite güvenliği ve finansman riski kalkanı"
                 >
                   <div className="space-y-2.5">
                     {currentResult.fund.metrics
@@ -964,6 +1164,11 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                              {m.weight != null && (
+                                <span className="rounded bg-zinc-800 px-1.5 py-0.2 font-mono text-[10px] text-zinc-400">
+                                  Ağırlık: x{m.weight}
+                                </span>
+                              )}
                             </div>
                             <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
                           </div>
@@ -985,8 +1190,8 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
                 {/* 4. Büyüme & Temettü */}
                 <Panel
-                  title="🚀 Büyüme & Temettü Getirisi"
-                  subtitle="Satış geliri büyüme ivmesi ve yatırımcıya kâr payı dağıtımı"
+                  title="🚀 Büyüme & Temettü (%10 Ağırlık)"
+                  subtitle="Satış geliri büyüme ivmesi ve yatırımcıya nakit kâr payı akışı"
                 >
                   <div className="space-y-2.5">
                     {currentResult.fund.metrics
@@ -999,6 +1204,11 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                              {m.weight != null && (
+                                <span className="rounded bg-zinc-800 px-1.5 py-0.2 font-mono text-[10px] text-zinc-400">
+                                  Ağırlık: x{m.weight}
+                                </span>
+                              )}
                             </div>
                             <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
                           </div>
@@ -1021,12 +1231,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
               {/* Institutional Methodology Box */}
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 text-xs text-zinc-400 leading-relaxed shadow-lg">
-                💡 <strong>Genişletilmiş Temel Analiz Kriterleri:</strong>
+                💡 <strong>Neden Ağırlıklı Puanlama?</strong>
                 <ul className="mt-2 space-y-1 list-disc list-inside text-zinc-300">
-                  <li><strong>Değerleme:</strong> F/K &lt; 15, PD/DD &lt; 1.5 ve PEG ≤ 1.0 (Peter Lynch büyüme iskontosu) varlık ucuzluğu (+1).</li>
-                  <li><strong>Kârlılık:</strong> ROE &gt; %15, ROA &gt; %5 ve Faaliyet Marjı &gt; %15 güçlü operasyonel güç (+1).</li>
-                  <li><strong>Mali Sağlamlık:</strong> Borç/Özkaynak &lt; %100 ve Cari Oran ≥ 1.2 kısa vadeli borç riskini bertaraf eder (+1).</li>
-                  <li><strong>Büyüme & Temettü:</strong> Gelir Büyümesi &gt; %10 ve cazip temettü getirisi nakit akışı sağlar (+1).</li>
+                  <li><strong>Kârlılık Önceliği (%35):</strong> Şirketin nakit kâr üretme kapasitesi en yüksek ağırlığa sahiptir; kâr edemeyen şirketin ucuzluğu değer tuzağıdır.</li>
+                  <li><strong>Büyüme İskontosu (%30):</strong> PEG Oranı (x1.2) ve F/K (x1.0), statik defter değerine (PD/DD x0.6) göre çok daha ağırlıklıdır. Bu sayede teknoloji/yazılım hisseleri haksız yere elenmez.</li>
+                  <li><strong>Finansal Güvenlik (%25):</strong> Yüksek faiz ortamında Cari Oran (x1.0) ve Borç/Özkaynak (x1.0) iflas ve nakit sıkışıklığı riskine karşı güvenlik kalkanıdır.</li>
+                  <li><strong>Büyüme & Temettü (%10):</strong> Ciro ivmesi ve nakit temettü skora ilave pozitif katkı sağlar.</li>
                 </ul>
               </div>
 

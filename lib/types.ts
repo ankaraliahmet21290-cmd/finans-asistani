@@ -78,6 +78,8 @@ export interface Indicators {
 export interface ScoreItem {
   name: string;
   point: number;
+  weight?: number;
+  category?: string;
   detail: string;
 }
 
@@ -86,6 +88,7 @@ export interface TechnicalResult {
   signal: Signal;
   reasons: string[];
   items: ScoreItem[];
+  categoryScores?: Record<string, number>;
   volatility?: VolatilityRisk;
   trendStrength?: TrendStrength;
 }
@@ -109,6 +112,7 @@ export interface FundamentalMetric {
   key: FundamentalKey;
   label: string;
   category?: FundamentalCategory;
+  weight?: number;
   value: number | null;
   display: string;
   point: number;
@@ -119,6 +123,7 @@ export interface FundamentalResult {
   score: number | null;
   signal: Signal;
   metrics: FundamentalMetric[];
+  categoryScores?: Partial<Record<FundamentalCategory, number>>;
 }
 
 export interface Fundamentals {
