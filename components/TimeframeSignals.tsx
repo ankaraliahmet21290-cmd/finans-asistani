@@ -9,18 +9,18 @@ import type { CategorizedSignals, TimeframeStockSignal } from "@/lib/multitimefr
 import type { CategoryTimeframeKey } from "@/lib/timeframes";
 import type { MailScheduleConfig } from "@/lib/mail-settings-storage";
 
-const TIMEFRAME_TABS: Array<{ key: "all" | CategoryTimeframeKey; label: string; badge: string }> = [
-  { key: "all", label: "Tüm Periyotlar", badge: "Özet" },
-  { key: "5m", label: "5 Dakikalık", badge: "5dk" },
-  { key: "10m", label: "10 Dakikalık", badge: "10dk" },
-  { key: "15m", label: "15 Dakikalık", badge: "15dk" },
-  { key: "30m", label: "30 Dakikalık", badge: "30dk" },
-  { key: "1h", label: "1 Saatlik", badge: "1S" },
-  { key: "2h", label: "2 Saatlik", badge: "2S" },
-  { key: "4h", label: "4 Saatlik", badge: "4S" },
-  { key: "1d", label: "Günlük", badge: "Günlük" },
-  { key: "1wk", label: "Haftalık", badge: "1H" },
-  { key: "1mo", label: "Aylık", badge: "1A" },
+const TIMEFRAME_TABS: Array<{ key: "all" | CategoryTimeframeKey; label: string; fullLabel: string }> = [
+  { key: "all", label: "Tümü", fullLabel: "Tüm Periyotlar (Özet)" },
+  { key: "5m", label: "5dk", fullLabel: "5 Dakikalık" },
+  { key: "10m", label: "10dk", fullLabel: "10 Dakikalık" },
+  { key: "15m", label: "15dk", fullLabel: "15 Dakikalık" },
+  { key: "30m", label: "30dk", fullLabel: "30 Dakikalık" },
+  { key: "1h", label: "1S", fullLabel: "1 Saatlik" },
+  { key: "2h", label: "2S", fullLabel: "2 Saatlik" },
+  { key: "4h", label: "4S", fullLabel: "4 Saatlik" },
+  { key: "1d", label: "Günlük", fullLabel: "Günlük" },
+  { key: "1wk", label: "1H", fullLabel: "Haftalık" },
+  { key: "1mo", label: "1A", fullLabel: "Aylık" },
 ];
 
 const ALL_CATEGORY_KEYS: CategoryTimeframeKey[] = [
@@ -270,32 +270,31 @@ export default function TimeframeSignals() {
           </div>
         </div>
 
-        {/* Timeframe Tabs: 1s, 2s, 4s, 1wk, 1mo */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Timeframe Tabs: Tümü, 5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, 1H, 1A */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
             Periyot:
           </span>
-          <div className="flex overflow-x-auto pb-0.5 scrollbar-none gap-1.5">
+          <div
+            className="inline-flex max-w-full items-center overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/90 p-0.5 shadow-inner scrollbar-none gap-0.5"
+            role="group"
+            aria-label="Periyot filtreleri"
+          >
             {TIMEFRAME_TABS.map((tab) => {
               const isActive = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
+                  type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold transition ${
+                  title={tab.fullLabel}
+                  className={`relative shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
                     isActive
-                      ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-sm shadow-sky-500/10"
-                      : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      ? "bg-gradient-to-b from-sky-500 to-sky-600 text-white shadow-sm font-semibold"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60"
                   }`}
                 >
                   <span>{tab.label}</span>
-                  <span
-                    className={`rounded px-1 text-[10px] ${
-                      isActive ? "bg-sky-500/30 text-sky-300" : "bg-zinc-800 text-zinc-500"
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
                 </button>
               );
             })}
