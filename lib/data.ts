@@ -60,7 +60,15 @@ function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
 export async function getCandles(ticker: string, tf: TimeframeKey = "1d"): Promise<CandleResult> {
   return cached(`candles:${ticker}:${tf}`, async () => {
     const days =
-      tf === "1h"
+      tf === "5m"
+        ? 7
+        : tf === "10m"
+        ? 14
+        : tf === "15m"
+        ? 20
+        : tf === "30m"
+        ? 30
+        : tf === "1h"
         ? 45
         : tf === "2h"
         ? 60
@@ -73,8 +81,22 @@ export async function getCandles(ticker: string, tf: TimeframeKey = "1d"): Promi
         : 400;
 
     const period1 = new Date(Date.now() - days * 24 * 3600 * 1000);
-    const isIntraday = tf === "1h" || tf === "2h" || tf === "4h";
-    const interval = isIntraday ? "1h" : tf === "1wk" ? "1wk" : tf === "1mo" ? "1mo" : "1d";
+    let interval: "5m" | "15m" | "30m" | "1h" | "1d" | "1wk" | "1mo" = "1d";
+    if (tf === "5m" || tf === "10m") {
+      interval = "5m";
+    } else if (tf === "15m") {
+      interval = "15m";
+    } else if (tf === "30m") {
+      interval = "30m";
+    } else if (tf === "1h" || tf === "2h" || tf === "4h") {
+      interval = "1h";
+    } else if (tf === "1wk") {
+      interval = "1wk";
+    } else if (tf === "1mo") {
+      interval = "1mo";
+    } else {
+      interval = "1d";
+    }
 
     const res = await yf.chart(ticker, { period1, interval });
 
@@ -100,7 +122,9 @@ export async function getCandles(ticker: string, tf: TimeframeKey = "1d"): Promi
     if (rawCandles.length === 0) throw new Error(`${ticker} için ${tf} periyodunda fiyat verisi boş`);
 
     let candles = rawCandles;
-    if (tf === "2h") {
+    if (tf === "10m") {
+      candles = aggregateCandles(rawCandles, 2);
+    } else if (tf === "2h") {
       candles = aggregateCandles(rawCandles, 2);
     } else if (tf === "4h") {
       candles = aggregateCandles(rawCandles, 4);

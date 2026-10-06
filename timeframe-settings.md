@@ -11,6 +11,10 @@ Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya do
 ---
 
 ### Kullanılabilir Periyot Seçenekleri:
+- **5 Dakikalık** (`5m`): Scalping ve çok hızlı gün içi sinyaller
+- **10 Dakikalık** (`10m`): Hızlı gün içi momentum ve salınım
+- **15 Dakikalık** (`15m`): Standart gün içi periyot ve trend takibi
+- **30 Dakikalık** (`30m`): Dengeli gün içi yön ve destek/direnç
 - **1 Saatlik** (`1h`): Kısa vadeli gün içi sinyaller
 - **2 Saatlik** (`2h`): Kısa-orta vadeli gün içi trend
 - **4 Saatlik** (`4h`): Gün içi ana salınım ve yön

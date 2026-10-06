@@ -5,7 +5,18 @@ import type { TimeframeKey } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const VALID_TIMEFRAMES = new Set<TimeframeKey>(["1h", "2h", "4h", "1d", "1wk", "1mo"]);
+const VALID_TIMEFRAMES = new Set<TimeframeKey>([
+  "5m",
+  "10m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "1d",
+  "1wk",
+  "1mo",
+]);
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

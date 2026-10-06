@@ -2,7 +2,17 @@ export type AssetType = "stock" | "gold";
 
 export type Signal = "AL" | "SAT" | "TUT";
 
-export type TimeframeKey = "1h" | "2h" | "4h" | "1d" | "1wk" | "1mo";
+export type TimeframeKey =
+  | "5m"
+  | "10m"
+  | "15m"
+  | "30m"
+  | "1h"
+  | "2h"
+  | "4h"
+  | "1d"
+  | "1wk"
+  | "1mo";
 
 export interface Candle {
   date: string;

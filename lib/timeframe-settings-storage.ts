@@ -8,7 +8,18 @@ export interface TimeframeSettingsConfig {
   updatedAt: string;
 }
 
-export const VALID_TIMEFRAME_KEYS = new Set<TimeframeKey>(["1h", "2h", "4h", "1d", "1wk", "1mo"]);
+export const VALID_TIMEFRAME_KEYS = new Set<TimeframeKey>([
+  "5m",
+  "10m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "1d",
+  "1wk",
+  "1mo",
+]);
 
 export const DEFAULT_TIMEFRAME_SETTINGS: TimeframeSettingsConfig = {
   watchlist: "1d",
@@ -26,6 +37,10 @@ export function normalizeTimeframeKey(raw?: string | null): TimeframeKey {
   const clean = raw.trim().toLowerCase();
   if (VALID_TIMEFRAME_KEYS.has(clean as TimeframeKey)) return clean as TimeframeKey;
   // Common Turkish / colloquial aliases
+  if (clean === "5m" || clean === "5dk" || clean === "5min") return "5m";
+  if (clean === "10m" || clean === "10dk" || clean === "10min") return "10m";
+  if (clean === "15m" || clean === "15dk" || clean === "15min") return "15m";
+  if (clean === "30m" || clean === "30dk" || clean === "30min") return "30m";
   if (clean === "1s" || clean === "saatlik") return "1h";
   if (clean === "2s") return "2h";
   if (clean === "4s") return "4h";
@@ -107,6 +122,10 @@ Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya do
 ---
 
 ### Kullanılabilir Periyot Seçenekleri:
+- **5 Dakikalık** (\`5m\`): Scalping ve çok hızlı gün içi sinyaller
+- **10 Dakikalık** (\`10m\`): Hızlı gün içi momentum ve salınım
+- **15 Dakikalık** (\`15m\`): Standart gün içi periyot ve trend takibi
+- **30 Dakikalık** (\`30m\`): Dengeli gün içi yön ve destek/direnç
 - **1 Saatlik** (\`1h\`): Kısa vadeli gün içi sinyaller
 - **2 Saatlik** (\`2h\`): Kısa-orta vadeli gün içi trend
 - **4 Saatlik** (\`4h\`): Gün içi ana salınım ve yön

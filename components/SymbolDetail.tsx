@@ -45,6 +45,10 @@ function pointColor(point: number): string {
 }
 
 const TIMEFRAME_OPTIONS: Array<{ key: TimeframeKey; label: string; short: string; desc: string }> = [
+  { key: "5m", label: "5 Dakikalık", short: "5D", desc: "Scalping ve gün içi" },
+  { key: "10m", label: "10 Dakikalık", short: "10D", desc: "Hızlı salınım" },
+  { key: "15m", label: "15 Dakikalık", short: "15D", desc: "Standart gün içi" },
+  { key: "30m", label: "30 Dakikalık", short: "30D", desc: "Dengeli gün içi" },
   { key: "1h", label: "1 Saatlik", short: "1S", desc: "Kısa vadeli gün içi" },
   { key: "2h", label: "2 Saatlik", short: "2S", desc: "Kısa-orta vadeli" },
   { key: "4h", label: "4 Saatlik", short: "4S", desc: "Gün içi salınım" },
