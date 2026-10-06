@@ -16,11 +16,12 @@ export function getMailProvider(): "gmail" | "resend" | null {
   return null;
 }
 
+import { getActiveRecipientEmails } from "./mail-recipients-storage";
+
 export function isMailConfigured(): boolean {
   const provider = getMailProvider();
   if (!provider) return false;
-  const to = process.env.MAIL_TO || (provider === "gmail" ? process.env.GMAIL_USER : undefined);
-  return Boolean(to);
+  return true;
 }
 
 function escapeHtml(value: string): string {
@@ -29,14 +30,31 @@ function escapeHtml(value: string): string {
   );
 }
 
+export async function resolveRecipients(customRecipients?: string[]): Promise<string[]> {
+  if (customRecipients && customRecipients.length > 0) {
+    return customRecipients;
+  }
+  const fromFile = await getActiveRecipientEmails();
+  if (fromFile.length > 0) {
+    return fromFile;
+  }
+  const fallback = process.env.MAIL_TO || process.env.GMAIL_USER;
+  if (fallback) {
+    return fallback.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 async function sendMailPayload({
   subject,
   text,
   html,
+  recipients,
 }: {
   subject: string;
   text: string;
   html: string;
+  recipients?: string[];
 }): Promise<boolean> {
   const provider = getMailProvider();
   if (!provider) {
@@ -44,9 +62,11 @@ async function sendMailPayload({
     return false;
   }
 
-  const to = process.env.MAIL_TO || process.env.GMAIL_USER;
-  if (!to) {
-    console.warn("[mail] Alıcı e-posta adresi (MAIL_TO) tanımlı değil.");
+  const toList = await resolveRecipients(recipients);
+  if (toList.length === 0) {
+    console.warn(
+      "[mail] Gönderilecek aktif alıcı e-posta adresi bulunamadı (mail-recipients.md dosyasında aktif alıcı yok ve MAIL_TO tanımlı değil)."
+    );
     return false;
   }
 
@@ -62,13 +82,13 @@ async function sendMailPayload({
 
     await transporter.sendMail({
       from: `"Finans Asistanı" <${process.env.GMAIL_USER}>`,
-      to,
+      to: toList,
       subject,
       text,
       html,
     });
 
-    console.log(`[mail] Gmail üzerinden başarıyla gönderildi: ${to}`);
+    console.log(`[mail] Gmail üzerinden ${toList.length} alıcıya başarıyla gönderildi: ${toList.join(", ")}`);
     return true;
   }
 
@@ -76,21 +96,24 @@ async function sendMailPayload({
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { error } = await resend.emails.send({
       from: "Finans Asistanı <onboarding@resend.dev>",
-      to,
+      to: toList,
       subject,
       html,
       text,
     });
 
     if (error) throw new Error(`Resend hatası: ${error.message}`);
-    console.log(`[mail] Resend üzerinden başarıyla gönderildi: ${to}`);
+    console.log(`[mail] Resend üzerinden ${toList.length} alıcıya başarıyla gönderildi: ${toList.join(", ")}`);
     return true;
   }
 
   return false;
 }
 
-export async function sendSignalMail(items: SignalMailItem[]): Promise<boolean> {
+export async function sendSignalMail(
+  items: SignalMailItem[],
+  recipients?: string[]
+): Promise<boolean> {
   const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const subject = `Sinyal Değişimi: ${items.map((i) => `${i.ticker} ${i.signal}`).join(", ")}`;
 
@@ -119,13 +142,14 @@ export async function sendSignalMail(items: SignalMailItem[]): Promise<boolean> 
       <p style="font-size: 11px; color: #71717a;">${RISK_NOTE}</p>
     </div>`;
 
-  return sendMailPayload({ subject, text, html });
+  return sendMailPayload({ subject, text, html, recipients });
 }
 
 // Multi-timeframe categorized email sender (1h, 2h, 4h, 1wk, 1mo)
 export async function sendCategorizedTimeframeMail(
   data: CategorizedSignals,
-  frequencyLabel = "15 Dakikalık"
+  frequencyLabel = "15 Dakikalık",
+  recipients?: string[]
 ): Promise<boolean> {
   const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const scanTime = new Date(data.scannedAt).toLocaleTimeString("tr-TR", {
@@ -264,7 +288,7 @@ export async function sendCategorizedTimeframeMail(
     </div>
     <div class="content">
       <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 12px; color: #0369a1;">
-        ℹ️ BIST hisseleri için <strong>1 Saatlik, 2 Saatlik, 4 Saatlik, Haftalık ve Aylık</strong> periyotlarda teknik göstergeler taranarak kategorize edilmiştir.
+        ℹ️ BIST hisseleri için <strong>5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, Haftalık ve Aylık</strong> (toplam 10 zaman dilimi) taranarak teknik ve temel göstergelere göre kategorize edilmiştir.
       </div>
 
       ${categoryHtml}
@@ -276,5 +300,5 @@ export async function sendCategorizedTimeframeMail(
 </body>
 </html>`;
 
-  return sendMailPayload({ subject, text, html });
+  return sendMailPayload({ subject, text, html, recipients });
 }

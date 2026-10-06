@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import MailScheduleControl from "./MailScheduleControl";
+import MailRecipientsControl from "./MailRecipientsControl";
 import { formatPrice, formatSigned } from "@/lib/format";
 import type { CategorizedSignals, TimeframeStockSignal } from "@/lib/multitimeframe";
 import type { CategoryTimeframeKey } from "@/lib/timeframes";
@@ -93,7 +94,7 @@ export default function TimeframeSignals() {
             ? `✓ Tarama tamamlandı ve ${mailConfig?.emailLabel ?? "özet"} e-posta başarıyla gönderildi!`
             : `✓ Tarama tamamlandı. (${json.signalsCount} sinyal bulundu)`
         );
-        void fetchData(true);
+        void fetchData(false);
       } else {
         setScanMessage(`Hata: ${json.message}`);
       }
@@ -186,6 +187,7 @@ export default function TimeframeSignals() {
               align="left"
               onScheduleChange={(cfg) => setMailConfig(cfg)}
             />
+            <MailRecipientsControl size="sm" />
             <AutoRefreshControl
               intervalSeconds={refreshInterval}
               onIntervalChange={(sec) => setRefreshInterval(sec)}

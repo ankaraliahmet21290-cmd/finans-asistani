@@ -30,7 +30,7 @@ export const BIST_30_TICKERS: readonly string[] = [
   "PGSUS.IS",
   "TCELL.IS",
   "TTKOM.IS",
-  "KOZAL.IS",
+  "TAVHL.IS",
   "EKGYO.IS",
   "ASTOR.IS",
   "OYAKC.IS",

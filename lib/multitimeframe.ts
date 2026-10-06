@@ -36,6 +36,22 @@ export interface CategorizedSignals {
   totalSignalsCount: number;
 }
 
+let cachedScanData: CategorizedSignals | null = null;
+let lastScanTimestamp = 0;
+const SCAN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export function getCachedScan(): CategorizedSignals | null {
+  if (cachedScanData && Date.now() - lastScanTimestamp < SCAN_CACHE_TTL_MS) {
+    return cachedScanData;
+  }
+  return null;
+}
+
+export function setCachedScan(data: CategorizedSignals): void {
+  cachedScanData = data;
+  lastScanTimestamp = Date.now();
+}
+
 export async function getTimeframeCandles(
   ticker: string,
   tf: TimeframeKey
@@ -46,7 +62,8 @@ export async function getTimeframeCandles(
 
 export async function analyzeTimeframe(
   ticker: string,
-  tf: TimeframeKey
+  tf: TimeframeKey,
+  preloadedFund?: { score: number | null; signal: Signal | null }
 ): Promise<TimeframeStockSignal | null> {
   try {
     const candles = await getTimeframeCandles(ticker, tf);
@@ -67,13 +84,18 @@ export async function analyzeTimeframe(
     let fundScore: number | null = null;
     let fundSignal: Signal | null = null;
 
-    try {
-      const f = await getFundamentals(ticker);
-      const fundRes = fundamentalScore(f);
-      fundScore = fundRes.score;
-      fundSignal = fundRes.signal;
-    } catch {
-      // ignore
+    if (preloadedFund !== undefined) {
+      fundScore = preloadedFund.score;
+      fundSignal = preloadedFund.signal;
+    } else {
+      try {
+        const f = await getFundamentals(ticker);
+        const fundRes = fundamentalScore(f);
+        fundScore = fundRes.score;
+        fundSignal = fundRes.signal;
+      } catch {
+        // ignore
+      }
     }
 
     const { score: hybridScore, signal: hybridSignal } = finalSignal(tech.score, fundScore);
@@ -144,31 +166,55 @@ export async function scanCategorizedSignals(universe = BIST_30_TICKERS): Promis
     "1mo": { label: "Aylık Sinyaller", buys: [], sells: [] },
   };
 
+  // 1. Preload fundamentals ONCE per ticker (drops 300 calls down to 30 calls)
+  const fundMap = new Map<string, { score: number | null; signal: Signal | null }>();
+  await Promise.all(
+    universe.map(async (ticker) => {
+      try {
+        const f = await getFundamentals(ticker);
+        const fundRes = fundamentalScore(f);
+        fundMap.set(ticker, { score: fundRes.score, signal: fundRes.signal });
+      } catch {
+        fundMap.set(ticker, { score: null, signal: null });
+      }
+    })
+  );
+
+  // 2. Scan all timeframes in parallel
+  await Promise.all(
+    timeframes.map(async (tf) => {
+      const results = await Promise.all(
+        universe.map((t) => analyzeTimeframe(t, tf, fundMap.get(t)))
+      );
+      for (const r of results) {
+        if (!r) continue;
+        if (r.signal === "AL") {
+          categories[tf].buys.push(r);
+        } else if (r.signal === "SAT") {
+          categories[tf].sells.push(r);
+        }
+      }
+
+      // Sort buys descending, sells ascending
+      categories[tf].buys.sort((a, b) => b.score - a.score);
+      categories[tf].sells.sort((a, b) => a.score - b.score);
+    })
+  );
 
   let totalSignalsCount = 0;
-
   for (const tf of timeframes) {
-    const results = await Promise.all(universe.map((t) => analyzeTimeframe(t, tf)));
-    for (const r of results) {
-      if (!r) continue;
-      if (r.signal === "AL") {
-        categories[tf].buys.push(r);
-        totalSignalsCount++;
-      } else if (r.signal === "SAT") {
-        categories[tf].sells.push(r);
-        totalSignalsCount++;
-      }
-    }
-
-    // Sort buys descending, sells ascending
-    categories[tf].buys.sort((a: TimeframeStockSignal, b: TimeframeStockSignal) => b.score - a.score);
-    categories[tf].sells.sort((a: TimeframeStockSignal, b: TimeframeStockSignal) => a.score - b.score);
+    totalSignalsCount += categories[tf].buys.length + categories[tf].sells.length;
   }
 
-  return {
+  const result: CategorizedSignals = {
     scannedAt: new Date().toISOString(),
     isWithinHours: isHours,
     categories,
     totalSignalsCount,
   };
+
+  // Update in-memory cache
+  setCachedScan(result);
+
+  return result;
 }

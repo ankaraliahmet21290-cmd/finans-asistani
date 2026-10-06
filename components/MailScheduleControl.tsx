@@ -7,6 +7,7 @@ import {
   type MailIntervalOption,
   type MailScheduleConfig,
 } from "@/lib/mail-settings-types";
+import MailRecipientsModal from "./MailRecipientsModal";
 
 interface MailSettingsResponse {
   ok: boolean;
@@ -44,6 +45,7 @@ export default function MailScheduleControl({
   const [saving, setSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [activeKey, setActiveKey] = useState<MailIntervalKey>("15m");
+  const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -292,9 +294,33 @@ export default function MailScheduleControl({
                 ℹ️ Gerçek mail gönderimi için .env dosyanızda GMAIL veya RESEND yapılandırması olmalıdır.
               </div>
             )}
+
+            {/* Recipient Management Button */}
+            <div className="mt-2 pt-2 border-t border-zinc-800/80">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsRecipientsModalOpen(true);
+                }}
+                className="w-full flex items-center justify-between rounded-xl bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-750 px-2.5 py-1.5 text-xs text-sky-300 font-medium transition hover:border-sky-500/50"
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>👥</span>
+                  <span>Alıcı Listesini Yönet</span>
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">mail-recipients.md →</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Recipient Management Modal */}
+      <MailRecipientsModal
+        isOpen={isRecipientsModalOpen}
+        onClose={() => setIsRecipientsModalOpen(false)}
+      />
     </div>
   );
 }

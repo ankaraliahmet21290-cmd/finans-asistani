@@ -11,6 +11,7 @@ import {
   syncSchedulerWithConfig,
 } from "@/lib/scheduler";
 import { isMailConfigured, getMailProvider } from "@/lib/mail";
+import { getRecipientsFromFile } from "@/lib/mail-recipients-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export async function GET() {
   ensureSchedulerStarted();
   const config = await syncSchedulerWithConfig();
   const scheduler = getSchedulerState();
+  const recipients = await getRecipientsFromFile();
+  const activeRecipients = recipients.filter((r) => r.enabled).map((r) => r.email);
 
   return NextResponse.json({
     ok: true,
@@ -27,7 +30,10 @@ export async function GET() {
     mail: {
       configured: isMailConfigured(),
       provider: getMailProvider(),
-      recipient: process.env.MAIL_TO || process.env.GMAIL_USER || null,
+      recipient: activeRecipients[0] || process.env.MAIL_TO || process.env.GMAIL_USER || null,
+      activeRecipientsCount: activeRecipients.length,
+      totalRecipientsCount: recipients.length,
+      activeEmails: activeRecipients,
     },
   });
 }

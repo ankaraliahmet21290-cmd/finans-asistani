@@ -11,3 +11,4 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 | GC=F | gold | Ons Altın Vadeli |
 | GARAN.IS | stock | Garanti Bankası |
 | TUPRS.IS | stock | Tüpraş |
+| ALTNY.IS | stock | ALTINAY SAVUNMA TEKNOLOJİLERİ A.Ş. |
