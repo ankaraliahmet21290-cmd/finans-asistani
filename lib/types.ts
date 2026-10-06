@@ -2,6 +2,8 @@ export type AssetType = "stock" | "gold";
 
 export type Signal = "AL" | "SAT" | "TUT";
 
+export type TimeframeKey = "1h" | "2h" | "4h" | "1d" | "1wk" | "1mo";
+
 export interface Candle {
   date: string;
   open: number;
@@ -39,6 +41,7 @@ export interface ScoreItem {
 
 export interface TechnicalResult {
   score: number;
+  signal: Signal;
   reasons: string[];
   items: ScoreItem[];
 }
@@ -56,6 +59,7 @@ export interface FundamentalMetric {
 
 export interface FundamentalResult {
   score: number | null;
+  signal: Signal;
   metrics: FundamentalMetric[];
 }
 
@@ -74,11 +78,20 @@ export interface MacroPoint {
   changePercent: number | null;
 }
 
+export interface HybridAssessment {
+  label: string;
+  description: string;
+  techWeight: number;
+  fundWeight: number;
+  alignment: "strong" | "moderate" | "divergent" | "neutral";
+}
+
 export interface AnalysisResult {
   ticker: string;
   type: AssetType;
   name: string;
   currency: string;
+  timeframe?: string;
   price: number;
   change: number;
   changePercent: number;
@@ -89,6 +102,7 @@ export interface AnalysisResult {
   fundamentals: Fundamentals | null;
   score: number;
   signal: Signal;
+  hybridAssessment?: HybridAssessment;
   macro?: MacroPoint[];
   gramGoldTRY?: number;
   updatedAt: string;

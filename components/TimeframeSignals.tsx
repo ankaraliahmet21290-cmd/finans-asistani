@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
-import type { CategorizedSignals, CategoryTimeframeKey, TimeframeStockSignal } from "@/lib/multitimeframe";
+import { formatPrice, formatSigned } from "@/lib/format";
+import type { CategorizedSignals, TimeframeStockSignal } from "@/lib/multitimeframe";
+import type { CategoryTimeframeKey } from "@/lib/timeframes";
 
 const TIMEFRAME_TABS: Array<{ key: "all" | CategoryTimeframeKey; label: string; badge: string }> = [
   { key: "all", label: "Tüm Periyotlar", badge: "Özet" },
@@ -14,9 +15,12 @@ const TIMEFRAME_TABS: Array<{ key: "all" | CategoryTimeframeKey; label: string; 
   { key: "1mo", label: "Aylık", badge: "1A" },
 ];
 
+type SignalMode = "hybrid" | "tech" | "fund";
+
 export default function TimeframeSignals() {
   const [data, setData] = useState<CategorizedSignals | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | CategoryTimeframeKey>("all");
+  const [signalMode, setSignalMode] = useState<SignalMode>("hybrid");
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
@@ -72,6 +76,26 @@ export default function TimeframeSignals() {
       : [activeTab]
   ).filter((k) => data?.categories?.[k]);
 
+  // Helper to get item signal & score based on mode
+  const getSignalAndScore = (s: TimeframeStockSignal) => {
+    if (signalMode === "tech") {
+      return {
+        signal: s.techSignal ?? s.signal,
+        score: s.techScore ?? s.score,
+      };
+    }
+    if (signalMode === "fund") {
+      return {
+        signal: s.fundSignal ?? "TUT",
+        score: s.fundScore ?? 0,
+      };
+    }
+    return {
+      signal: s.signal,
+      score: s.score,
+    };
+  };
+
   return (
     <section className="w-full">
       {/* Schedule & Banner Info */}
@@ -126,31 +150,81 @@ export default function TimeframeSignals() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="mb-4 flex overflow-x-auto pb-1 scrollbar-none gap-2">
-        {TIMEFRAME_TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
+      {/* Filter Bars Container */}
+      <div className="mb-4 flex flex-col gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3 backdrop-blur-md">
+        {/* Signal Mode Tabs: Karma, Teknik, Temel */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            Sinyal Tipi:
+          </span>
+          <div className="flex items-center gap-1.5">
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition ${
-                isActive
-                  ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-sm shadow-sky-500/10"
-                  : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              onClick={() => setSignalMode("hybrid")}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                signalMode === "hybrid"
+                  ? "border-violet-500 bg-violet-500/20 text-violet-200 shadow-sm"
+                  : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
               }`}
             >
-              <span>{tab.label}</span>
-              <span
-                className={`rounded px-1 text-[10px] ${
-                  isActive ? "bg-sky-500/30 text-sky-300" : "bg-zinc-800 text-zinc-500"
-                }`}
-              >
-                {tab.badge}
-              </span>
+              <span>🔀</span>
+              <span>Karma Sinyaller</span>
             </button>
-          );
-        })}
+            <button
+              onClick={() => setSignalMode("tech")}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                signalMode === "tech"
+                  ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-sm"
+                  : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <span>📈</span>
+              <span>Sadece Teknik</span>
+            </button>
+            <button
+              onClick={() => setSignalMode("fund")}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                signalMode === "fund"
+                  ? "border-amber-500 bg-amber-500/20 text-amber-200 shadow-sm"
+                  : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <span>🏢</span>
+              <span>Sadece Temel</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Timeframe Tabs: 1s, 2s, 4s, 1wk, 1mo */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            Periyot:
+          </span>
+          <div className="flex overflow-x-auto pb-0.5 scrollbar-none gap-1.5">
+            {TIMEFRAME_TABS.map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold transition ${
+                    isActive
+                      ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-sm shadow-sky-500/10"
+                      : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`rounded px-1 text-[10px] ${
+                      isActive ? "bg-sky-500/30 text-sky-300" : "bg-zinc-800 text-zinc-500"
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -168,8 +242,20 @@ export default function TimeframeSignals() {
           {activeCategories.map((tfKey) => {
             const cat = data?.categories[tfKey];
             if (!cat) return null;
-            const buys = cat.buys;
-            const sells = cat.sells;
+
+            // Filter items based on active signalMode
+            const allItems = [...cat.buys, ...cat.sells];
+            const buys: TimeframeStockSignal[] = [];
+            const sells: TimeframeStockSignal[] = [];
+
+            for (const item of allItems) {
+              const { signal } = getSignalAndScore(item);
+              if (signal === "AL") buys.push(item);
+              else if (signal === "SAT") sells.push(item);
+            }
+
+            buys.sort((a, b) => getSignalAndScore(b).score - getSignalAndScore(a).score);
+            sells.sort((a, b) => getSignalAndScore(a).score - getSignalAndScore(b).score);
 
             return (
               <div
@@ -201,26 +287,31 @@ export default function TimeframeSignals() {
                         Aktif AL sinyali yok
                       </div>
                     ) : (
-                      buys.slice(0, 4).map((b: TimeframeStockSignal) => (
-                        <Link
-                          key={b.ticker}
-                          href={`/symbol/${encodeURIComponent(b.ticker)}`}
-                          className="group block rounded-xl border border-emerald-950/40 bg-emerald-950/15 p-2.5 transition hover:border-emerald-800/80 hover:bg-emerald-950/30"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-xs font-bold text-emerald-300 group-hover:text-emerald-200">
-                              {b.code}
-                            </span>
-                            <span className="text-xs font-bold text-zinc-100 tabular-nums">
-                              {formatPrice(b.price, "TRY")}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex items-center justify-between text-[11px]">
-                            <span className="text-zinc-400 truncate max-w-[120px]">{b.name}</span>
-                            <span className="font-bold text-emerald-400">+{b.score}</span>
-                          </div>
-                        </Link>
-                      ))
+                      buys.slice(0, 4).map((b: TimeframeStockSignal) => {
+                        const { score } = getSignalAndScore(b);
+                        return (
+                          <Link
+                            key={b.ticker}
+                            href={`/symbol/${encodeURIComponent(b.ticker)}`}
+                            className="group block rounded-xl border border-emerald-950/40 bg-emerald-950/15 p-2.5 transition hover:border-emerald-800/80 hover:bg-emerald-950/30"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs font-bold text-emerald-300 group-hover:text-emerald-200">
+                                {b.code}
+                              </span>
+                              <span className="text-xs font-bold text-zinc-100 tabular-nums">
+                                {formatPrice(b.price, "TRY")}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[11px]">
+                              <span className="text-zinc-400 truncate max-w-[120px]">{b.name}</span>
+                              <span className="font-bold text-emerald-400">
+                                {formatSigned(score)}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })
                     )}
                   </div>
 
@@ -236,26 +327,31 @@ export default function TimeframeSignals() {
                         Aktif SAT sinyali yok
                       </div>
                     ) : (
-                      sells.slice(0, 4).map((s: TimeframeStockSignal) => (
-                        <Link
-                          key={s.ticker}
-                          href={`/symbol/${encodeURIComponent(s.ticker)}`}
-                          className="group block rounded-xl border border-red-950/40 bg-red-950/15 p-2.5 transition hover:border-red-800/80 hover:bg-red-950/30"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-xs font-bold text-red-300 group-hover:text-red-200">
-                              {s.code}
-                            </span>
-                            <span className="text-xs font-bold text-zinc-100 tabular-nums">
-                              {formatPrice(s.price, "TRY")}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex items-center justify-between text-[11px]">
-                            <span className="text-zinc-400 truncate max-w-[120px]">{s.name}</span>
-                            <span className="font-bold text-red-400">{s.score}</span>
-                          </div>
-                        </Link>
-                      ))
+                      sells.slice(0, 4).map((s: TimeframeStockSignal) => {
+                        const { score } = getSignalAndScore(s);
+                        return (
+                          <Link
+                            key={s.ticker}
+                            href={`/symbol/${encodeURIComponent(s.ticker)}`}
+                            className="group block rounded-xl border border-red-950/40 bg-red-950/15 p-2.5 transition hover:border-red-800/80 hover:bg-red-950/30"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs font-bold text-red-300 group-hover:text-red-200">
+                                {s.code}
+                              </span>
+                              <span className="text-xs font-bold text-zinc-100 tabular-nums">
+                                {formatPrice(s.price, "TRY")}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[11px]">
+                              <span className="text-zinc-400 truncate max-w-[120px]">{s.name}</span>
+                              <span className="font-bold text-red-400">
+                                {formatSigned(score)}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })
                     )}
                   </div>
                 </div>

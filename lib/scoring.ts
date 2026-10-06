@@ -117,9 +117,11 @@ export function technicalScore(closes: number[], ind: Indicators): TechnicalResu
   }
 
   const score = Math.max(-1, Math.min(1, sum / Math.max(evaluated, 1)));
+  const roundedScore = Math.round(score * 100) / 100;
+  const signal: Signal = roundedScore >= 0.3 ? "AL" : roundedScore <= -0.3 ? "SAT" : "TUT";
   const reasons = items.filter((i) => i.point !== 0).map((i) => i.detail);
 
-  return { score, reasons, items };
+  return { score: roundedScore, signal, reasons, items };
 }
 
 export function fundamentalScore(f: Fundamentals): FundamentalResult {
@@ -216,12 +218,125 @@ export function fundamentalScore(f: Fundamentals): FundamentalResult {
     f.revenueGrowth != null ? `Gelir büyümesi ${pct(f.revenueGrowth)} → nötr bölge` : "Veri yok"
   );
 
-  return { score: n > 0 ? sum / n : null, metrics };
+  const rawScore = n > 0 ? sum / n : null;
+  const score = rawScore != null ? Math.round(rawScore * 100) / 100 : null;
+  const signal: Signal = score == null ? "TUT" : score >= 0.3 ? "AL" : score <= -0.3 ? "SAT" : "TUT";
+
+  return { score, signal, metrics };
 }
 
 export function finalSignal(tech: number, fund: number | null) {
   const raw = fund == null ? tech : 0.6 * tech + 0.4 * fund;
   const score = Math.round(raw * 100) / 100;
-  const signal: Signal = score >= 0.4 ? "AL" : score <= -0.4 ? "SAT" : "TUT";
+  const signal: Signal = score >= 0.35 ? "AL" : score <= -0.35 ? "SAT" : "TUT";
   return { score, signal } as const;
+}
+
+export function getHybridAssessment(
+  techSignal: Signal,
+  fundSignal: Signal | null,
+  techScore: number,
+  fundScore: number | null
+) {
+  const hasFund = fundScore != null && fundSignal != null;
+  const techWeight = hasFund ? 0.6 : 1.0;
+  const fundWeight = hasFund ? 0.4 : 0.0;
+
+  if (!hasFund) {
+    return {
+      label: "Yalnızca Teknik Analiz Kararı",
+      description: "Temel bilanço verisi bulunmadığı için nihai karar %100 teknik göstergelere dayalıdır.",
+      techWeight: 1.0,
+      fundWeight: 0.0,
+      alignment: "neutral" as const,
+    };
+  }
+
+  if (techSignal === "AL" && fundSignal === "AL") {
+    return {
+      label: "Güçlü Uyum (Teknik & Temel AL)",
+      description: "Hem teknik indikatörler yukarı yönlü momentum üretiyor hem de şirket çarpanları ve kârlılığı güçlü alım bölgesinde.",
+      techWeight,
+      fundWeight,
+      alignment: "strong" as const,
+    };
+  }
+
+  if (techSignal === "SAT" && fundSignal === "SAT") {
+    return {
+      label: "Güçlü Uyum (Teknik & Temel SAT)",
+      description: "Hem teknik grafikler düşüş trendinde hem de şirket bilanço rasyoları negatif baskı yaratıyor.",
+      techWeight,
+      fundWeight,
+      alignment: "strong" as const,
+    };
+  }
+
+  if (techSignal === "AL" && fundSignal === "TUT") {
+    return {
+      label: "Teknik Destekli Alım (Temel Dengeli)",
+      description: "Teknik momentum ve kırılımlar güçlü AL üretirken şirket temel rasyoları makul ve dengeli seyrediyor.",
+      techWeight,
+      fundWeight,
+      alignment: "moderate" as const,
+    };
+  }
+
+  if (techSignal === "TUT" && fundSignal === "AL") {
+    return {
+      label: "Temel Değer Fırsatı (Teknik Beklemede)",
+      description: "Şirketin finansalları ve kârlılığı çok cazip ancak fiyatta henüz güçlü bir teknik hareket başlamamış.",
+      techWeight,
+      fundWeight,
+      alignment: "moderate" as const,
+    };
+  }
+
+  if (techSignal === "SAT" && fundSignal === "TUT") {
+    return {
+      label: "Teknik Düzeltme Baskısı (Temel Nötr)",
+      description: "Kısa/orta vadeli teknik göstergeler aşırı alım ya da satış baskısı işaret ediyor; temel yapı nötr.",
+      techWeight,
+      fundWeight,
+      alignment: "moderate" as const,
+    };
+  }
+
+  if (techSignal === "TUT" && fundSignal === "SAT") {
+    return {
+      label: "Temel Zayıflık Uyarısı (Teknik Kararsız)",
+      description: "Hisse çarpanları pahalı veya borçluluk yüksek; teknik yön yatay olsa da temkinli olunmalı.",
+      techWeight,
+      fundWeight,
+      alignment: "moderate" as const,
+    };
+  }
+
+  if (techSignal === "AL" && fundSignal === "SAT") {
+    return {
+      label: "Ayrışan Sinyal (Teknik AL, Temel Zayıf)",
+      description: "Teknik olarak yukarı tepki/momentumu var ancak temel rasyolar pahalılık gösteriyor. Yakın stop-loss ile takip önerilir.",
+      techWeight,
+      fundWeight,
+      alignment: "divergent" as const,
+    };
+  }
+
+  if (techSignal === "SAT" && fundSignal === "AL") {
+    return {
+      label: "Ayrışan Sinyal (Teknik SAT, Temel Ucuz)",
+      description: "Şirket temel olarak çok ucuz ve kârlı olsa da fiyatta teknik satış baskısı sürüyor. Kademeli alım veya dönüş teyidi beklenebilir.",
+      techWeight,
+      fundWeight,
+      alignment: "divergent" as const,
+    };
+  }
+
+  return {
+    label: "Nötr / Dengeli Görünüm",
+    description: "Teknik ve temel göstergeler belirgin bir yön kırılımı üretmiyor; bekle-gör stratejisi önerilir.",
+    techWeight,
+    fundWeight,
+    alignment: "neutral" as const,
+  };
 }

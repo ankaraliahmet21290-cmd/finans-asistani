@@ -9,6 +9,8 @@ import {
   type IChartApi,
   type ISeriesApi,
   type LineWidth,
+  type Time,
+  type UTCTimestamp,
 } from "lightweight-charts";
 import type { BollingerPoint, Candle } from "@/lib/types";
 
@@ -17,16 +19,49 @@ interface PriceChartProps {
   sma50: number[];
   sma200: number[];
   bb: BollingerPoint[];
+  timeframe?: string;
 }
 
-const toTime = (date: string): string => date.slice(0, 10);
-
-export default function PriceChart({ candles, sma50, sma200, bb }: PriceChartProps) {
+export default function PriceChart({ candles, sma50, sma200, bb, timeframe }: PriceChartProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || candles.length === 0) return;
+
+    const isIntraday =
+      timeframe === "1h" ||
+      timeframe === "2h" ||
+      timeframe === "4h" ||
+      candles.some((c, i) => i > 0 && c.date.slice(0, 10) === candles[i - 1].date.slice(0, 10));
+
+    const toTime = (dateStr: string): Time => {
+      if (isIntraday) {
+        return Math.floor(new Date(dateStr).getTime() / 1000) as UTCTimestamp;
+      }
+      return dateStr.slice(0, 10);
+    };
+
+    // Filter and ensure strictly ascending unique times
+    const candleData: { time: Time; open: number; high: number; low: number; close: number }[] = [];
+    const candleTimeByIndex = new Map<number, Time>();
+    const seenTimes = new Set<string | number>();
+
+    for (let i = 0; i < candles.length; i++) {
+      const c = candles[i];
+      const t = toTime(c.date);
+      const key = typeof t === "number" ? t : String(t);
+      if (seenTimes.has(key)) continue;
+      seenTimes.add(key);
+      candleData.push({
+        time: t,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      });
+      candleTimeByIndex.set(i, t);
+    }
 
     const chart: IChartApi = createChart(el, {
       height: 420,
@@ -40,7 +75,11 @@ export default function PriceChart({ candles, sma50, sma200, bb }: PriceChartPro
         horzLines: { color: "rgba(120,130,150,0.12)" },
       },
       rightPriceScale: { borderColor: "rgba(120,130,150,0.25)" },
-      timeScale: { borderColor: "rgba(120,130,150,0.25)" },
+      timeScale: {
+        borderColor: "rgba(120,130,150,0.25)",
+        timeVisible: isIntraday,
+        secondsVisible: false,
+      },
     });
 
     const candleSeries: ISeriesApi<"Candlestick"> = chart.addSeries(CandlestickSeries, {
@@ -51,15 +90,7 @@ export default function PriceChart({ candles, sma50, sma200, bb }: PriceChartPro
       wickDownColor: "#ef5350",
       priceLineVisible: false,
     });
-    candleSeries.setData(
-      candles.map((c) => ({
-        time: toTime(c.date),
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      }))
-    );
+    candleSeries.setData(candleData);
 
     const offset = candles.length;
     const line = (
@@ -77,16 +108,22 @@ export default function PriceChart({ candles, sma50, sma200, bb }: PriceChartPro
         priceLineVisible: false,
         lastValueVisible: false,
       });
-      series.setData(
-        values
-          .map((v, i) => {
-            const value = map(v, i);
-            return value == null || !Number.isFinite(value)
-              ? null
-              : { time: toTime(candles[start + i].date), value };
-          })
-          .filter((p): p is { time: ReturnType<typeof toTime>; value: number } => p !== null)
-      );
+
+      const linePoints: { time: Time; value: number }[] = [];
+      const lineSeen = new Set<string | number>();
+
+      for (let i = 0; i < values.length; i++) {
+        const val = map(values[i], i);
+        if (val == null || !Number.isFinite(val)) continue;
+        const time = candleTimeByIndex.get(start + i);
+        if (time == null) continue;
+        const key = typeof time === "number" ? time : String(time);
+        if (lineSeen.has(key)) continue;
+        lineSeen.add(key);
+        linePoints.push({ time, value: val });
+      }
+
+      series.setData(linePoints);
     };
 
     line(sma50, "#2962ff", (v) => v, 1);
@@ -117,7 +154,7 @@ export default function PriceChart({ candles, sma50, sma200, bb }: PriceChartPro
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [candles, sma50, sma200, bb]);
+  }, [candles, sma50, sma200, bb, timeframe]);
 
   return (
     <div className="relative w-full overflow-hidden">

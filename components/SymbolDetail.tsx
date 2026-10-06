@@ -1,215 +1,769 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useTransition } from "react";
 import Link from "next/link";
 import PriceChart from "./PriceChart";
 import SignalCard from "./SignalCard";
+import SignalBadge from "./SignalBadge";
 import { MacdChart, RsiChart } from "./IndicatorCharts";
 import { formatNumber, formatPercent, formatSigned } from "@/lib/format";
+import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { AnalysisResult, AssetType } from "@/lib/types";
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  subtitle,
+  children,
+  badge,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  badge?: React.ReactNode;
+}) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-zinc-500">{title}</h2>
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+        <div>
+          <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-100 flex items-center gap-2">
+            {title}
+          </h2>
+          {subtitle && <p className="text-xs text-zinc-400 mt-0.5">{subtitle}</p>}
+        </div>
+        {badge}
+      </div>
       {children}
     </section>
   );
 }
 
 function pointColor(point: number): string {
-  if (point > 0) return "border-emerald-500/40 bg-emerald-500/15 text-emerald-500";
-  if (point < 0) return "border-red-500/40 bg-red-500/15 text-red-500";
+  if (point > 0) return "border-emerald-500/40 bg-emerald-500/15 text-emerald-400 font-semibold";
+  if (point < 0) return "border-red-500/40 bg-red-500/15 text-red-400 font-semibold";
   return "border-zinc-700 bg-zinc-800 text-zinc-400";
 }
 
+const TIMEFRAME_OPTIONS: Array<{ key: TimeframeKey; label: string; short: string; desc: string }> = [
+  { key: "1h", label: "1 Saatlik", short: "1S", desc: "Kısa vadeli gün içi" },
+  { key: "2h", label: "2 Saatlik", short: "2S", desc: "Kısa-orta vadeli" },
+  { key: "4h", label: "4 Saatlik", short: "4S", desc: "Gün içi salınım" },
+  { key: "1d", label: "Günlük", short: "1G", desc: "Ana trend" },
+  { key: "1wk", label: "Haftalık", short: "1H", desc: "Orta-uzun vadeli" },
+  { key: "1mo", label: "Aylık", short: "1A", desc: "Makro trend" },
+];
+
+type TabType = "hybrid" | "tech" | "fund";
+
 export default function SymbolDetail({ ticker, type }: { ticker: string; type: AssetType }) {
-  const requestKey = `${type}:${ticker}`;
-  const [state, setState] = useState<{
-    key: string | null;
-    data: AnalysisResult | null;
-    error: string | null;
-  }>({ key: null, data: null, error: null });
+  const [selectedTf, setSelectedTf] = useState<TimeframeKey>("1d");
+  const [activeTab, setActiveTab] = useState<TabType>("hybrid");
+  const [cache, setCache] = useState<Partial<Record<TimeframeKey, AnalysisResult>>>({});
+  const [loadingTf, setLoadingTf] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
+  const fetchTimeframeData = useCallback(
+    async (tf: TimeframeKey) => {
+      if (cache[tf]) return; // Already cached
+      setLoadingTf(true);
+      setError(null);
       try {
         const res = await fetch(
-          `/api/analyze?ticker=${encodeURIComponent(ticker)}&type=${type}`,
+          `/api/analyze?ticker=${encodeURIComponent(ticker)}&type=${type}&timeframe=${tf}`,
           { cache: "no-store" }
         );
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
-        if (!cancelled) setState({ key: requestKey, data: body as AnalysisResult, error: null });
+        startTransition(() => {
+          setCache((prev) => ({ ...prev, [tf]: body as AnalysisResult }));
+        });
       } catch (e) {
-        if (!cancelled) {
-          setState({
-            key: requestKey,
-            data: null,
-            error: e instanceof Error ? e.message : "Veri alınamadı",
-          });
-        }
+        setError(e instanceof Error ? e.message : "Veri alınamadı");
+      } finally {
+        setLoadingTf(false);
       }
-    })();
+    },
+    [cache, ticker, type]
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [requestKey, ticker, type]);
+  useEffect(() => {
+    void fetchTimeframeData(selectedTf);
+  }, [fetchTimeframeData, selectedTf]);
 
-  const result = state.key === requestKey ? state.data : null;
-  const error = state.key === requestKey ? state.error : null;
+  const currentResult = cache[selectedTf] ?? null;
 
-  if (error) {
+  const handleTfChange = (tf: TimeframeKey) => {
+    setSelectedTf(tf);
+    if (!cache[tf]) {
+      void fetchTimeframeData(tf);
+    }
+  };
+
+  if (error && !currentResult) {
     return (
-      <div className="rounded-xl border border-red-900/60 bg-red-950/40 p-6 text-sm text-red-300">
-        <p className="font-medium">Veri alınamadı: {ticker}</p>
+      <div className="rounded-2xl border border-red-900/60 bg-red-950/40 p-6 text-sm text-red-300">
+        <p className="font-semibold text-base">Veri alınamadı: {ticker}</p>
         <p className="mt-1 text-red-400/80">{error}</p>
-        <Link href="/" className="mt-3 inline-block text-zinc-400 underline hover:text-zinc-200">
+        <Link
+          href="/"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 px-4 py-2 text-xs font-medium text-zinc-200 transition hover:bg-zinc-700"
+        >
           ← Takip listesine dön
         </Link>
       </div>
     );
   }
 
-  if (!result) {
+  if (!currentResult && loadingTf) {
     return (
       <div className="animate-pulse space-y-4">
-        <div className="h-28 rounded-xl border border-zinc-800 bg-zinc-900/60" />
-        <div className="h-[420px] rounded-xl border border-zinc-800 bg-zinc-900/60" />
-        <div className="h-[190px] rounded-xl border border-zinc-800 bg-zinc-900/60" />
+        <div className="h-32 rounded-2xl border border-zinc-800 bg-zinc-900/60" />
+        <div className="h-14 rounded-2xl border border-zinc-800 bg-zinc-900/60" />
+        <div className="h-[420px] rounded-2xl border border-zinc-800 bg-zinc-900/60" />
       </div>
     );
   }
 
+  if (!currentResult) return null;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
-          ← Takip listesi
+    <div className="flex flex-col gap-5">
+      {/* Top Header Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Takip Listesine Dön
         </Link>
-        <span className="text-xs text-zinc-600">
-          {new Date(result.updatedAt).toLocaleString("tr-TR")}
-        </span>
-      </div>
-
-      <SignalCard result={result} />
-
-      <Panel title="Fiyat · Mum + SMA50 / SMA200 + Bollinger">
-        <div className="mb-2 flex flex-wrap gap-4 text-xs text-zinc-500">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-4 bg-[#2962ff]" /> SMA50
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-4 bg-[#ff6d00]" /> SMA200
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-4 bg-[rgba(41,98,255,0.5)]" /> Bollinger (20,2)
+        <div className="flex items-center gap-2">
+          {loadingTf && (
+            <span className="flex items-center gap-1.5 text-xs text-sky-400 animate-pulse">
+              <span className="h-2 w-2 rounded-full bg-sky-400 animate-ping" />
+              Periyot güncelleniyor…
+            </span>
+          )}
+          <span className="text-xs text-zinc-500 font-mono">
+            {new Date(currentResult.updatedAt).toLocaleTimeString("tr-TR")}
           </span>
         </div>
-        <PriceChart candles={result.candles} sma50={result.ind.sma50} sma200={result.ind.sma200} bb={result.ind.bb} />
-      </Panel>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="RSI (14) · 30 aşırı satım / 70 aşırı alım">
-          <RsiChart candles={result.candles} rsi={result.ind.rsi} />
-        </Panel>
-        <Panel title="MACD (12,26,9)">
-          <MacdChart candles={result.candles} macd={result.ind.macd} />
-        </Panel>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Neden bu sinyal?">
-          <ul className="space-y-2">
-            {result.tech.items.map((item) => (
-              <li key={item.name} className="flex items-start gap-3 text-sm">
-                <span
-                  className={`mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums ${pointColor(item.point)}`}
+      {/* Signal Card (adapts to active tab) */}
+      <SignalCard result={currentResult} activeTab={activeTab} />
+
+      {/* Control Bar: Timeframe Selector & Tabs */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 sm:p-4 backdrop-blur-md">
+        {/* Timeframe Selector (Saatlik, Günlük, Haftalık, vb.) */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+              Grafik & Analiz Periyodu:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {TIMEFRAME_OPTIONS.map((tf) => {
+              const active = selectedTf === tf.key;
+              return (
+                <button
+                  key={tf.key}
+                  id={`tf-btn-${tf.key}`}
+                  onClick={() => handleTfChange(tf.key)}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                    active
+                      ? "border-sky-500 bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-500/20"
+                      : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                  }`}
+                  title={tf.desc}
                 >
-                  {item.point > 0 ? "+" : ""}
-                  {item.point}
-                </span>
-                <span className="text-zinc-300">
-                  <span className="font-medium text-zinc-200">{item.name}</span> — {item.detail}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-zinc-600">
-            Teknik skor {formatSigned(result.tech.score)} / nihai skor {formatSigned(result.score)} →{" "}
-            {result.signal}
-          </p>
-        </Panel>
+                  <span>{tf.label}</span>
+                  <span
+                    className={`rounded px-1 text-[10px] font-mono ${
+                      active ? "bg-white/20 text-white" : "bg-zinc-800 text-zinc-500"
+                    }`}
+                  >
+                    {tf.short}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-        {result.fund ? (
-          <Panel title="Temel analiz">
-            <table className="w-full text-sm">
-              <tbody>
-                {result.fund.metrics.map((m) => (
-                  <tr key={m.key} className="border-b border-zinc-800/70 last:border-0">
-                    <td className="py-2 pr-3 text-zinc-500">{m.label}</td>
-                    <td className="py-2 pr-3 text-right font-medium tabular-nums text-zinc-200">
-                      {m.display}
-                    </td>
-                    <td className="py-2 text-right">
-                      <span
-                        className={`rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums ${pointColor(m.point)}`}
-                      >
-                        {m.point > 0 ? "+" : ""}
-                        {m.point}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-3 text-xs text-zinc-600">
-              Temel skor:{" "}
-              {result.fund.score == null
-                ? "yeterli veri yok, sadece teknik skor kullanıldı"
-                : formatSigned(result.fund.score)}
-            </p>
-          </Panel>
-        ) : (
-          <Panel title="Makro göstergeler (ikincil)">
-            <ul className="space-y-2 text-sm">
-              {(result.macro ?? []).map((m) => (
-                <li key={m.ticker} className="flex items-center justify-between gap-3">
-                  <span className="text-zinc-400">{m.label}</span>
-                  <span className="tabular-nums text-zinc-200">
-                    {formatNumber(m.value, 3)}{" "}
-                    <span
-                      className={
-                        (m.changePercent ?? 0) >= 0 ? "text-emerald-500" : "text-red-500"
-                      }
-                    >
-                      {formatPercent(m.changePercent)}
-                    </span>
-                  </span>
-                </li>
-              ))}
-              {result.gramGoldTRY != null && (
-                <li className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-2">
-                  <span className="text-zinc-400">Gram altın (TL)</span>
-                  <span className="tabular-nums text-zinc-200">
-                    {formatNumber(result.gramGoldTRY, 2)}
-                  </span>
-                </li>
-              )}
-            </ul>
-            <p className="mt-3 text-xs text-zinc-600">
-              Altında temel analiz yerine yalnızca teknik skor kullanılır.
-            </p>
-          </Panel>
-        )}
+        {/* Separator */}
+        <div className="h-px w-full bg-zinc-800/80" />
+
+        {/* Signal & Analysis Tabs (Karma, Teknik, Temel) */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+              Al-Sat Sinyal Modu:
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+            {/* Tab 1: Karma Sinyal */}
+            <button
+              id="tab-btn-hybrid"
+              onClick={() => setActiveTab("hybrid")}
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+                activeTab === "hybrid"
+                  ? "border-violet-500 bg-violet-500/20 text-violet-200 shadow-md shadow-violet-500/10 ring-1 ring-violet-500/30"
+                  : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <span className="text-sm">🔀</span>
+              <span className="truncate">Karma Sinyal</span>
+              <span className="hidden sm:inline-flex">
+                <SignalBadge signal={currentResult.signal} size="sm" />
+              </span>
+            </button>
+
+            {/* Tab 2: Teknik Sinyal */}
+            <button
+              id="tab-btn-tech"
+              onClick={() => setActiveTab("tech")}
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+                activeTab === "tech"
+                  ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/30"
+                  : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <span className="text-sm">📈</span>
+              <span className="truncate">Teknik Sinyal</span>
+              <span className="hidden sm:inline-flex">
+                <SignalBadge signal={currentResult.tech.signal} size="sm" />
+              </span>
+            </button>
+
+            {/* Tab 3: Temel Sinyal */}
+            <button
+              id="tab-btn-fund"
+              onClick={() => setActiveTab("fund")}
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+                activeTab === "fund"
+                  ? "border-amber-500 bg-amber-500/20 text-amber-200 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/30"
+                  : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <span className="text-sm">🏢</span>
+              <span className="truncate">Temel Sinyal</span>
+              <span className="hidden sm:inline-flex">
+                <SignalBadge signal={currentResult.fund?.signal ?? "TUT"} size="sm" />
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <p className="text-xs text-zinc-600">
-        Bu sistem karar destek aracıdır, yatırım tavsiyesi değildir.
-      </p>
+      {/* TAB CONTENT 1: HYBRID (KARMA SİNYAL - TEKNİK + TEMEL) */}
+      {activeTab === "hybrid" && (
+        <div className="flex flex-col gap-5 animate-in fade-in duration-300">
+          {/* Hybrid Matrix & Assessment Card */}
+          <section className="overflow-hidden rounded-2xl border border-violet-900/40 bg-gradient-to-r from-violet-950/30 via-zinc-900/80 to-zinc-900/90 p-5 shadow-lg backdrop-blur-md">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-xl">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-400 animate-pulse" />
+                  <span className="font-mono text-xs font-bold uppercase tracking-wider text-violet-400">
+                    Bütünleşik Hibrit Karar Sistemi (%60 Teknik + %40 Temel)
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-zinc-100">
+                  {currentResult.hybridAssessment?.label ?? "Karma Değerlendirme"}
+                </h3>
+                <p className="mt-1 text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                  {currentResult.hybridAssessment?.description ??
+                    "Teknik momentum ile temel bilanço çarpanları ağırlıklı olarak birleştirildi."}
+                </p>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-2 text-xs">
+                  <div className="text-center">
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Teknik Skor</span>
+                    <span
+                      className={`font-mono font-bold text-sm ${
+                        currentResult.tech.score > 0
+                          ? "text-emerald-400"
+                          : currentResult.tech.score < 0
+                          ? "text-red-400"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {formatSigned(currentResult.tech.score)}
+                    </span>
+                  </div>
+                  <span className="text-zinc-600 font-bold">+</span>
+                  <div className="text-center">
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Temel Skor</span>
+                    <span
+                      className={`font-mono font-bold text-sm ${
+                        (currentResult.fund?.score ?? 0) > 0
+                          ? "text-emerald-400"
+                          : (currentResult.fund?.score ?? 0) < 0
+                          ? "text-red-400"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {currentResult.fund?.score != null ? formatSigned(currentResult.fund.score) : "—"}
+                    </span>
+                  </div>
+                  <span className="text-zinc-600 font-bold">=</span>
+                  <div className="text-center">
+                    <span className="text-violet-400 block text-[10px] uppercase font-semibold">Karma Skor</span>
+                    <span
+                      className={`font-mono font-bold text-sm ${
+                        currentResult.score > 0
+                          ? "text-emerald-400"
+                          : currentResult.score < 0
+                          ? "text-red-400"
+                          : "text-zinc-400"
+                      }`}
+                    >
+                      {formatSigned(currentResult.score)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Score Distribution Bar */}
+            <div className="mt-4 border-t border-zinc-800/80 pt-3">
+              <div className="flex items-center justify-between text-xs text-zinc-400 mb-1.5 font-medium">
+                <span>Model Ağırlık Dağılımı</span>
+                <span>%60 Teknik Analiz · %40 Temel Bilanço</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden flex">
+                <div className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 w-[60%]" title="Teknik Ağırlık %60" />
+                <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 w-[40%]" title="Temel Ağırlık %40" />
+              </div>
+            </div>
+          </section>
+
+          {/* Main Price Chart */}
+          <Panel
+            title={`Karma Görünüm · Mum + SMA50 / SMA200 + Bollinger (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+            badge={
+              <div className="flex flex-wrap gap-3 text-xs text-zinc-400 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-1 w-3.5 bg-[#2962ff] rounded-sm" /> SMA50
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-1 w-3.5 bg-[#ff6d00] rounded-sm" /> SMA200
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-1 w-3.5 bg-[rgba(41,98,255,0.5)] rounded-sm" /> Bollinger (20,2)
+                </span>
+              </div>
+            }
+          >
+            <PriceChart
+              candles={currentResult.candles}
+              sma50={currentResult.ind.sma50}
+              sma200={currentResult.ind.sma200}
+              bb={currentResult.ind.bb}
+              timeframe={selectedTf}
+            />
+          </Panel>
+
+          {/* Side-by-Side: Key Tech & Key Fundamental Factors */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Panel
+              title="Öne Çıkan Teknik Sinyaller"
+              subtitle={`${TIMEFRAMES[selectedTf]?.label ?? selectedTf} periyodundaki kilit göstergeler`}
+              badge={<SignalBadge signal={currentResult.tech.signal} size="sm" />}
+            >
+              <ul className="space-y-2.5">
+                {currentResult.tech.items.map((item) => (
+                  <li key={item.name} className="flex items-start gap-3 text-xs sm:text-sm">
+                    <span
+                      className={`mt-0.5 shrink-0 rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                        item.point
+                      )}`}
+                    >
+                      {item.point > 0 ? "+" : ""}
+                      {item.point}
+                    </span>
+                    <span className="text-zinc-300">
+                      <strong className="text-zinc-100">{item.name}:</strong> {item.detail}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3.5 flex items-center justify-between border-t border-zinc-800/80 pt-2.5 text-xs text-zinc-500">
+                <span>Teknik Skor: {formatSigned(currentResult.tech.score)}</span>
+                <button
+                  onClick={() => setActiveTab("tech")}
+                  className="text-sky-400 hover:text-sky-300 font-semibold"
+                >
+                  Tüm Teknik Göstergeleri ve Panelleri Gör →
+                </button>
+              </div>
+            </Panel>
+
+            <Panel
+              title="Öne Çıkan Temel Bilanço Rasyoları"
+              subtitle="Şirketin değerleme, kârlılık ve borçluluk yapısı"
+              badge={
+                currentResult.fund ? (
+                  <SignalBadge signal={currentResult.fund.signal} size="sm" />
+                ) : (
+                  <span className="text-xs text-zinc-500">Altın / Makro</span>
+                )
+              }
+            >
+              {currentResult.fund ? (
+                <>
+                  <table className="w-full text-xs sm:text-sm">
+                    <tbody>
+                      {currentResult.fund.metrics.map((m) => (
+                        <tr key={m.key} className="border-b border-zinc-800/60 last:border-0">
+                          <td className="py-2 text-zinc-400 font-medium">{m.label}</td>
+                          <td className="py-2 text-right font-mono font-semibold tabular-nums text-zinc-200">
+                            {m.display}
+                          </td>
+                          <td className="py-2 text-right">
+                            <span
+                              className={`rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                                m.point
+                              )}`}
+                            >
+                              {m.point > 0 ? "+" : ""}
+                              {m.point}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="mt-3.5 flex items-center justify-between border-t border-zinc-800/80 pt-2.5 text-xs text-zinc-500">
+                    <span>
+                      Temel Skor:{" "}
+                      {currentResult.fund.score != null ? formatSigned(currentResult.fund.score) : "veri yok"}
+                    </span>
+                    <button
+                      onClick={() => setActiveTab("fund")}
+                      className="text-amber-400 hover:text-amber-300 font-semibold"
+                    >
+                      Tüm Temel Değerleme Detaylarını Gör →
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="py-6 text-center text-xs text-zinc-400">
+                  <p>Altın için şirket finansal tablosu bulunmaz; değerleme küresel makro dinamiklere bağlıdır.</p>
+                  <button
+                    onClick={() => setActiveTab("fund")}
+                    className="mt-3 text-amber-400 hover:underline font-semibold"
+                  >
+                    Makro Göstergeleri İncele →
+                  </button>
+                </div>
+              )}
+            </Panel>
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT 2: TECHNICAL (TEKNİK SİNYAL) */}
+      {activeTab === "tech" && (
+        <div className="flex flex-col gap-5 animate-in fade-in duration-300">
+          {/* Technical Info Banner */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-900/40 bg-gradient-to-r from-sky-950/40 via-zinc-900/80 to-zinc-900/90 p-4 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <span className="flex h-3 w-3 rounded-full bg-sky-400 animate-pulse" />
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-zinc-100 flex items-center gap-2">
+                  Saf Teknik Analiz Modu
+                  <span className="rounded-md bg-sky-500/20 px-2 py-0.5 font-mono text-xs text-sky-300 font-bold">
+                    {TIMEFRAMES[selectedTf]?.label ?? selectedTf}
+                  </span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  RSI, MACD, SMA50/SMA200 Cross, Bollinger Dönüşleri ve SMA200 Trendi ile üretilen teknik sinyal.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Teknik Sinyal</span>
+                <SignalBadge signal={currentResult.tech.signal} size="md" />
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-right">
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Teknik Skor</span>
+                <span
+                  className={`font-mono text-base font-extrabold tabular-nums ${
+                    currentResult.tech.score > 0
+                      ? "text-emerald-400"
+                      : currentResult.tech.score < 0
+                      ? "text-red-400"
+                      : "text-zinc-300"
+                  }`}
+                >
+                  {formatSigned(currentResult.tech.score)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Technical Price Chart */}
+          <Panel
+            title={`Fiyat Mum Grafiği · SMA50 / SMA200 & Bollinger (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+            badge={
+              <div className="flex flex-wrap gap-3 text-xs text-zinc-400 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-1 w-3.5 bg-[#2962ff] rounded-sm" /> SMA50
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-1 w-3.5 bg-[#ff6d00] rounded-sm" /> SMA200
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-1 w-3.5 bg-[rgba(41,98,255,0.5)] rounded-sm" /> Bollinger (20,2)
+                </span>
+              </div>
+            }
+          >
+            <PriceChart
+              candles={currentResult.candles}
+              sma50={currentResult.ind.sma50}
+              sma200={currentResult.ind.sma200}
+              bb={currentResult.ind.bb}
+              timeframe={selectedTf}
+            />
+          </Panel>
+
+          {/* Indicator Panels: RSI & MACD */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Panel
+              title={`RSI (14) · Göreceli Güç Endeksi (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+              subtitle="30 Aşırı Satım (Alım Fırsatı) / 70 Aşırı Alım (Satış Riski)"
+              badge={
+                <span className="font-mono text-xs font-bold text-violet-300">
+                  Son: {currentResult.ind.rsi.at(-1)?.toFixed(1) ?? "—"}
+                </span>
+              }
+            >
+              <RsiChart candles={currentResult.candles} rsi={currentResult.ind.rsi} />
+            </Panel>
+
+            <Panel
+              title={`MACD (12,26,9) · Momentum & Kesişim (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+              subtitle="Mavi: MACD · Turuncu: Sinyal · Çubuklar: Histogram"
+              badge={
+                <span className="font-mono text-xs font-bold text-sky-400">
+                  Histogram: {currentResult.ind.macd.at(-1)?.histogram?.toFixed(2) ?? "—"}
+                </span>
+              }
+            >
+              <MacdChart candles={currentResult.candles} macd={currentResult.ind.macd} />
+            </Panel>
+          </div>
+
+          {/* Technical Reasons & Rule Scoring Breakdown */}
+          <Panel
+            title={`Teknik İndikatör Puan Dökümü (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+            subtitle="Tüm göstergelerin kurallara göre ürettiği puanlar ve gerekçeleri"
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              {currentResult.tech.items.map((item) => (
+                <div
+                  key={item.name}
+                  className="flex items-start gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3"
+                >
+                  <span
+                    className={`shrink-0 rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                      item.point
+                    )}`}
+                  >
+                    {item.point > 0 ? "+" : ""}
+                    {item.point}
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-100">{item.name}</h4>
+                    <p className="mt-0.5 text-xs text-zinc-400">{item.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-4 text-xs text-zinc-500 border-t border-zinc-800/80 pt-3">
+              Hesaplanan teknik skor: <strong>{formatSigned(currentResult.tech.score)}</strong> → Teknik Karar:{" "}
+              <strong>{currentResult.tech.signal}</strong>
+            </p>
+          </Panel>
+        </div>
+      )}
+
+      {/* TAB CONTENT 3: FUNDAMENTAL (TEMEL SİNYAL) */}
+      {activeTab === "fund" && (
+        <div className="flex flex-col gap-5 animate-in fade-in duration-300">
+          {/* Fundamental Info Banner */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-900/40 bg-gradient-to-r from-amber-950/40 via-zinc-900/80 to-zinc-900/90 p-4 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <span className="flex h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-zinc-100 flex items-center gap-2">
+                  Saf Temel Analiz & Bilanço Modu
+                  <span className="rounded-md bg-amber-500/20 px-2 py-0.5 font-mono text-xs text-amber-300 font-bold">
+                    Mali Tablolar
+                  </span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  F/K, PD/DD, ROE (Özkaynak Kârlılığı), Borç/Özkaynak ve Gelir Büyümesi ile temel değerleme.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Temel Sinyal</span>
+                <SignalBadge signal={currentResult.fund?.signal ?? "TUT"} size="md" />
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-right">
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block">Temel Skor</span>
+                <span
+                  className={`font-mono text-base font-extrabold tabular-nums ${
+                    (currentResult.fund?.score ?? 0) > 0
+                      ? "text-emerald-400"
+                      : (currentResult.fund?.score ?? 0) < 0
+                      ? "text-red-400"
+                      : "text-zinc-300"
+                  }`}
+                >
+                  {currentResult.fund?.score != null ? formatSigned(currentResult.fund.score) : "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {currentResult.fund ? (
+            <>
+              {/* Detailed Metrics Table & Cards */}
+              <Panel
+                title="Şirket Değerleme & Mali Rasyo Analizi"
+                subtitle="Finansal sağlık, kârlılık ve çarpan göstergeleri"
+              >
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {currentResult.fund.metrics.map((m) => (
+                    <div
+                      key={m.key}
+                      className="flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3.5 transition hover:border-zinc-700"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-300">{m.label}</span>
+                        <span
+                          className={`rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                            m.point
+                          )}`}
+                        >
+                          {m.point > 0 ? "+" : ""}
+                          {m.point}
+                        </span>
+                      </div>
+                      <div className="my-2.5">
+                        <span className="text-2xl font-bold font-mono text-zinc-100 tabular-nums">
+                          {m.display}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 leading-snug">{m.detail}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-xs text-zinc-400 leading-relaxed">
+                  💡 <strong>Temel Analiz Kuralı:</strong> F/K &lt; 15 ve PD/DD &lt; 1.5 varlık ucuzluğu (+1); ROE &gt; %15 kârlılık gücü (+1); Borç/Özkaynak &lt; %100 düşük borç riski (+1); Gelir büyümesi &gt; %10 büyüme ivmesi (+1) sağlar. Negatif veya aşırı yüksek değerler skoru düşürür.
+                </div>
+              </Panel>
+
+              {/* Price Chart for Context */}
+              <Panel
+                title={`Uzun Vadeli Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                subtitle="Temel değerleme ile piyasa fiyatlamasının karşılaştırılması"
+              >
+                <PriceChart
+                  candles={currentResult.candles}
+                  sma50={currentResult.ind.sma50}
+                  sma200={currentResult.ind.sma200}
+                  bb={currentResult.ind.bb}
+                  timeframe={selectedTf}
+                />
+              </Panel>
+            </>
+          ) : (
+            <>
+              {/* Macro & Gold View */}
+              <Panel
+                title="Makroekonomik Göstergeler (Altın & Döviz)"
+                subtitle="Altın için şirket bilançosu yerine küresel makro veriler takip edilir"
+              >
+                <ul className="grid gap-3 sm:grid-cols-3">
+                  {(currentResult.macro ?? []).map((m) => (
+                    <li
+                      key={m.ticker}
+                      className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5 flex flex-col justify-between"
+                    >
+                      <span className="text-xs text-zinc-400 font-medium">{m.label}</span>
+                      <div className="mt-2 flex items-baseline justify-between">
+                        <span className="font-mono text-lg font-bold text-zinc-100 tabular-nums">
+                          {formatNumber(m.value, 3)}
+                        </span>
+                        <span
+                          className={`font-mono text-xs font-bold ${
+                            (m.changePercent ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"
+                          }`}
+                        >
+                          {formatPercent(m.changePercent)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                {currentResult.gramGoldTRY != null && (
+                  <div className="mt-4 rounded-xl border border-amber-900/40 bg-amber-950/20 p-3.5 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-amber-300">Gram Altın (TL) Karşılığı</span>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">Ons Altın × USD/TRY ÷ 31.1035</p>
+                    </div>
+                    <span className="font-mono text-xl font-bold text-amber-300 tabular-nums">
+                      {formatNumber(currentResult.gramGoldTRY, 2)} TL
+                    </span>
+                  </div>
+                )}
+              </Panel>
+
+              {/* Price Chart */}
+              <Panel
+                title={`Altın Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                subtitle="Hareketli ortalamalar ve volatilite bantları"
+              >
+                <PriceChart
+                  candles={currentResult.candles}
+                  sma50={currentResult.ind.sma50}
+                  sma200={currentResult.ind.sma200}
+                  bb={currentResult.ind.bb}
+                  timeframe={selectedTf}
+                />
+              </Panel>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Legal & Decision Support Disclaimer */}
+      <footer className="mt-2 text-center text-xs text-zinc-500 py-3 border-t border-zinc-800/80">
+        Bu sistem karar destek aracıdır, yatırım tavsiyesi değildir. Sinyaller geçmiş fiyat hareketlerine ve finansal verilere dayanır.
+      </footer>
     </div>
   );
 }

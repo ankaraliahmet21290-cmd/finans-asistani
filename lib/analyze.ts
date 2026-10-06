@@ -1,14 +1,16 @@
 import { computeIndicators } from "./indicators";
 import { getCandles, getFundamentals, getMacro, gramGoldTRY } from "./data";
-import { finalSignal, fundamentalScore, technicalScore } from "./scoring";
+import { finalSignal, fundamentalScore, getHybridAssessment, technicalScore } from "./scoring";
 import { findBistCompany } from "./bist";
-import type { AnalysisResult, AssetType, FundamentalResult, Fundamentals } from "./types";
+import type { AnalysisResult, AssetType, FundamentalResult, Fundamentals, TimeframeKey } from "./types";
 
 export async function analyzeSymbol(
   ticker: string,
-  type: AssetType
+  type: AssetType,
+  timeframe: TimeframeKey = "1d"
 ): Promise<AnalysisResult> {
-  const { name: rawName, currency, candles, closes } = await getCandles(ticker);
+  const candleResult = await getCandles(ticker, timeframe);
+  const { name: rawName, currency, candles, closes } = candleResult;
   const bist = findBistCompany(ticker);
   const name = bist ? bist.name : rawName;
   const ind = computeIndicators(closes);
@@ -23,9 +25,15 @@ export async function analyzeSymbol(
   }
 
   const { score, signal } = finalSignal(tech.score, fund?.score ?? null);
+  const hybridAssessment = getHybridAssessment(
+    tech.signal,
+    fund?.signal ?? null,
+    tech.score,
+    fund?.score ?? null
+  );
 
-  const price = closes.at(-1) ?? 0;
-  const prevClose = closes.at(-2) ?? price;
+  const price = candleResult.regularMarketPrice ?? closes.at(-1) ?? 0;
+  const prevClose = candleResult.previousClose ?? closes.at(-2) ?? price;
   const change = price - prevClose;
   const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0;
 
@@ -34,6 +42,7 @@ export async function analyzeSymbol(
     type,
     name,
     currency,
+    timeframe,
     price,
     change,
     changePercent,
@@ -44,6 +53,7 @@ export async function analyzeSymbol(
     fundamentals,
     score,
     signal,
+    hybridAssessment,
     updatedAt: new Date().toISOString(),
   };
 

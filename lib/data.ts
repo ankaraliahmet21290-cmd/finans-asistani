@@ -1,5 +1,5 @@
 import YahooFinance from "yahoo-finance2";
-import type { Candle, Fundamentals, MacroPoint } from "./types";
+import type { Candle, Fundamentals, MacroPoint, TimeframeKey } from "./types";
 
 const yf = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
@@ -21,33 +21,93 @@ export interface CandleResult {
   ticker: string;
   name: string;
   currency: string;
+  timeframe: TimeframeKey;
+  regularMarketPrice?: number | null;
+  previousClose?: number | null;
   candles: Candle[];
   closes: number[];
 }
 
-export async function getCandles(ticker: string): Promise<CandleResult> {
-  return cached(`candles:${ticker}`, async () => {
-    const period1 = new Date(Date.now() - 400 * 24 * 3600 * 1000);
-    const res = await yf.chart(ticker, { period1, interval: "1d" });
+function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
+  const result: Candle[] = [];
+  for (let i = 0; i < candles.length; i += groupSize) {
+    const chunk = candles.slice(i, i + groupSize);
+    if (chunk.length === 0) continue;
+    const open = chunk[0].open;
+    const close = chunk[chunk.length - 1].close;
+    let high = -Infinity;
+    let low = Infinity;
+    for (const c of chunk) {
+      if (c.high > high) high = c.high;
+      if (c.low < low) low = c.low;
+    }
+    result.push({
+      date: chunk[0].date,
+      open,
+      high,
+      low,
+      close,
+    });
+  }
+  return result;
+}
 
-    const candles: Candle[] = [];
-    for (const q of res.quotes) {
-      if (q.close == null || q.open == null || q.high == null || q.low == null) continue;
-      candles.push({
+export async function getCandles(ticker: string, tf: TimeframeKey = "1d"): Promise<CandleResult> {
+  return cached(`candles:${ticker}:${tf}`, async () => {
+    const days =
+      tf === "1h"
+        ? 45
+        : tf === "2h"
+        ? 60
+        : tf === "4h"
+        ? 90
+        : tf === "1wk"
+        ? 730
+        : tf === "1mo"
+        ? 1460
+        : 400;
+
+    const period1 = new Date(Date.now() - days * 24 * 3600 * 1000);
+    const isIntraday = tf === "1h" || tf === "2h" || tf === "4h";
+    const interval = isIntraday ? "1h" : tf === "1wk" ? "1wk" : tf === "1mo" ? "1mo" : "1d";
+
+    const res = await yf.chart(ticker, { period1, interval });
+
+    const rawCandles: Candle[] = [];
+    const quotes = res.quotes;
+    for (let i = 0; i < quotes.length; i++) {
+      const q = quotes[i];
+      let close = q.close;
+      // Yahoo Finance leaves close as null for ongoing/unsettled sessions; recover with regularMarketPrice
+      if (close == null && i === quotes.length - 1 && res.meta.regularMarketPrice != null) {
+        close = res.meta.regularMarketPrice;
+      }
+      if (close == null || q.open == null || q.high == null || q.low == null) continue;
+      rawCandles.push({
         date: q.date.toISOString(),
         open: q.open,
-        high: q.high,
-        low: q.low,
-        close: q.close,
+        high: Math.max(q.high, close),
+        low: Math.min(q.low, close),
+        close,
       });
     }
 
-    if (candles.length === 0) throw new Error(`${ticker} için fiyat verisi boş`);
+    if (rawCandles.length === 0) throw new Error(`${ticker} için ${tf} periyodunda fiyat verisi boş`);
+
+    let candles = rawCandles;
+    if (tf === "2h") {
+      candles = aggregateCandles(rawCandles, 2);
+    } else if (tf === "4h") {
+      candles = aggregateCandles(rawCandles, 4);
+    }
 
     return {
       ticker,
       name: res.meta.longName || res.meta.shortName || ticker,
-      currency: res.meta.currency,
+      currency: res.meta.currency || "TRY",
+      timeframe: tf,
+      regularMarketPrice: res.meta.regularMarketPrice ?? null,
+      previousClose: res.meta.previousClose ?? res.meta.chartPreviousClose ?? null,
       candles,
       closes: candles.map((c) => c.close),
     };

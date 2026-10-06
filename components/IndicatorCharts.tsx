@@ -9,6 +9,7 @@ import {
   createChart,
   type IChartApi,
   type Time,
+  type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle, MacdPoint } from "@/lib/types";
 
@@ -16,6 +17,20 @@ interface SeriesProps {
   candles: Candle[];
   rsi: number[];
   macd: MacdPoint[];
+}
+
+function checkIntraday(candles: Candle[]): boolean {
+  return (
+    candles.length > 1 &&
+    candles.some((c, i) => i > 0 && c.date.slice(0, 10) === candles[i - 1].date.slice(0, 10))
+  );
+}
+
+function toChartTime(dateStr: string, isIntraday: boolean): Time {
+  if (isIntraday) {
+    return Math.floor(new Date(dateStr).getTime() / 1000) as UTCTimestamp;
+  }
+  return dateStr.slice(0, 10);
 }
 
 function useChart(build: (chart: IChartApi, el: HTMLDivElement) => void, deps: unknown[]) {
@@ -65,20 +80,24 @@ function useChart(build: (chart: IChartApi, el: HTMLDivElement) => void, deps: u
   return ref;
 }
 
-const timeAt = (candles: Candle[], index: number): Time | null =>
-  candles[index] ? candles[index].date.slice(0, 10) : null;
-
 export function RsiChart({ candles, rsi }: Omit<SeriesProps, "macd">) {
   const ref = useChart((chart) => {
-    if (rsi.length === 0) return;
+    if (rsi.length === 0 || candles.length === 0) return;
     const start = candles.length - rsi.length;
     if (start < 0) return;
 
+    const isIntraday = checkIntraday(candles);
     const times: Time[] = [];
     const values: { time: Time; value: number }[] = [];
+    const seenTimes = new Set<string | number>();
+
     rsi.forEach((v, i) => {
-      const t = timeAt(candles, start + i);
-      if (t == null || !Number.isFinite(v)) return;
+      const candle = candles[start + i];
+      if (!candle || !Number.isFinite(v)) return;
+      const t = toChartTime(candle.date, isIntraday);
+      const key = typeof t === "number" ? t : String(t);
+      if (seenTimes.has(key)) return;
+      seenTimes.add(key);
       times.push(t);
       values.push({ time: t, value: v });
     });
@@ -113,32 +132,35 @@ export function MacdChart({ candles, macd }: Omit<SeriesProps, "rsi">) {
     const points = macd
       .map((p, i) => ({ p, i }))
       .filter(({ p }) => p.MACD != null && p.signal != null && p.histogram != null);
-    if (points.length === 0) return;
+    if (points.length === 0 || candles.length === 0) return;
 
     const start = candles.length - macd.length;
     if (start < 0) return;
 
-    const timeOf = (i: number): Time | null => timeAt(candles, start + i);
+    const isIntraday = checkIntraday(candles);
+    const seenHist = new Set<string | number>();
+    const histPoints: { time: Time; value: number; color: string }[] = [];
+
+    for (const { p, i } of points) {
+      const candle = candles[start + i];
+      if (!candle || p.histogram == null) continue;
+      const t = toChartTime(candle.date, isIntraday);
+      const key = typeof t === "number" ? t : String(t);
+      if (seenHist.has(key)) continue;
+      seenHist.add(key);
+      histPoints.push({
+        time: t,
+        value: p.histogram,
+        color: p.histogram >= 0 ? "rgba(38,166,154,0.65)" : "rgba(239,83,80,0.65)",
+      });
+    }
 
     const hist = chart.addSeries(HistogramSeries, {
       priceLineVisible: false,
       lastValueVisible: false,
       priceFormat: { type: "price", precision: 2, minMove: 0.01 },
     });
-    hist.setData(
-      points.flatMap(({ p, i }) => {
-        const time = timeOf(i);
-        const value = p.histogram;
-        if (time == null || value == null) return [];
-        return [
-          {
-            time,
-            value,
-            color: value >= 0 ? "rgba(38,166,154,0.65)" : "rgba(239,83,80,0.65)",
-          },
-        ];
-      })
-    );
+    hist.setData(histPoints);
 
     const line = (pick: (p: MacdPoint) => number | undefined, color: string) => {
       const series = chart.addSeries(LineSeries, {
@@ -148,14 +170,22 @@ export function MacdChart({ candles, macd }: Omit<SeriesProps, "rsi">) {
         lastValueVisible: false,
         priceFormat: { type: "price", precision: 2, minMove: 0.01 },
       });
-      series.setData(
-        points.flatMap(({ p, i }) => {
-          const time = timeOf(i);
-          const value = pick(p);
-          if (time == null || value == null) return [];
-          return [{ time, value }];
-        })
-      );
+
+      const linePoints: { time: Time; value: number }[] = [];
+      const seenLine = new Set<string | number>();
+
+      for (const { p, i } of points) {
+        const candle = candles[start + i];
+        const val = pick(p);
+        if (!candle || val == null) continue;
+        const t = toChartTime(candle.date, isIntraday);
+        const key = typeof t === "number" ? t : String(t);
+        if (seenLine.has(key)) continue;
+        seenLine.add(key);
+        linePoints.push({ time: t, value: val });
+      }
+
+      series.setData(linePoints);
     };
 
     line((p) => p.MACD, "#2962ff");

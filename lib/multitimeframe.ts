@@ -1,6 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 import { computeIndicators } from "./indicators";
-import { technicalScore } from "./scoring";
+import { finalSignal, fundamentalScore, technicalScore } from "./scoring";
+import { getFundamentals } from "./data";
 import { BIST_30_TICKERS, findBistCompany } from "./bist";
 import type { Candle, Signal } from "./types";
 
@@ -9,62 +10,8 @@ const yf = new YahooFinance({
   versionCheck: false,
 });
 
-export type TimeframeKey = "1h" | "2h" | "4h" | "1d" | "1wk" | "1mo";
-export type CategoryTimeframeKey = "1h" | "2h" | "4h" | "1wk" | "1mo";
-
-export interface TimeframeConfig {
-  key: TimeframeKey;
-  label: string;
-  category: "saatlik" | "gunluk" | "haftalik" | "aylik";
-  description: string;
-  historyDays: number;
-}
-
-export const TIMEFRAMES: Record<TimeframeKey, TimeframeConfig> = {
-  "1h": {
-    key: "1h",
-    label: "1 Saatlik",
-    category: "saatlik",
-    description: "Kısa vadeli gün içi sinyaller",
-    historyDays: 45,
-  },
-  "2h": {
-    key: "2h",
-    label: "2 Saatlik",
-    category: "saatlik",
-    description: "Kısa-orta vadeli gün içi trend",
-    historyDays: 60,
-  },
-  "4h": {
-    key: "4h",
-    label: "4 Saatlik",
-    category: "saatlik",
-    description: "Gün içi ana salınım ve yön",
-    historyDays: 90,
-  },
-  "1d": {
-    key: "1d",
-    label: "Günlük",
-    category: "gunluk",
-    description: "Ana günlük trend ve kapanışlar",
-    historyDays: 365,
-  },
-  "1wk": {
-    key: "1wk",
-    label: "Haftalık",
-    category: "haftalik",
-    description: "Orta-uzun vadeli trend",
-    historyDays: 730,
-  },
-  "1mo": {
-    key: "1mo",
-    label: "Aylık",
-    category: "aylik",
-    description: "Makro ve uzun vadeli yatırım trendi",
-    historyDays: 1460,
-  },
-};
-
+import { TIMEFRAMES, type CategoryTimeframeKey, type TimeframeConfig, type TimeframeKey } from "./timeframes";
+export { TIMEFRAMES, type CategoryTimeframeKey, type TimeframeConfig, type TimeframeKey };
 export interface TimeframeStockSignal {
   ticker: string;
   code: string;
@@ -72,8 +19,15 @@ export interface TimeframeStockSignal {
   price: number;
   timeframe: TimeframeKey;
   timeframeLabel: string;
+  // Hybrid
   score: number;
   signal: Signal;
+  // Technical
+  techScore: number;
+  techSignal: Signal;
+  // Fundamental
+  fundScore: number | null;
+  fundSignal: Signal | null;
   rsi: number | null;
   reasons: string[];
 }
@@ -204,9 +158,19 @@ export async function analyzeTimeframe(
     const code = bist ? bist.code : ticker.replace(/\.IS$/, "");
     const name = bist ? bist.name : ticker;
 
-    const score = Math.round(tech.score * 100) / 100;
-    const signal: Signal = score >= 0.3 ? "AL" : score <= -0.3 ? "SAT" : "TUT";
+    let fundScore: number | null = null;
+    let fundSignal: Signal | null = null;
 
+    try {
+      const f = await getFundamentals(ticker);
+      const fundRes = fundamentalScore(f);
+      fundScore = fundRes.score;
+      fundSignal = fundRes.signal;
+    } catch {
+      // ignore
+    }
+
+    const { score: hybridScore, signal: hybridSignal } = finalSignal(tech.score, fundScore);
     const lastRsi = ind.rsi.at(-1) != null ? Math.round(ind.rsi.at(-1)! * 10) / 10 : null;
 
     return {
@@ -216,8 +180,12 @@ export async function analyzeTimeframe(
       price,
       timeframe: tf,
       timeframeLabel: TIMEFRAMES[tf].label,
-      score,
-      signal,
+      score: hybridScore,
+      signal: hybridSignal,
+      techScore: tech.score,
+      techSignal: tech.signal,
+      fundScore,
+      fundSignal,
       rsi: lastRsi,
       reasons: tech.reasons.slice(0, 3),
     };
