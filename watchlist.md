@@ -9,3 +9,5 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 | ASELS.IS | stock | Aselsan |
 | AAPL | stock | Apple Inc. |
 | GC=F | gold | Ons Altın Vadeli |
+| GARAN.IS | stock | Garanti Bankası |
+| TUPRS.IS | stock | Tüpraş |

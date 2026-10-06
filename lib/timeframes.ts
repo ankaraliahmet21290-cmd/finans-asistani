@@ -10,7 +10,7 @@ export type TimeframeKey =
   | "1wk"
   | "1mo";
 
-export type CategoryTimeframeKey = "1h" | "2h" | "4h" | "1wk" | "1mo";
+export type CategoryTimeframeKey = TimeframeKey;
 
 export interface TimeframeConfig {
   key: TimeframeKey;

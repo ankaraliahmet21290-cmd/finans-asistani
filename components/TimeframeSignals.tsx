@@ -11,11 +11,29 @@ import type { MailScheduleConfig } from "@/lib/mail-settings-storage";
 
 const TIMEFRAME_TABS: Array<{ key: "all" | CategoryTimeframeKey; label: string; badge: string }> = [
   { key: "all", label: "Tüm Periyotlar", badge: "Özet" },
+  { key: "5m", label: "5 Dakikalık", badge: "5dk" },
+  { key: "10m", label: "10 Dakikalık", badge: "10dk" },
+  { key: "15m", label: "15 Dakikalık", badge: "15dk" },
+  { key: "30m", label: "30 Dakikalık", badge: "30dk" },
   { key: "1h", label: "1 Saatlik", badge: "1S" },
   { key: "2h", label: "2 Saatlik", badge: "2S" },
   { key: "4h", label: "4 Saatlik", badge: "4S" },
+  { key: "1d", label: "Günlük", badge: "Günlük" },
   { key: "1wk", label: "Haftalık", badge: "1H" },
   { key: "1mo", label: "Aylık", badge: "1A" },
+];
+
+const ALL_CATEGORY_KEYS: CategoryTimeframeKey[] = [
+  "5m",
+  "10m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "1d",
+  "1wk",
+  "1mo",
 ];
 
 type SignalMode = "hybrid" | "tech" | "fund";
@@ -99,9 +117,7 @@ export default function TimeframeSignals() {
   }, [fetchData, refreshInterval]);
 
   const activeCategories: CategoryTimeframeKey[] = (
-    activeTab === "all"
-      ? (["1h", "2h", "4h", "1wk", "1mo"] as CategoryTimeframeKey[])
-      : [activeTab]
+    activeTab === "all" ? ALL_CATEGORY_KEYS : [activeTab]
   ).filter((k) => data?.categories?.[k]);
 
   // Helper to get item signal & score based on mode

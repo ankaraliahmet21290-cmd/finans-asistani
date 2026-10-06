@@ -29,9 +29,15 @@ export async function POST(req: Request) {
       updates.watchlist = normalizeTimeframeKey(body.timeframe);
     } else if (body.panel === "topSignals" && body.timeframe) {
       updates.topSignals = normalizeTimeframeKey(body.timeframe);
+    } else if (
+      (body.panel === "bistSearch" || body.panel === "bist" || body.panel === "allBist") &&
+      body.timeframe
+    ) {
+      updates.bistSearch = normalizeTimeframeKey(body.timeframe);
     } else if (body.panel === "all" && body.timeframe) {
       updates.watchlist = normalizeTimeframeKey(body.timeframe);
       updates.topSignals = normalizeTimeframeKey(body.timeframe);
+      updates.bistSearch = normalizeTimeframeKey(body.timeframe);
     }
 
     if (body.watchlist) {
@@ -39,6 +45,9 @@ export async function POST(req: Request) {
     }
     if (body.topSignals) {
       updates.topSignals = normalizeTimeframeKey(body.topSignals);
+    }
+    if (body.bistSearch) {
+      updates.bistSearch = normalizeTimeframeKey(body.bistSearch);
     }
 
     const saved = await saveTimeframeSettingsToFile(updates);

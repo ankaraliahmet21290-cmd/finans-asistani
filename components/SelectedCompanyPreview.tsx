@@ -3,20 +3,38 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import SignalBadge from "./SignalBadge";
+import TimeframeSelector from "./TimeframeSelector";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
+import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { AnalysisResult } from "@/lib/types";
 import type { BistCompany } from "@/lib/bist";
 
 export default function SelectedCompanyPreview({
   company,
+  timeframe = "1d",
+  onTimeframeChange,
   onClose,
 }: {
   company: BistCompany;
+  timeframe?: TimeframeKey;
+  onTimeframeChange?: (tf: TimeframeKey) => void;
   onClose: () => void;
 }) {
+  const [activeTimeframe, setActiveTimeframe] = useState<TimeframeKey>(timeframe);
   const [data, setData] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveTimeframe(timeframe);
+  }, [timeframe]);
+
+  const handleTimeframeChange = (newTf: TimeframeKey) => {
+    setActiveTimeframe(newTf);
+    if (onTimeframeChange) {
+      onTimeframeChange(newTf);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -26,7 +44,7 @@ export default function SelectedCompanyPreview({
       setError(null);
       try {
         const res = await fetch(
-          `/api/analyze?ticker=${encodeURIComponent(company.ticker)}&type=stock`,
+          `/api/analyze?ticker=${encodeURIComponent(company.ticker)}&type=stock&timeframe=${activeTimeframe}`,
           { cache: "no-store" }
         );
         const json = await res.json();
@@ -44,32 +62,46 @@ export default function SelectedCompanyPreview({
     return () => {
       cancelled = true;
     };
-  }, [company.ticker]);
+  }, [company.ticker, activeTimeframe]);
 
   const up = (data?.change ?? 0) >= 0;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-950/30 via-zinc-900/80 to-zinc-900 p-5 shadow-2xl backdrop-blur-md transition">
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute right-4 top-4 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition"
-        title="Kapat"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
+      {/* Header bar with TimeframeSelector and Close */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-2 w-2 rounded-full bg-sky-400 animate-ping" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
+            Seçili Şirket Analiz Özeti
+          </span>
+          <span className="rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-300">
+            {TIMEFRAMES[activeTimeframe]?.label ?? activeTimeframe}
+          </span>
+        </div>
 
-      <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-2 w-2 rounded-full bg-sky-400 animate-ping" />
-        <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">
-          Seçili Şirket Analiz Özeti
-        </span>
+        <div className="flex items-center gap-2">
+          <TimeframeSelector
+            value={activeTimeframe}
+            onChange={handleTimeframeChange}
+            disabled={loading}
+            size="sm"
+            label="Periyot"
+          />
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition"
+            title="Kapat"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -193,7 +225,7 @@ export default function SelectedCompanyPreview({
           Mum grafiği, Bollinger bantları, RSI & MACD panelleri için detay sayfasına gidin.
         </span>
         <Link
-          href={`/symbol/${encodeURIComponent(company.ticker)}`}
+          href={`/symbol/${encodeURIComponent(company.ticker)}?tf=${activeTimeframe}`}
           className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-500"
         >
           Tüm Grafikleri ve Detayları Gör →

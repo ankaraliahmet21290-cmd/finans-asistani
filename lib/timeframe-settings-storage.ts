@@ -5,6 +5,7 @@ import { TIMEFRAMES, type TimeframeKey } from "./timeframes";
 export interface TimeframeSettingsConfig {
   watchlist: TimeframeKey;
   topSignals: TimeframeKey;
+  bistSearch: TimeframeKey;
   updatedAt: string;
 }
 
@@ -24,6 +25,7 @@ export const VALID_TIMEFRAME_KEYS = new Set<TimeframeKey>([
 export const DEFAULT_TIMEFRAME_SETTINGS: TimeframeSettingsConfig = {
   watchlist: "1d",
   topSignals: "1d",
+  bistSearch: "1d",
   updatedAt: new Date().toISOString(),
 };
 
@@ -78,6 +80,13 @@ export function parseTimeframeSettingsMarkdown(content: string): TimeframeSettin
           result.watchlist = code;
         } else if (panelName.includes("lider") || panelName.includes("top") || panelName.includes("sinyal")) {
           result.topSignals = code;
+        } else if (
+          panelName.includes("bist") ||
+          panelName.includes("arama") ||
+          panelName.includes("tum") ||
+          panelName.includes("tüm")
+        ) {
+          result.bistSearch = code;
         }
       }
       continue;
@@ -93,8 +102,15 @@ export function parseTimeframeSettingsMarkdown(content: string): TimeframeSettin
         result.watchlist = val;
       } else if (key.includes("lider") || key.includes("top")) {
         result.topSignals = val;
+      } else if (
+        key.includes("bist") ||
+        key.includes("arama") ||
+        key.includes("tum") ||
+        key.includes("tüm")
+      ) {
+        result.bistSearch = val;
       } else if (key.includes("güncelleme") || key.includes("tarih")) {
-        result.updatedAt = kvMatch[2].trim();
+        result.updatedAt = kvMatch[2].trim().replace(/\*+/g, "").trim();
       }
     }
   }
@@ -108,16 +124,18 @@ export function parseTimeframeSettingsMarkdown(content: string): TimeframeSettin
 export function formatTimeframeSettingsMarkdown(config: TimeframeSettingsConfig): string {
   const wlInfo = TIMEFRAMES[config.watchlist] ?? TIMEFRAMES["1d"];
   const topInfo = TIMEFRAMES[config.topSignals] ?? TIMEFRAMES["1d"];
+  const bistInfo = TIMEFRAMES[config.bistSearch || "1d"] ?? TIMEFRAMES["1d"];
 
   return `# Periyot ve Zaman Dilimi Ayarları
 
-Bu dosya Finans Asistanı takip listesi ve lider sinyaller için analiz zaman dilimlerini (mum periyotlarını) belirler.
+Bu dosya Finans Asistanı takip listesi, lider sinyaller ve tüm BIST şirketleri arama bölümü için analiz zaman dilimlerini (mum periyotlarını) belirler.
 Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya doğrudan bu dosya elle düzenlenebilir.
 
 | Panel | Periyot Kodu | Görünen Ad | Açıklama |
 | --- | --- | --- | --- |
 | Takip Listesi | ${config.watchlist} | ${wlInfo.label} | ${wlInfo.description} |
 | Lider Sinyaller | ${config.topSignals} | ${topInfo.label} | ${topInfo.description} |
+| Tüm BIST Şirketleri | ${config.bistSearch || "1d"} | ${bistInfo.label} | ${bistInfo.description} |
 
 ---
 
@@ -185,6 +203,7 @@ export async function saveTimeframeSettingsToFile(
   const newConfig: TimeframeSettingsConfig = {
     watchlist: updates.watchlist ? normalizeTimeframeKey(updates.watchlist) : current.watchlist,
     topSignals: updates.topSignals ? normalizeTimeframeKey(updates.topSignals) : current.topSignals,
+    bistSearch: updates.bistSearch ? normalizeTimeframeKey(updates.bistSearch) : (current.bistSearch || "1d"),
     updatedAt: new Date().toISOString(),
   };
 

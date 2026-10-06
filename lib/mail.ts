@@ -134,12 +134,17 @@ export async function sendCategorizedTimeframeMail(
   });
   const scanDate = new Date(data.scannedAt).toLocaleDateString("tr-TR");
 
-  const subject = `BIST Çoklu Zaman Dilimi AL/SAT Raporu (${scanTime}) [1S, 2S, 4S, Haftalık, Aylık]`;
+  const subject = `BIST Çoklu Zaman Dilimi AL/SAT Raporu (${scanTime}) [5dk, 15dk, 1S, 4S, Günlük, Haftalık]`;
 
   const tfList: Array<{ key: keyof typeof data.categories; title: string; badge: string }> = [
+    { key: "5m", title: "5 Dakikalık Sinyaller (Çok Hızlı)", badge: "5 DAKİKA" },
+    { key: "10m", title: "10 Dakikalık Sinyaller (Hızlı Salınım)", badge: "10 DAKİKA" },
+    { key: "15m", title: "15 Dakikalık Sinyaller (Gün İçi Trend)", badge: "15 DAKİKA" },
+    { key: "30m", title: "30 Dakikalık Sinyaller (Gün İçi Yön)", badge: "30 DAKİKA" },
     { key: "1h", title: "1 Saatlik Sinyaller (Kısa Vade)", badge: "1 SAATLİK" },
     { key: "2h", title: "2 Saatlik Sinyaller (Kısa-Orta Vade)", badge: "2 SAATLİK" },
     { key: "4h", title: "4 Saatlik Sinyaller (Gün İçi Ana Salınım)", badge: "4 SAATLİK" },
+    { key: "1d", title: "Günlük Sinyaller (Ana Trend)", badge: "GÜNLÜK" },
     { key: "1wk", title: "Haftalık Sinyaller (Orta Vade)", badge: "HAFTALIK" },
     { key: "1mo", title: "Aylık Sinyaller (Uzun Vade)", badge: "AYLIK" },
   ];
@@ -150,6 +155,7 @@ export async function sendCategorizedTimeframeMail(
 
   for (const tf of tfList) {
     const cat = data.categories[tf.key];
+    if (!cat) continue;
     const buys = cat.buys;
     const sells = cat.sells;
 

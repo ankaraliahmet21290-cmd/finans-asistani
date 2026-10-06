@@ -1,14 +1,8 @@
-import YahooFinance from "yahoo-finance2";
 import { computeIndicators } from "./indicators";
 import { finalSignal, fundamentalScore, technicalScore } from "./scoring";
-import { getFundamentals } from "./data";
+import { getCandles, getFundamentals } from "./data";
 import { BIST_30_TICKERS, findBistCompany } from "./bist";
 import type { Candle, Signal } from "./types";
-
-const yf = new YahooFinance({
-  suppressNotices: ["yahooSurvey", "ripHistorical"],
-  versionCheck: false,
-});
 
 import { TIMEFRAMES, type CategoryTimeframeKey, type TimeframeConfig, type TimeframeKey } from "./timeframes";
 export { TIMEFRAMES, type CategoryTimeframeKey, type TimeframeConfig, type TimeframeKey };
@@ -42,117 +36,12 @@ export interface CategorizedSignals {
   totalSignalsCount: number;
 }
 
-// Helper to aggregate 1h candles into 2h or 4h
-function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
-  const result: Candle[] = [];
-  for (let i = 0; i < candles.length; i += groupSize) {
-    const chunk = candles.slice(i, i + groupSize);
-    if (chunk.length === 0) continue;
-    const open = chunk[0].open;
-    const close = chunk[chunk.length - 1].close;
-    let high = -Infinity;
-    let low = Infinity;
-    for (const c of chunk) {
-      if (c.high > high) high = c.high;
-      if (c.low < low) low = c.low;
-    }
-    result.push({
-      date: chunk[0].date,
-      open,
-      high,
-      low,
-      close,
-    });
-  }
-  return result;
-}
-
-// In-memory cache for candles to minimize Yahoo calls
-const tfCache = new Map<string, { at: number; data: Candle[] }>();
-const TF_CACHE_TTL = 30 * 1000; // 30 seconds
-
 export async function getTimeframeCandles(
   ticker: string,
   tf: TimeframeKey
 ): Promise<Candle[]> {
-  const cacheKey = `${ticker}:${tf}`;
-  const hit = tfCache.get(cacheKey);
-  if (hit && Date.now() - hit.at < TF_CACHE_TTL) {
-    return hit.data;
-  }
-
-  const cfg = TIMEFRAMES[tf];
-  const period1 = new Date(Date.now() - cfg.historyDays * 24 * 3600 * 1000);
-
-  let rawCandles: Candle[] = [];
-
-  if (tf === "1h" || tf === "2h" || tf === "4h") {
-    // Fetch 1h candles
-    const h1Key = `${ticker}:1h_raw`;
-    const h1Hit = tfCache.get(h1Key);
-    if (h1Hit && Date.now() - h1Hit.at < TF_CACHE_TTL) {
-      rawCandles = h1Hit.data;
-    } else {
-      const res = await yf.chart(ticker, { interval: "1h", period1 });
-      const lastIdx = res.quotes.length - 1;
-      rawCandles = res.quotes
-        .map((q, idx) => {
-          let close = q.close;
-          if (close == null && idx === lastIdx && res.meta.regularMarketPrice != null) {
-            close = res.meta.regularMarketPrice;
-          }
-          if (close == null || q.open == null || q.high == null || q.low == null) return null;
-          return {
-            date: q.date.toISOString(),
-            open: q.open as number,
-            high: Math.max(q.high as number, close),
-            low: Math.min(q.low as number, close),
-            close: close as number,
-          };
-        })
-        .filter((c): c is Candle => c !== null);
-      tfCache.set(h1Key, { at: Date.now(), data: rawCandles });
-    }
-
-    if (tf === "2h") {
-      const agg = aggregateCandles(rawCandles, 2);
-      tfCache.set(cacheKey, { at: Date.now(), data: agg });
-      return agg;
-    }
-
-    if (tf === "4h") {
-      const agg = aggregateCandles(rawCandles, 4);
-      tfCache.set(cacheKey, { at: Date.now(), data: agg });
-      return agg;
-    }
-
-    tfCache.set(cacheKey, { at: Date.now(), data: rawCandles });
-    return rawCandles;
-  }
-
-  // Daily, Weekly, Monthly
-  const interval = tf === "1wk" ? "1wk" : tf === "1mo" ? "1mo" : "1d";
-  const res = await yf.chart(ticker, { interval, period1 });
-  const lastIdx = res.quotes.length - 1;
-  rawCandles = res.quotes
-    .map((q, idx) => {
-      let close = q.close;
-      if (close == null && idx === lastIdx && res.meta.regularMarketPrice != null) {
-        close = res.meta.regularMarketPrice;
-      }
-      if (close == null || q.open == null || q.high == null || q.low == null) return null;
-      return {
-        date: q.date.toISOString(),
-        open: q.open as number,
-        high: Math.max(q.high as number, close),
-        low: Math.min(q.low as number, close),
-        close: close as number,
-      };
-    })
-    .filter((c): c is Candle => c !== null);
-
-  tfCache.set(cacheKey, { at: Date.now(), data: rawCandles });
-  return rawCandles;
+  const res = await getCandles(ticker, tf);
+  return res.candles;
 }
 
 export async function analyzeTimeframe(
@@ -226,15 +115,32 @@ export function isWithinTradingHours(date = new Date()): boolean {
 // Scan multi-timeframe signals across active universe
 export async function scanCategorizedSignals(universe = BIST_30_TICKERS): Promise<CategorizedSignals> {
   const isHours = isWithinTradingHours();
-  const timeframes: CategoryTimeframeKey[] = ["1h", "2h", "4h", "1wk", "1mo"];
+  const timeframes: CategoryTimeframeKey[] = [
+    "5m",
+    "10m",
+    "15m",
+    "30m",
+    "1h",
+    "2h",
+    "4h",
+    "1d",
+    "1wk",
+    "1mo",
+  ];
 
   const categories: CategorizedSignals["categories"] = {
+    "5m": { label: "5 Dakikalık Sinyaller", buys: [], sells: [] },
+    "10m": { label: "10 Dakikalık Sinyaller", buys: [], sells: [] },
+    "15m": { label: "15 Dakikalık Sinyaller", buys: [], sells: [] },
+    "30m": { label: "30 Dakikalık Sinyaller", buys: [], sells: [] },
     "1h": { label: "1 Saatlik Sinyaller", buys: [], sells: [] },
     "2h": { label: "2 Saatlik Sinyaller", buys: [], sells: [] },
     "4h": { label: "4 Saatlik Sinyaller", buys: [], sells: [] },
+    "1d": { label: "Günlük Sinyaller", buys: [], sells: [] },
     "1wk": { label: "Haftalık Sinyaller", buys: [], sells: [] },
     "1mo": { label: "Aylık Sinyaller", buys: [], sells: [] },
   };
+
 
   let totalSignalsCount = 0;
 

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BistCombobox from "./BistCombobox";
 import SelectedCompanyPreview from "./SelectedCompanyPreview";
 import TopSignals from "./TopSignals";
 import TimeframeSignals from "./TimeframeSignals";
 import WatchlistTable from "./WatchlistTable";
+import TimeframeSelector from "./TimeframeSelector";
 import { findBistCompany, type BistCompany } from "@/lib/bist";
+import type { TimeframeKey } from "@/lib/timeframes";
 
 const QUICK_CHIPS = [
   "THYAO",
@@ -23,6 +25,37 @@ const QUICK_CHIPS = [
 
 export default function HomeDashboard() {
   const [selectedCompany, setSelectedCompany] = useState<BistCompany | null>(null);
+  const [bistTimeframe, setBistTimeframe] = useState<TimeframeKey>("1d");
+
+  // Load saved timeframe from timeframe-settings.md on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/timeframe/settings", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.settings?.bistSearch) {
+            setBistTimeframe(json.settings.bistSearch);
+          }
+        }
+      } catch {
+        // fallback
+      }
+    })();
+  }, []);
+
+  const handleBistTimeframeChange = async (newTf: TimeframeKey) => {
+    setBistTimeframe(newTf);
+    try {
+      await fetch("/api/timeframe/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel: "bistSearch", timeframe: newTf }),
+      });
+    } catch (e) {
+      console.error("[HomeDashboard] Periyot kaydedilemedi:", e);
+    }
+  };
 
   const handleChipClick = (code: string) => {
     const company = findBistCompany(code);
@@ -48,8 +81,18 @@ export default function HomeDashboard() {
             800+ Borsa İstanbul şirketini anında arayın, teknik indikatörler ve temel rasyolar ile hesaplanan karar destek skorlarını görüntüleyin.
           </p>
 
+          {/* Timeframe Selector with all Leader Signal periods */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-zinc-400">Analiz Periyodu:</span>
+            <TimeframeSelector
+              value={bistTimeframe}
+              onChange={handleBistTimeframeChange}
+              size="sm"
+            />
+          </div>
+
           {/* Searchable Combobox */}
-          <div className="mt-5 w-full">
+          <div className="mt-4 w-full">
             <BistCombobox
               placeholder="BIST şirketi ara (kod veya ad: THYAO, Garanti, Ereğli, Aselsan...)"
               autoNavigate={false}
@@ -85,6 +128,8 @@ export default function HomeDashboard() {
       {selectedCompany && (
         <SelectedCompanyPreview
           company={selectedCompany}
+          timeframe={bistTimeframe}
+          onTimeframeChange={handleBistTimeframeChange}
           onClose={() => setSelectedCompany(null)}
         />
       )}

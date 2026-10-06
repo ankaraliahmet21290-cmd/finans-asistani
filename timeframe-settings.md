@@ -1,12 +1,13 @@
 # Periyot ve Zaman Dilimi Ayarları
 
-Bu dosya Finans Asistanı takip listesi ve lider sinyaller için analiz zaman dilimlerini (mum periyotlarını) belirler.
+Bu dosya Finans Asistanı takip listesi, lider sinyaller ve tüm BIST şirketleri arama bölümü için analiz zaman dilimlerini (mum periyotlarını) belirler.
 Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya doğrudan bu dosya elle düzenlenebilir.
 
 | Panel | Periyot Kodu | Görünen Ad | Açıklama |
 | --- | --- | --- | --- |
 | Takip Listesi | 1d | Günlük | Ana günlük trend ve kapanışlar |
 | Lider Sinyaller | 1d | Günlük | Ana günlük trend ve kapanışlar |
+| Tüm BIST Şirketleri | 1d | Günlük | Standart seans kapanış analizi |
 
 ---
 
