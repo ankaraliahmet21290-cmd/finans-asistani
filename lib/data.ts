@@ -1,20 +1,25 @@
 import YahooFinance from "yahoo-finance2";
 import type { Candle, Fundamentals, MacroPoint, TimeframeKey } from "./types";
+import { getActiveRefreshConfig } from "./refresh-settings-storage";
 
 const yf = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
   versionCheck: false,
 });
 
-const CACHE_TTL_MS = 30_000; // 30 seconds fresh data TTL
 const cache = new Map<string, { at: number; value: unknown }>();
 
 async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const ttl = getActiveRefreshConfig().cacheTtlMs;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value as T;
+  if (hit && Date.now() - hit.at < ttl) return hit.value as T;
   const value = await fn();
   cache.set(key, { at: Date.now(), value });
   return value;
+}
+
+export function clearDataCache(): void {
+  cache.clear();
 }
 
 export interface CandleResult {

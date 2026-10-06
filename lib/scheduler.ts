@@ -48,13 +48,20 @@ function getIstanbulDateString(d: Date = new Date()): string {
  * Syncs the scheduler state with mail-settings.md
  */
 export async function syncSchedulerWithConfig(): Promise<MailScheduleConfig> {
-  const config = await getMailSettingsFromFile();
+  const config = await getMailSettingsFromFile(true);
   state.intervalMinutes = config.intervalMinutes;
   state.intervalKey = config.intervalKey;
   state.intervalLabel = config.label;
   state.emailLabel = config.emailLabel;
   state.enabled = config.enabled;
   state.onlyTradingHours = config.onlyTradingHours;
+
+  if (!config.enabled || config.intervalKey === "off" || config.intervalMinutes === 0) {
+    state.lastStatus = "Otomatik e-posta gönderimi kapalı (mail-settings.md: kapalı)";
+  } else {
+    state.lastStatus = `Aktif (${config.label} aralığında kontrol ediliyor - mail-settings.md)`;
+  }
+
   return config;
 }
 

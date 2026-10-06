@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  REFRESH_INTERVAL_OPTIONS,
+  type RefreshInterval,
+  type RefreshIntervalOption,
+} from "@/lib/refresh-settings-types";
 
-export type RefreshInterval = 0 | 15 | 30 | 60 | 120 | 300;
-
-export const REFRESH_INTERVAL_OPTIONS: Array<{ value: RefreshInterval; label: string; desc: string }> = [
-  { value: 15, label: "15 sn", desc: "Çok Hızlı (Gün içi anlık)" },
-  { value: 30, label: "30 sn", desc: "Önerilen (Hızlı & Dengeli)" },
-  { value: 60, label: "1 dk", desc: "Standart Akış" },
-  { value: 120, label: "2 dk", desc: "Düşük Trafik" },
-  { value: 300, label: "5 dk", desc: "Tasarruflu" },
-  { value: 0, label: "Kapalı", desc: "Yalnızca Elle Yenileme" },
-];
+export { REFRESH_INTERVAL_OPTIONS, type RefreshInterval, type RefreshIntervalOption };
 
 interface AutoRefreshControlProps {
   intervalSeconds: RefreshInterval;
@@ -29,11 +25,13 @@ export default function AutoRefreshControl({
   onRefresh,
   isRefreshing,
   lastUpdated,
-  storageKey,
+  storageKey = "app_refresh_interval",
   size = "md",
 }: AutoRefreshControlProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [remaining, setRemaining] = useState<number>(intervalSeconds);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -46,6 +44,42 @@ export default function AutoRefreshControl({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Sync initial setting from refresh-settings.md via API
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/refresh", { cache: "no-store" });
+        if (!active || !res.ok) return;
+        const json = await res.json();
+        if (json.ok && json.config?.seconds !== undefined) {
+          const fileSeconds = json.config.seconds as RefreshInterval;
+          if (fileSeconds !== intervalSeconds) {
+            onIntervalChange(fileSeconds);
+          }
+        }
+      } catch {
+        // Keep current or fallback
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []); // Run on mount
+
+  // Listen to cross-component sync event
+  useEffect(() => {
+    function handleCrossSync(e: Event) {
+      const customEvent = e as CustomEvent<RefreshInterval>;
+      if (typeof customEvent.detail === "number" && customEvent.detail !== intervalSeconds) {
+        onIntervalChange(customEvent.detail);
+      }
+    }
+    window.addEventListener("app-refresh-interval-changed", handleCrossSync);
+    return () => window.removeEventListener("app-refresh-interval-changed", handleCrossSync);
+  }, [intervalSeconds, onIntervalChange]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -67,18 +101,47 @@ export default function AutoRefreshControl({
     return () => clearInterval(timer);
   }, [intervalSeconds, isRefreshing]);
 
-  // When interval changes, optionally persist to localStorage
-  const handleSelect = (val: RefreshInterval) => {
-    onIntervalChange(val);
-    if (storageKey && typeof window !== "undefined") {
-      try {
-        localStorage.setItem(storageKey, String(val));
-      } catch {
-        // ignore
+  // When interval changes, save to refresh-settings.md via API and localStorage
+  const handleSelect = useCallback(
+    async (val: RefreshInterval) => {
+      onIntervalChange(val);
+      setIsOpen(false);
+      setIsSaving(true);
+      setSaveSuccessMsg(null);
+
+      // Notify other instances on the screen
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent<RefreshInterval>("app-refresh-interval-changed", { detail: val })
+        );
+        try {
+          if (storageKey) localStorage.setItem(storageKey, String(val));
+          localStorage.setItem("app_refresh_interval", String(val));
+        } catch {
+          // ignore
+        }
       }
-    }
-    setIsOpen(false);
-  };
+
+      // Persist to refresh-settings.md
+      try {
+        const res = await fetch("/api/settings/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ seconds: val }),
+        });
+        const json = await res.json();
+        if (res.ok && json.ok) {
+          setSaveSuccessMsg(`✓ refresh-settings.md: "${json.config.label}" kaydedildi`);
+          setTimeout(() => setSaveSuccessMsg(null), 3500);
+        }
+      } catch (err) {
+        console.error("[AutoRefreshControl] refresh-settings.md kayıt hatası:", err);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [onIntervalChange, storageKey]
+  );
 
   const currentOption =
     REFRESH_INTERVAL_OPTIONS.find((o) => o.value === intervalSeconds) ?? REFRESH_INTERVAL_OPTIONS[1];
@@ -93,7 +156,7 @@ export default function AutoRefreshControl({
           className={`group flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 font-medium text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100 ${
             size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-xs sm:text-sm"
           }`}
-          title="Yenileme sıklığını ayarla"
+          title="Veri yenileme sıklığını ayarla (refresh-settings.md)"
         >
           {intervalSeconds > 0 ? (
             <span className="relative flex h-2 w-2">
@@ -113,6 +176,11 @@ export default function AutoRefreshControl({
             </span>
           )}
 
+          {/* Small file badge indicator */}
+          <span className="hidden sm:inline-flex items-center rounded bg-sky-950/60 px-1 py-0.2 text-[9px] font-mono text-sky-400 border border-sky-800/40">
+            .md
+          </span>
+
           <svg
             className={`h-3 w-3 text-zinc-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
             fill="none"
@@ -126,11 +194,29 @@ export default function AutoRefreshControl({
 
         {/* Dropdown Menu */}
         {isOpen && (
-          <div className="absolute right-0 top-full z-50 mt-1.5 w-56 rounded-2xl border border-zinc-800 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-800/80 mb-1">
-              Veri Yenileme Sıklığı
+          <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-2xl border border-zinc-800 bg-zinc-950/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800/80 px-2 py-1.5 mb-1.5">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                  <span>⚡ Veri Yenileme Sıklığı</span>
+                </div>
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                  Kaynak: refresh-settings.md
+                </div>
+              </div>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-mono ${
+                  intervalSeconds > 0
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {intervalSeconds > 0 ? "Otomatik Aktif" : "Kapalı"}
+              </span>
             </div>
 
+            {/* Options list */}
             <div className="space-y-0.5">
               {REFRESH_INTERVAL_OPTIONS.map((opt) => {
                 const isSelected = opt.value === intervalSeconds;
@@ -139,6 +225,7 @@ export default function AutoRefreshControl({
                     key={opt.value}
                     type="button"
                     onClick={() => handleSelect(opt.value)}
+                    disabled={isSaving}
                     className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs transition ${
                       isSelected
                         ? "bg-sky-500/15 font-bold text-sky-300 border border-sky-500/30"
@@ -162,6 +249,12 @@ export default function AutoRefreshControl({
                   </button>
                 );
               })}
+            </div>
+
+            {/* Footer with file hint */}
+            <div className="mt-2 border-t border-zinc-800/80 pt-1.5 px-1.5 text-[10px] text-zinc-500 flex items-center justify-between">
+              <span>Seçim refresh-settings.md dosyasına yazılır.</span>
+              <span className="font-mono text-sky-400/80">.md</span>
             </div>
           </div>
         )}
@@ -194,7 +287,14 @@ export default function AutoRefreshControl({
         </svg>
       </button>
 
-      {lastUpdated && (
+      {/* Save Success Notice */}
+      {saveSuccessMsg && (
+        <span className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-950/60 px-2 py-0.5 text-[11px] font-medium text-emerald-300 animate-in fade-in zoom-in-95 duration-200">
+          {saveSuccessMsg}
+        </span>
+      )}
+
+      {lastUpdated && !saveSuccessMsg && (
         <span className="hidden md:inline-block font-mono text-[11px] text-zinc-500">
           {new Date(lastUpdated).toLocaleTimeString("tr-TR")}
         </span>

@@ -233,10 +233,11 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
   }
 
   const opt = normalizeIntervalKey(parsedInterval);
+  const minutes = parsedMinutes != null && parsedMinutes > 0 ? parsedMinutes : opt.minutes;
 
   return {
     intervalKey: opt.key,
-    intervalMinutes: parsedMinutes != null ? parsedMinutes : opt.minutes,
+    intervalMinutes: minutes,
     label: opt.label,
     emailLabel: opt.emailLabel,
     description: opt.desc,
@@ -343,7 +344,7 @@ export async function saveMailSettingsToFile(
       ? false
       : update.enabled !== undefined
       ? update.enabled
-      : current.enabled;
+      : true;
 
   const merged: MailScheduleConfig = {
     intervalKey,

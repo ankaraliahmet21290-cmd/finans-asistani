@@ -5,12 +5,12 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 
 | Parametre | Değer | Açıklama |
 | --- | --- | --- |
-| Sıklık | günlük | Geçerli sıklık: 5m, 10m, 15m, 30m, 1h, 2h, 4h, daily, off |
-| Görünen Ad | Günlük | Günde 1 kez |
-| Dakika | 60 | Sayısal dakika karşılığı (0 = devre dışı, 1440 = günlük) |
+| Sıklık | 15m | Geçerli sıklık: 5m, 10m, 15m, 30m, 1h, 2h, 4h, daily, off |
+| Görünen Ad | 15 dk | Standart seans içi tarama |
+| Dakika | 15 | Sayısal dakika karşılığı (0 = devre dışı, 1440 = günlük) |
 | Aktif | Evet | Otomatik gönderim açık/kapalı |
 | Yalnızca Seans İçi | Evet | 09:50 - 18:00 seans saatlerinde çalıştır |
-| Son Güncelleme | 2026-10-06T06:10:58.202Z | Son güncelleme zamanı |
+| Son Güncelleme | 2026-10-06T06:18:01.598Z | Son güncelleme zamanı |
 
 ---
 

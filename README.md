@@ -53,6 +53,8 @@ lib/
 ├─ watchlist.ts              # takip listesi tipleri ve yardımcıları
 ├─ watchlist-storage.ts      # watchlist.md okuma/yazma motoru
 ├─ mail-settings-storage.ts  # mail-settings.md okuma/yazma ve sıklık motoru
+├─ refresh-settings-storage.ts # refresh-settings.md okuma/yazma ve önbellek TTL motoru
+├─ refresh-settings-types.ts # veri yenileme tipleri ve seçenekleri
 ├─ scheduler.ts              # zamanlayıcı ve periyodik mail motoru
 ├─ data.ts                   # fiyat + temel veri (yahoo-finance2)
 ├─ indicators.ts             # RSI, MACD, SMA, Bollinger
@@ -63,9 +65,11 @@ lib/
 ├─ types.ts, format.ts
 watchlist.md                 # dinamik takip listesi dosyası (Markdown tablosu)
 mail-settings.md             # e-posta bildirim sıklığı ayar dosyası (5dk, 10dk, 1 saat, günlük vb.)
+refresh-settings.md          # ekran veri yenileme sıklığı ve önbellek TTL ayar dosyası (15sn, 30sn, 1dk vb.)
 components/
 ├─ WatchlistTable.tsx        # ana sayfa tablosu
 ├─ SymbolDetail.tsx          # detay sayfası düzeni
+├─ AutoRefreshControl.tsx    # ekrandan canlı veri yenileme sıklık seçici (.md senkronize)
 ├─ PriceChart.tsx            # mum + SMA50/200 + Bollinger
 ├─ IndicatorCharts.tsx       # RSI ve MACD panelleri
 ├─ SignalCard.tsx, SignalBadge.tsx
