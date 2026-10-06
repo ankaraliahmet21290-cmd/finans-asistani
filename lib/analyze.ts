@@ -13,8 +13,11 @@ export async function analyzeSymbol(
   const { name: rawName, currency, candles, closes } = candleResult;
   const bist = findBistCompany(ticker);
   const name = bist ? bist.name : rawName;
-  const ind = computeIndicators(closes);
-  const tech = technicalScore(closes, ind);
+  const highs = candles.map((c) => c.high);
+  const lows = candles.map((c) => c.low);
+  const volumes = candles.map((c) => c.volume ?? 0);
+  const ind = computeIndicators(closes, highs, lows, volumes);
+  const tech = technicalScore(closes, ind, candles);
 
   let fundamentals: Fundamentals | null = null;
   let fund: FundamentalResult | null = null;

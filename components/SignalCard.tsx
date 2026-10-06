@@ -23,7 +23,10 @@ export default function SignalCard({ result, activeTab = "hybrid" }: SignalCardP
     displayScore = result.tech.score;
     scoreTitle = "Teknik Analiz Skoru";
     const lastRsi = result.ind.rsi.at(-1);
-    scoreSub = `Periyot: ${result.timeframe ?? "1d"}${lastRsi != null ? ` · RSI(14): ${lastRsi.toFixed(1)}` : ""}`;
+    const lastAdx = result.tech.trendStrength?.adx;
+    scoreSub = `Periyot: ${result.timeframe ?? "1d"}${lastRsi != null ? ` · RSI: ${lastRsi.toFixed(1)}` : ""}${
+      lastAdx != null ? ` · ADX: ${lastAdx.toFixed(1)}` : ""
+    }`;
   } else if (activeTab === "fund") {
     displaySignal = result.fund?.signal ?? "TUT";
     displayScore = result.fund?.score ?? 0;
@@ -31,7 +34,7 @@ export default function SignalCard({ result, activeTab = "hybrid" }: SignalCardP
     scoreSub = result.fund
       ? `F/K: ${result.fundamentals?.pe != null ? result.fundamentals.pe.toFixed(1) : "—"} · PD/DD: ${
           result.fundamentals?.pb != null ? result.fundamentals.pb.toFixed(2) : "—"
-        }`
+        }${result.fundamentals?.peg != null ? ` · PEG: ${result.fundamentals.peg.toFixed(2)}` : ""}`
       : "Temel analiz verisi mevcut değil (Altın)";
   }
 

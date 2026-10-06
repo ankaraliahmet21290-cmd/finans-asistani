@@ -53,8 +53,11 @@ export async function analyzeTimeframe(
     if (candles.length < 20) return null;
 
     const closes = candles.map((c) => c.close);
-    const ind = computeIndicators(closes);
-    const tech = technicalScore(closes, ind);
+    const highs = candles.map((c) => c.high);
+    const lows = candles.map((c) => c.low);
+    const volumes = candles.map((c) => c.volume ?? 0);
+    const ind = computeIndicators(closes, highs, lows, volumes);
+    const tech = technicalScore(closes, ind, candles);
 
     const price = closes.at(-1) ?? 0;
     const bist = findBistCompany(ticker);

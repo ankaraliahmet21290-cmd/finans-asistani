@@ -7,7 +7,7 @@ import SignalCard from "./SignalCard";
 import SignalBadge from "./SignalBadge";
 import { MacdChart, RsiChart } from "./IndicatorCharts";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
-import { formatNumber, formatPercent, formatSigned } from "@/lib/format";
+import { formatNumber, formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { AnalysisResult, AssetType } from "@/lib/types";
 
@@ -62,26 +62,24 @@ type TabType = "hybrid" | "tech" | "fund";
 export default function SymbolDetail({ ticker, type }: { ticker: string; type: AssetType }) {
   const [selectedTf, setSelectedTf] = useState<TimeframeKey>("1d");
   const [activeTab, setActiveTab] = useState<TabType>("hybrid");
-  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
-  const [cache, setCache] = useState<Partial<Record<TimeframeKey, AnalysisResult>>>({});
-  const [loadingTf, setLoadingTf] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  // Load saved interval preference from localStorage on mount
-  useEffect(() => {
+  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(() => {
     try {
-      const saved = localStorage.getItem("symbol_refresh_interval");
-      if (saved != null) {
-        const parsed = Number(saved) as RefreshInterval;
-        if ([0, 15, 30, 60, 120, 300].includes(parsed)) {
-          setRefreshInterval(parsed);
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("symbol_refresh_interval");
+        if (saved != null) {
+          const parsed = Number(saved) as RefreshInterval;
+          if ([0, 15, 30, 60, 120, 300].includes(parsed)) return parsed;
         }
       }
     } catch {
       // ignore
     }
-  }, []);
+    return 30;
+  });
+  const [cache, setCache] = useState<Partial<Record<TimeframeKey, AnalysisResult>>>({});
+  const [loadingTf, setLoadingTf] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   const fetchTimeframeData = useCallback(
     async (tf: TimeframeKey, force = false) => {
@@ -380,6 +378,39 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 w-[40%]" title="Temel Ağırlık %40" />
               </div>
             </div>
+
+            {/* Actionable Summary Metrics */}
+            <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-zinc-800/80">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
+                <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Trend Rejimi (ADX)</span>
+                <span className="font-semibold text-xs text-zinc-200">
+                  {currentResult.tech.trendStrength?.regime === "strong_trend"
+                    ? "🔥 Güçlü Trend"
+                    : currentResult.tech.trendStrength?.regime === "ranging"
+                    ? "⚡ Yatay Piyasa"
+                    : "📈 Ilımlı Trend"}
+                  {currentResult.tech.trendStrength?.adx != null ? ` (${currentResult.tech.trendStrength.adx})` : ""}
+                </span>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
+                <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Dinamik Stop-Loss (ATR)</span>
+                <span className="font-mono font-bold text-xs text-red-400">
+                  {currentResult.tech.volatility?.stopLoss != null
+                    ? formatPrice(currentResult.tech.volatility.stopLoss, currentResult.currency)
+                    : "—"}
+                </span>
+              </div>
+              <div className="col-span-2 sm:col-span-1 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
+                <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Değerleme / Büyüme (PEG)</span>
+                <span className="font-mono font-bold text-xs text-amber-400">
+                  {currentResult.fundamentals?.peg != null
+                    ? `${currentResult.fundamentals.peg.toFixed(2)} (${currentResult.fundamentals.peg <= 1.0 ? "İskontolu" : "Primli"})`
+                    : currentResult.fundamentals?.pe != null
+                    ? `F/K ${currentResult.fundamentals.pe.toFixed(1)}`
+                    : "Makro"}
+                </span>
+              </div>
+            </div>
           </section>
 
           {/* Main Price Chart */}
@@ -522,7 +553,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   </span>
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  RSI, MACD, SMA50/SMA200 Cross, Bollinger Dönüşleri ve SMA200 Trendi ile üretilen teknik sinyal.
+                  RSI, Stokastik, MACD, EMA20/50, SMA50/200 Cross, Bollinger, ADX Trend Gücü, Hacim ve ATR Riski ile 10 boyutlu teknik analiz.
                 </p>
               </div>
             </div>
@@ -544,6 +575,94 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 >
                   {formatSigned(currentResult.tech.score)}
                 </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Key Indicators Grid: ADX Trend Rejimi + ATR Risk Yönetimi */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* ADX Trend Gücü & Rejimi */}
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-lg backdrop-blur-md">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🧭</span>
+                  <h3 className="text-xs sm:text-sm font-bold text-zinc-100">
+                    ADX(14) Trend Gücü & Piyasa Rejimi
+                  </h3>
+                </div>
+                <span className="font-mono text-xs font-bold text-sky-400">
+                  ADX: {currentResult.tech.trendStrength?.adx ?? currentResult.ind.adx?.at(-1)?.adx.toFixed(1) ?? "—"}
+                </span>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Piyasa Rejimi:</span>
+                  <span
+                    className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
+                      currentResult.tech.trendStrength?.regime === "strong_trend"
+                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                        : currentResult.tech.trendStrength?.regime === "ranging"
+                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                        : "bg-sky-500/15 text-sky-400 border border-sky-500/30"
+                    }`}
+                  >
+                    {currentResult.tech.trendStrength?.regime === "strong_trend"
+                      ? "🔥 Güçlü Trend (ADX ≥ 25)"
+                      : currentResult.tech.trendStrength?.regime === "ranging"
+                      ? "⚡ Yatay / Testere Piyasası (ADX < 20)"
+                      : "📈 Gelişen Trend (ADX 20-25)"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Yön Eğilimi (+DI / -DI):</span>
+                  <span className="font-mono font-bold text-zinc-200">
+                    {currentResult.tech.trendStrength?.direction === "up"
+                      ? "🟢 Boğa Baskın (+DI > -DI)"
+                      : "🔴 Ayı Baskın (-DI > +DI)"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 border-t border-zinc-800/60 pt-2 mt-2 leading-relaxed">
+                  {currentResult.tech.trendStrength?.regime === "ranging"
+                    ? "Yatay piyasada hareketli ortalama kesişimleri yerine RSI ve Stokastik dip/tepe osilatörlerine öncelik verin."
+                    : "Güçlü trend rejiminde trend yönündeki kırılımlar ve EMA takibi yüksek başarı oranına sahiptir."}
+                </p>
+              </div>
+            </div>
+
+            {/* ATR Dinamik Risk & Stop-Loss Yönetimi */}
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-lg backdrop-blur-md">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🎯</span>
+                  <h3 className="text-xs sm:text-sm font-bold text-zinc-100">
+                    ATR(14) Dinamik Volatilite & Risk Yönetimi
+                  </h3>
+                </div>
+                <span className="font-mono text-xs font-bold text-amber-400">
+                  Volatilite: %{currentResult.tech.volatility?.atrPercent ?? "—"}
+                </span>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Dinamik Stop-Loss (1.5x ATR):</span>
+                  <span className="font-mono font-bold text-red-400">
+                    {currentResult.tech.volatility?.stopLoss != null
+                      ? formatPrice(currentResult.tech.volatility.stopLoss, currentResult.currency)
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Dinamik Kâr Al / Hedef (2.5x ATR):</span>
+                  <span className="font-mono font-bold text-emerald-400">
+                    {currentResult.tech.volatility?.takeProfit != null
+                      ? formatPrice(currentResult.tech.volatility.takeProfit, currentResult.currency)
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-zinc-800/60 pt-2 mt-2">
+                  <span className="text-zinc-500">Önerilen Risk/Kazanç Oranı:</span>
+                  <span className="font-mono font-semibold text-zinc-300">1 : 1.67 Pozitif Asimetri</span>
+                </div>
               </div>
             </div>
           </div>
@@ -601,10 +720,84 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             </Panel>
           </div>
 
+          {/* Auxiliary Indicators Row: Stochastic, EMA20/50, Volume */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {/* Stokastik */}
+            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3.5">
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span className="font-semibold text-zinc-300">⚡ Stokastik (14,3,3)</span>
+                <span className="font-mono font-bold text-sky-400">
+                  {currentResult.ind.stoch?.at(-1)
+                    ? `%K: ${currentResult.ind.stoch.at(-1)!.k.toFixed(0)} · %D: ${currentResult.ind.stoch.at(-1)!.d.toFixed(0)}`
+                    : "—"}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-zinc-400 leading-snug">
+                {(() => {
+                  const s = currentResult.ind.stoch?.at(-1);
+                  if (!s) return "Yetersiz veri";
+                  if (s.k < 20) return "Aşırı satım bölgesinde dip dönüşü aranıyor";
+                  if (s.k > 80) return "Aşırı alım bölgesinde tepe yorulması riski";
+                  return s.k > s.d ? "%K > %D pozitif momentum üstünlüğü" : "%K < %D negatif momentum baskısı";
+                })()}
+              </p>
+            </div>
+
+            {/* EMA 20 & EMA 50 */}
+            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3.5">
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span className="font-semibold text-zinc-300">📏 EMA 20 / EMA 50</span>
+                <span className="font-mono font-bold text-indigo-400">
+                  {currentResult.ind.ema20?.at(-1) != null
+                    ? `${formatPrice(currentResult.ind.ema20.at(-1)!, currentResult.currency)}`
+                    : "—"}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-zinc-400 leading-snug">
+                {(() => {
+                  const e20 = currentResult.ind.ema20?.at(-1);
+                  const e50 = currentResult.ind.ema50?.at(-1);
+                  if (!e20 || !e50) return "Yetersiz veri";
+                  return e20 > e50
+                    ? "EMA20 > EMA50: Kısa vadeli yükseliş trendi etkin"
+                    : "EMA20 < EMA50: Kısa vadeli düşüş trendi baskısı";
+                })()}
+              </p>
+            </div>
+
+            {/* Hacim Teyidi */}
+            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3.5">
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span className="font-semibold text-zinc-300">📊 20G Hacim Teyidi</span>
+                <span className="font-mono font-bold text-amber-400">
+                  {(() => {
+                    const v = currentResult.candles.at(-1)?.volume;
+                    const vSma = currentResult.ind.volSma20?.at(-1);
+                    if (v && vSma && vSma > 0) {
+                      return `%${((v / vSma) * 100).toFixed(0)} Katılım`;
+                    }
+                    return "Standart";
+                  })()}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-zinc-400 leading-snug">
+                {(() => {
+                  const v = currentResult.candles.at(-1)?.volume;
+                  const vSma = currentResult.ind.volSma20?.at(-1);
+                  if (!v || !vSma || vSma === 0) return "Hacim verisi takip ediliyor";
+                  const ratio = v / vSma;
+                  if (ratio >= 1.3) return "Ortalamanın üzerinde hacimli kurumsal işlem katılımı";
+                  if (ratio < 0.7) return "Zayıf hacimli piyasa katılımı / temkinli fiyatlama";
+                  return "20 günlük normal hacim seyrinde";
+                })()}
+              </p>
+            </div>
+          </div>
+
           {/* Technical Reasons & Rule Scoring Breakdown */}
           <Panel
             title={`Teknik İndikatör Puan Dökümü (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
-            subtitle="Tüm göstergelerin kurallara göre ürettiği puanlar ve gerekçeleri"
+            subtitle="10 farklı teknik göstergenin kurallara göre ürettiği puanlar ve gerekçeleri"
           >
             <div className="grid gap-3 sm:grid-cols-2">
               {currentResult.tech.items.map((item) => (
@@ -645,13 +838,13 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <span className="flex h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-zinc-100 flex items-center gap-2">
-                  Saf Temel Analiz & Bilanço Modu
+                  Kurumsal Temel Analiz & Bilanço Modu
                   <span className="rounded-md bg-amber-500/20 px-2 py-0.5 font-mono text-xs text-amber-300 font-bold">
-                    Mali Tablolar
+                    4 Boyutlu Bilanço Karnesi
                   </span>
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  F/K, PD/DD, ROE (Özkaynak Kârlılığı), Borç/Özkaynak ve Gelir Büyümesi ile temel değerleme.
+                  Değerleme (F/K, PD/DD, PEG), Kârlılık (ROE, ROA, Net & Faaliyet Marjı), Borçluluk (Borç/Özkaynak, Cari Oran) ve Büyüme göstergeleri.
                 </p>
               </div>
             </div>
@@ -679,42 +872,163 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
           {currentResult.fund ? (
             <>
-              {/* Detailed Metrics Table & Cards */}
-              <Panel
-                title="Şirket Değerleme & Mali Rasyo Analizi"
-                subtitle="Finansal sağlık, kârlılık ve çarpan göstergeleri"
-              >
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {currentResult.fund.metrics.map((m) => (
-                    <div
-                      key={m.key}
-                      className="flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3.5 transition hover:border-zinc-700"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-zinc-300">{m.label}</span>
-                        <span
-                          className={`rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
-                            m.point
-                          )}`}
+              {/* 4-Category Institutional Breakdown */}
+              <div className="grid gap-5 md:grid-cols-2">
+                {/* 1. Değerleme & Çarpanlar */}
+                <Panel
+                  title="📊 Değerleme & Çarpanlar"
+                  subtitle="Piyasa fiyatının şirket kârı ve defter değerine oranı"
+                >
+                  <div className="space-y-2.5">
+                    {currentResult.fund.metrics
+                      .filter((m) => m.category === "valuation" || ["pe", "pb", "peg"].includes(m.key))
+                      .map((m) => (
+                        <div
+                          key={m.key}
+                          className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3"
                         >
-                          {m.point > 0 ? "+" : ""}
-                          {m.point}
-                        </span>
-                      </div>
-                      <div className="my-2.5">
-                        <span className="text-2xl font-bold font-mono text-zinc-100 tabular-nums">
-                          {m.display}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 leading-snug">{m.detail}</p>
-                    </div>
-                  ))}
-                </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
+                          </div>
+                          <div className="flex items-center gap-2.5 text-right shrink-0">
+                            <span className="font-mono text-base font-bold text-zinc-100">{m.display}</span>
+                            <span
+                              className={`rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                                m.point
+                              )}`}
+                            >
+                              {m.point > 0 ? "+" : ""}
+                              {m.point}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Panel>
 
-                <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-xs text-zinc-400 leading-relaxed">
-                  💡 <strong>Temel Analiz Kuralı:</strong> F/K &lt; 15 ve PD/DD &lt; 1.5 varlık ucuzluğu (+1); ROE &gt; %15 kârlılık gücü (+1); Borç/Özkaynak &lt; %100 düşük borç riski (+1); Gelir büyümesi &gt; %10 büyüme ivmesi (+1) sağlar. Negatif veya aşırı yüksek değerler skoru düşürür.
-                </div>
-              </Panel>
+                {/* 2. Kârlılık & Verimlilik */}
+                <Panel
+                  title="💼 Kârlılık & Marjlar"
+                  subtitle="Özkaynak, aktif varlık ve satışların kârlılığı"
+                >
+                  <div className="space-y-2.5">
+                    {currentResult.fund.metrics
+                      .filter(
+                        (m) =>
+                          m.category === "profitability" ||
+                          ["roe", "roa", "profitMargins", "operatingMargins"].includes(m.key)
+                      )
+                      .map((m) => (
+                        <div
+                          key={m.key}
+                          className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
+                          </div>
+                          <div className="flex items-center gap-2.5 text-right shrink-0">
+                            <span className="font-mono text-base font-bold text-zinc-100">{m.display}</span>
+                            <span
+                              className={`rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                                m.point
+                              )}`}
+                            >
+                              {m.point > 0 ? "+" : ""}
+                              {m.point}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Panel>
+
+                {/* 3. Mali Sağlamlık & Borçluluk */}
+                <Panel
+                  title="🛡️ Mali Sağlamlık & Likidite"
+                  subtitle="Borç yükü ve kısa vadeli borç ödeme kapasitesi"
+                >
+                  <div className="space-y-2.5">
+                    {currentResult.fund.metrics
+                      .filter((m) => m.category === "solvency" || ["debtToEquity", "currentRatio"].includes(m.key))
+                      .map((m) => (
+                        <div
+                          key={m.key}
+                          className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
+                          </div>
+                          <div className="flex items-center gap-2.5 text-right shrink-0">
+                            <span className="font-mono text-base font-bold text-zinc-100">{m.display}</span>
+                            <span
+                              className={`rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                                m.point
+                              )}`}
+                            >
+                              {m.point > 0 ? "+" : ""}
+                              {m.point}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Panel>
+
+                {/* 4. Büyüme & Temettü */}
+                <Panel
+                  title="🚀 Büyüme & Temettü Getirisi"
+                  subtitle="Satış geliri büyüme ivmesi ve yatırımcıya kâr payı dağıtımı"
+                >
+                  <div className="space-y-2.5">
+                    {currentResult.fund.metrics
+                      .filter((m) => m.category === "growth" || ["revenueGrowth", "dividendYield"].includes(m.key))
+                      .map((m) => (
+                        <div
+                          key={m.key}
+                          className="flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-zinc-200">{m.label}</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">{m.detail}</p>
+                          </div>
+                          <div className="flex items-center gap-2.5 text-right shrink-0">
+                            <span className="font-mono text-base font-bold text-zinc-100">{m.display}</span>
+                            <span
+                              className={`rounded border px-2 py-0.5 font-mono text-xs tabular-nums ${pointColor(
+                                m.point
+                              )}`}
+                            >
+                              {m.point > 0 ? "+" : ""}
+                              {m.point}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Panel>
+              </div>
+
+              {/* Institutional Methodology Box */}
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 text-xs text-zinc-400 leading-relaxed shadow-lg">
+                💡 <strong>Genişletilmiş Temel Analiz Kriterleri:</strong>
+                <ul className="mt-2 space-y-1 list-disc list-inside text-zinc-300">
+                  <li><strong>Değerleme:</strong> F/K &lt; 15, PD/DD &lt; 1.5 ve PEG ≤ 1.0 (Peter Lynch büyüme iskontosu) varlık ucuzluğu (+1).</li>
+                  <li><strong>Kârlılık:</strong> ROE &gt; %15, ROA &gt; %5 ve Faaliyet Marjı &gt; %15 güçlü operasyonel güç (+1).</li>
+                  <li><strong>Mali Sağlamlık:</strong> Borç/Özkaynak &lt; %100 ve Cari Oran ≥ 1.2 kısa vadeli borç riskini bertaraf eder (+1).</li>
+                  <li><strong>Büyüme & Temettü:</strong> Gelir Büyümesi &gt; %10 ve cazip temettü getirisi nakit akışı sağlar (+1).</li>
+                </ul>
+              </div>
 
               {/* Price Chart for Context */}
               <Panel

@@ -42,9 +42,11 @@ function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
     const close = chunk[chunk.length - 1].close;
     let high = -Infinity;
     let low = Infinity;
+    let volume = 0;
     for (const c of chunk) {
       if (c.high > high) high = c.high;
       if (c.low < low) low = c.low;
+      if (c.volume != null) volume += c.volume;
     }
     result.push({
       date: chunk[0].date,
@@ -52,6 +54,7 @@ function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
       high,
       low,
       close,
+      volume,
     });
   }
   return result;
@@ -116,6 +119,7 @@ export async function getCandles(ticker: string, tf: TimeframeKey = "1d"): Promi
         high: Math.max(q.high, close),
         low: Math.min(q.low, close),
         close,
+        volume: q.volume ?? 0,
       });
     }
 
@@ -154,12 +158,29 @@ export async function getFundamentals(ticker: string): Promise<Fundamentals> {
       (s.summaryDetail?.forwardPE as number | undefined) ??
       null;
 
+    const pb = (s.defaultKeyStatistics?.priceToBook as number | undefined) ?? null;
+    const peg = (s.defaultKeyStatistics?.pegRatio as number | undefined) ?? null;
+    const roe = (s.financialData?.returnOnEquity as number | undefined) ?? null;
+    const roa = (s.financialData?.returnOnAssets as number | undefined) ?? null;
+    const profitMargins = (s.financialData?.profitMargins as number | undefined) ?? null;
+    const operatingMargins = (s.financialData?.operatingMargins as number | undefined) ?? null;
+    const debtToEquity = (s.financialData?.debtToEquity as number | undefined) ?? null;
+    const currentRatio = (s.financialData?.currentRatio as number | undefined) ?? null;
+    const revenueGrowth = (s.financialData?.revenueGrowth as number | undefined) ?? null;
+    const dividendYield = (s.summaryDetail?.dividendYield as number | undefined) ?? null;
+
     return {
       pe,
-      pb: (s.defaultKeyStatistics?.priceToBook as number | undefined) ?? null,
-      roe: (s.financialData?.returnOnEquity as number | undefined) ?? null,
-      debtToEquity: (s.financialData?.debtToEquity as number | undefined) ?? null,
-      revenueGrowth: (s.financialData?.revenueGrowth as number | undefined) ?? null,
+      pb,
+      peg,
+      roe,
+      roa,
+      profitMargins,
+      operatingMargins,
+      debtToEquity,
+      currentRatio,
+      revenueGrowth,
+      dividendYield,
     };
   });
 }
