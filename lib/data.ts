@@ -6,7 +6,7 @@ const yf = new YahooFinance({
   versionCheck: false,
 });
 
-const CACHE_TTL_MS = 120_000;
+const CACHE_TTL_MS = 30_000; // 30 seconds fresh data TTL
 const cache = new Map<string, { at: number; value: unknown }>();
 
 async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {

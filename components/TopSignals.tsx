@@ -190,6 +190,13 @@ export default function TopSignals() {
 
   useEffect(() => {
     void fetchSignals();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      void fetchSignals(true);
+    }, 30_000);
+
+    return () => clearInterval(interval);
   }, [fetchSignals]);
 
   return (

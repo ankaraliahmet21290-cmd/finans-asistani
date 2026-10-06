@@ -6,6 +6,7 @@ import PriceChart from "./PriceChart";
 import SignalCard from "./SignalCard";
 import SignalBadge from "./SignalBadge";
 import { MacdChart, RsiChart } from "./IndicatorCharts";
+import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import { formatNumber, formatPercent, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { AnalysisResult, AssetType } from "@/lib/types";
@@ -57,14 +58,30 @@ type TabType = "hybrid" | "tech" | "fund";
 export default function SymbolDetail({ ticker, type }: { ticker: string; type: AssetType }) {
   const [selectedTf, setSelectedTf] = useState<TimeframeKey>("1d");
   const [activeTab, setActiveTab] = useState<TabType>("hybrid");
+  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
   const [cache, setCache] = useState<Partial<Record<TimeframeKey, AnalysisResult>>>({});
   const [loadingTf, setLoadingTf] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  // Load saved interval preference from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("symbol_refresh_interval");
+      if (saved != null) {
+        const parsed = Number(saved) as RefreshInterval;
+        if ([0, 15, 30, 60, 120, 300].includes(parsed)) {
+          setRefreshInterval(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const fetchTimeframeData = useCallback(
-    async (tf: TimeframeKey) => {
-      if (cache[tf]) return; // Already cached
+    async (tf: TimeframeKey, force = false) => {
+      if (!force && cache[tf]) return; // Already cached
       setLoadingTf(true);
       setError(null);
       try {
@@ -88,7 +105,16 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
   useEffect(() => {
     void fetchTimeframeData(selectedTf);
-  }, [fetchTimeframeData, selectedTf]);
+
+    if (refreshInterval <= 0) return;
+
+    // Configurable auto-refresh interval
+    const interval = setInterval(() => {
+      void fetchTimeframeData(selectedTf, true);
+    }, refreshInterval * 1000);
+
+    return () => clearInterval(interval);
+  }, [fetchTimeframeData, selectedTf, refreshInterval]);
 
   const currentResult = cache[selectedTf] ?? null;
 
@@ -139,16 +165,16 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
           </svg>
           Takip Listesine Dön
         </Link>
-        <div className="flex items-center gap-2">
-          {loadingTf && (
-            <span className="flex items-center gap-1.5 text-xs text-sky-400 animate-pulse">
-              <span className="h-2 w-2 rounded-full bg-sky-400 animate-ping" />
-              Periyot güncelleniyor…
-            </span>
-          )}
-          <span className="text-xs text-zinc-500 font-mono">
-            {new Date(currentResult.updatedAt).toLocaleTimeString("tr-TR")}
-          </span>
+        <div className="flex items-center gap-2.5">
+          <AutoRefreshControl
+            intervalSeconds={refreshInterval}
+            onIntervalChange={(sec) => setRefreshInterval(sec)}
+            onRefresh={() => void fetchTimeframeData(selectedTf, true)}
+            isRefreshing={loadingTf}
+            lastUpdated={currentResult.updatedAt}
+            storageKey="symbol_refresh_interval"
+            size="sm"
+          />
         </div>
       </div>
 

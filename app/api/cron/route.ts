@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { analyzeSymbol } from "@/lib/analyze";
 import { sendSignalMail } from "@/lib/mail";
 import { getPendingMail, getSignal, setPendingMail, setSignal } from "@/lib/store";
-import { WATCHLIST } from "@/lib/watchlist";
+import { getWatchlistFromFile } from "@/lib/watchlist-storage";
 import type { SignalMailItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,9 @@ export async function GET(req: Request) {
   const errors: { ticker: string; error: string }[] = [];
   const changed: SignalMailItem[] = [];
 
-  for (const w of WATCHLIST) {
+  const watchlist = await getWatchlistFromFile();
+
+  for (const w of watchlist) {
     try {
       const res = await analyzeSymbol(w.ticker, w.type);
 
@@ -64,7 +66,7 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
-    checked: WATCHLIST.length,
+    checked: watchlist.length,
     ok: results.length,
     changed: changed.length,
     mailed,

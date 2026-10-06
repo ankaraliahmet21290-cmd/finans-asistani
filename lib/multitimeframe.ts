@@ -69,7 +69,7 @@ function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
 
 // In-memory cache for candles to minimize Yahoo calls
 const tfCache = new Map<string, { at: number; data: Candle[] }>();
-const TF_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+const TF_CACHE_TTL = 30 * 1000; // 30 seconds
 
 export async function getTimeframeCandles(
   ticker: string,
@@ -94,16 +94,23 @@ export async function getTimeframeCandles(
       rawCandles = h1Hit.data;
     } else {
       const res = await yf.chart(ticker, { interval: "1h", period1 });
-      const valid = res.quotes.filter(
-        (q) => q.close != null && q.open != null && q.high != null && q.low != null
-      );
-      rawCandles = valid.map((q) => ({
-        date: q.date.toISOString(),
-        open: q.open as number,
-        high: q.high as number,
-        low: q.low as number,
-        close: q.close as number,
-      }));
+      const lastIdx = res.quotes.length - 1;
+      rawCandles = res.quotes
+        .map((q, idx) => {
+          let close = q.close;
+          if (close == null && idx === lastIdx && res.meta.regularMarketPrice != null) {
+            close = res.meta.regularMarketPrice;
+          }
+          if (close == null || q.open == null || q.high == null || q.low == null) return null;
+          return {
+            date: q.date.toISOString(),
+            open: q.open as number,
+            high: Math.max(q.high as number, close),
+            low: Math.min(q.low as number, close),
+            close: close as number,
+          };
+        })
+        .filter((c): c is Candle => c !== null);
       tfCache.set(h1Key, { at: Date.now(), data: rawCandles });
     }
 
@@ -126,16 +133,23 @@ export async function getTimeframeCandles(
   // Daily, Weekly, Monthly
   const interval = tf === "1wk" ? "1wk" : tf === "1mo" ? "1mo" : "1d";
   const res = await yf.chart(ticker, { interval, period1 });
-  const valid = res.quotes.filter(
-    (q) => q.close != null && q.open != null && q.high != null && q.low != null
-  );
-  rawCandles = valid.map((q) => ({
-    date: q.date.toISOString(),
-    open: q.open as number,
-    high: q.high as number,
-    low: q.low as number,
-    close: q.close as number,
-  }));
+  const lastIdx = res.quotes.length - 1;
+  rawCandles = res.quotes
+    .map((q, idx) => {
+      let close = q.close;
+      if (close == null && idx === lastIdx && res.meta.regularMarketPrice != null) {
+        close = res.meta.regularMarketPrice;
+      }
+      if (close == null || q.open == null || q.high == null || q.low == null) return null;
+      return {
+        date: q.date.toISOString(),
+        open: q.open as number,
+        high: Math.max(q.high as number, close),
+        low: Math.min(q.low as number, close),
+        close: close as number,
+      };
+    })
+    .filter((c): c is Candle => c !== null);
 
   tfCache.set(cacheKey, { at: Date.now(), data: rawCandles });
   return rawCandles;

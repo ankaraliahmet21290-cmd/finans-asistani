@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 let cachedTfData: CategorizedSignals | null = null;
 let lastScanAt = 0;
-const TF_CACHE_MS = 2 * 60 * 1000; // 2 minutes
+const TF_CACHE_MS = 30 * 1000; // 30 seconds
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

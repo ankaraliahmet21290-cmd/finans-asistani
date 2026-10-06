@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import { formatPrice, formatSigned } from "@/lib/format";
 import type { CategorizedSignals, TimeframeStockSignal } from "@/lib/multitimeframe";
 import type { CategoryTimeframeKey } from "@/lib/timeframes";
@@ -22,9 +23,25 @@ export default function TimeframeSignals() {
   const [activeTab, setActiveTab] = useState<"all" | CategoryTimeframeKey>("all");
   const [signalMode, setSignalMode] = useState<SignalMode>("hybrid");
   const [loading, setLoading] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Load saved interval preference from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("scanner_refresh_interval");
+      if (saved != null) {
+        const parsed = Number(saved) as RefreshInterval;
+        if ([0, 15, 30, 60, 120, 300].includes(parsed)) {
+          setRefreshInterval(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchData = useCallback(async (force = false) => {
     try {
@@ -68,7 +85,15 @@ export default function TimeframeSignals() {
 
   useEffect(() => {
     void fetchData();
-  }, [fetchData]);
+
+    if (refreshInterval <= 0) return;
+
+    const interval = setInterval(() => {
+      void fetchData(true);
+    }, refreshInterval * 1000);
+
+    return () => clearInterval(interval);
+  }, [fetchData, refreshInterval]);
 
   const activeCategories: CategoryTimeframeKey[] = (
     activeTab === "all"
@@ -119,7 +144,16 @@ export default function TimeframeSignals() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <AutoRefreshControl
+              intervalSeconds={refreshInterval}
+              onIntervalChange={(sec) => setRefreshInterval(sec)}
+              onRefresh={() => void fetchData(true)}
+              isRefreshing={loading}
+              lastUpdated={data?.scannedAt}
+              storageKey="scanner_refresh_interval"
+              size="sm"
+            />
             <button
               onClick={triggerScanAndMail}
               disabled={scanning}

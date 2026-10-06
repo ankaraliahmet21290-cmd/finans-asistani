@@ -50,7 +50,8 @@ app/
    ├─ analyze/route.ts       # tek sembol analizi (UI bunu çağırır)
    └─ cron/route.ts          # tüm liste analizi + sinyal değişimi + mail
 lib/
-├─ watchlist.ts              # takip listesi
+├─ watchlist.ts              # takip listesi tipleri ve yardımcıları
+├─ watchlist-storage.ts      # watchlist.md okuma/yazma motoru
 ├─ data.ts                   # fiyat + temel veri (yahoo-finance2)
 ├─ indicators.ts             # RSI, MACD, SMA, Bollinger
 ├─ scoring.ts                # teknik/temel skor ve nihai sinyal
@@ -58,6 +59,7 @@ lib/
 ├─ store.ts                  # önceki sinyal + bekleyen mail (KV / bellek)
 ├─ mail.ts                   # Resend ile e-posta
 ├─ types.ts, format.ts
+watchlist.md                 # dinamik takip listesi dosyası (Markdown tablosu)
 components/
 ├─ WatchlistTable.tsx        # ana sayfa tablosu
 ├─ SymbolDetail.tsx          # detay sayfası düzeni

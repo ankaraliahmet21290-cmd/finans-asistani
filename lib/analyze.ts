@@ -33,7 +33,7 @@ export async function analyzeSymbol(
   );
 
   const price = candleResult.regularMarketPrice ?? closes.at(-1) ?? 0;
-  const prevClose = candleResult.previousClose ?? closes.at(-2) ?? price;
+  const prevClose = closes.length >= 2 ? closes.at(-2)! : price;
   const change = price - prevClose;
   const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0;
 

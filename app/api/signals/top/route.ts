@@ -30,7 +30,7 @@ export interface TopSignalsResponse {
 // In-memory cache for top signals: 5 minutes TTL
 let cachedData: TopSignalsResponse | null = null;
 let lastFetchedAt = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 1000; // 30 seconds fresh data TTL
 let fetchPromise: Promise<TopSignalsResponse> | null = null;
 
 async function computeTopSignals(): Promise<TopSignalsResponse> {
