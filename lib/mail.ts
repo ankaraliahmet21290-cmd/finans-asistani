@@ -123,7 +123,10 @@ export async function sendSignalMail(items: SignalMailItem[]): Promise<boolean> 
 }
 
 // Multi-timeframe categorized email sender (1h, 2h, 4h, 1wk, 1mo)
-export async function sendCategorizedTimeframeMail(data: CategorizedSignals): Promise<boolean> {
+export async function sendCategorizedTimeframeMail(
+  data: CategorizedSignals,
+  frequencyLabel = "15 Dakikalık"
+): Promise<boolean> {
   const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const scanTime = new Date(data.scannedAt).toLocaleTimeString("tr-TR", {
     hour: "2-digit",
@@ -251,7 +254,7 @@ export async function sendCategorizedTimeframeMail(data: CategorizedSignals): Pr
   <div class="container">
     <div class="header">
       <h2>Finans Asistanı · Seans İçi Çoklu Zaman Dilimi Raporu</h2>
-      <p>15 Dakikalık Otomatik Tarama (09:50 - 18:00) · <strong>${scanDate} ${scanTime}</strong></p>
+      <p>${frequencyLabel} Otomatik Tarama (09:50 - 18:00) · <strong>${scanDate} ${scanTime}</strong></p>
     </div>
     <div class="content">
       <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 12px; color: #0369a1;">

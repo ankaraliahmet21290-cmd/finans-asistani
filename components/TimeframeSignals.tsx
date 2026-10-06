@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
+import MailScheduleControl from "./MailScheduleControl";
 import { formatPrice, formatSigned } from "@/lib/format";
 import type { CategorizedSignals, TimeframeStockSignal } from "@/lib/multitimeframe";
 import type { CategoryTimeframeKey } from "@/lib/timeframes";
+import type { MailScheduleConfig } from "@/lib/mail-settings-storage";
 
 const TIMEFRAME_TABS: Array<{ key: "all" | CategoryTimeframeKey; label: string; badge: string }> = [
   { key: "all", label: "Tüm Periyotlar", badge: "Özet" },
@@ -27,6 +29,7 @@ export default function TimeframeSignals() {
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mailConfig, setMailConfig] = useState<MailScheduleConfig | null>(null);
 
   // Load saved interval preference from localStorage on mount
   useEffect(() => {
@@ -69,7 +72,7 @@ export default function TimeframeSignals() {
       if (json.ok) {
         setScanMessage(
           json.mailed
-            ? "✓ 15 dk taraması tamamlandı ve e-posta başarıyla gönderildi!"
+            ? `✓ Tarama tamamlandı ve ${mailConfig?.emailLabel ?? "özet"} e-posta başarıyla gönderildi!`
             : `✓ Tarama tamamlandı. (${json.signalsCount} sinyal bulundu)`
         );
         void fetchData(true);
@@ -132,19 +135,40 @@ export default function TimeframeSignals() {
               <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
             </span>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-zinc-100 flex items-center gap-2">
-                Çoklu Zaman Dilimi AL/SAT Taraması
-                <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[11px] font-mono font-semibold text-sky-400">
-                  15 Dk Otomatik
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-zinc-100">
+                  Çoklu Zaman Dilimi AL/SAT Taraması
+                </h2>
+                {mailConfig?.intervalKey === "off" ? (
+                  <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[11px] font-mono font-semibold text-zinc-400 border border-zinc-700">
+                    Mail: Kapalı
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-indigo-500/20 px-2 py-0.5 text-[11px] font-mono font-semibold text-indigo-300 border border-indigo-500/30">
+                    ✉️ {mailConfig?.label ?? "15 dk"} Otomatik
+                  </span>
+                )}
+                <span className="rounded-md bg-zinc-800/80 px-2 py-0.5 text-[10px] font-mono text-zinc-400 border border-zinc-700/60 hidden sm:inline-flex">
+                  mail-settings.md
                 </span>
-              </h2>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Pazartesi - Cuma · <strong>09:50 - 18:00</strong> seans saatlerinde her 15 dakikada bir otomatik kategorize e-posta gönderir.
+              </div>
+              <p className="text-xs text-zinc-400 mt-1">
+                {mailConfig?.intervalKey === "off"
+                  ? "Otomatik e-posta gönderimi kapalıdır (mail-settings.md). İstediğiniz zaman sağdaki butondan anlık tarayıp gönderebilirsiniz."
+                  : mailConfig?.intervalKey === "daily"
+                  ? "Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde günde 1 kez otomatik kategorize e-posta gönderir."
+                  : `Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde her ${
+                      mailConfig?.label ?? "15 dakikada bir"
+                    } otomatik kategorize e-posta gönderir.`}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <MailScheduleControl
+              size="sm"
+              onScheduleChange={(cfg) => setMailConfig(cfg)}
+            />
             <AutoRefreshControl
               intervalSeconds={refreshInterval}
               onIntervalChange={(sec) => setRefreshInterval(sec)}
