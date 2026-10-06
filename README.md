@@ -52,6 +52,7 @@ app/
 lib/
 ├─ watchlist.ts              # takip listesi tipleri ve yardımcıları
 ├─ watchlist-storage.ts      # watchlist.md okuma/yazma motoru
+├─ timeframe-settings-storage.ts # timeframe-settings.md okuma/yazma ve periyot motoru
 ├─ mail-settings-storage.ts  # mail-settings.md okuma/yazma ve sıklık motoru
 ├─ refresh-settings-storage.ts # refresh-settings.md okuma/yazma ve önbellek TTL motoru
 ├─ refresh-settings-types.ts # veri yenileme tipleri ve seçenekleri
@@ -64,11 +65,13 @@ lib/
 ├─ mail.ts                   # e-posta gönderim motoru (Gmail / Resend)
 ├─ types.ts, format.ts
 watchlist.md                 # dinamik takip listesi dosyası (Markdown tablosu)
+timeframe-settings.md        # takip listesi ve lider sinyaller analiz periyotları (1s, 2s, 4s, 1d, 1wk, 1mo)
 mail-settings.md             # e-posta bildirim sıklığı ayar dosyası (5dk, 10dk, 1 saat, günlük vb.)
 refresh-settings.md          # ekran veri yenileme sıklığı ve önbellek TTL ayar dosyası (15sn, 30sn, 1dk vb.)
 components/
 ├─ WatchlistTable.tsx        # ana sayfa tablosu
 ├─ SymbolDetail.tsx          # detay sayfası düzeni
+├─ TimeframeSelector.tsx     # 1S, 2S, 4S, Günlük, 1H, 1A periyot seçici (.md senkronize)
 ├─ AutoRefreshControl.tsx    # ekrandan canlı veri yenileme sıklık seçici (.md senkronize)
 ├─ PriceChart.tsx            # mum + SMA50/200 + Bollinger
 ├─ IndicatorCharts.tsx       # RSI ve MACD panelleri

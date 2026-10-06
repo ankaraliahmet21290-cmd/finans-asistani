@@ -155,7 +155,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
   return (
     <div className="flex flex-col gap-5">
       {/* Top Header Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+      <div className="relative z-30 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition"
@@ -174,6 +174,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             lastUpdated={currentResult.updatedAt}
             storageKey="symbol_refresh_interval"
             size="sm"
+            align="right"
           />
         </div>
       </div>
@@ -182,7 +183,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
       <SignalCard result={currentResult} activeTab={activeTab} />
 
       {/* Control Bar: Timeframe Selector & Tabs */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 sm:p-4 backdrop-blur-md">
+      <div className="relative z-10 flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 sm:p-4 backdrop-blur-md">
         {/* Timeframe Selector (Saatlik, Günlük, Haftalık, vb.) */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">

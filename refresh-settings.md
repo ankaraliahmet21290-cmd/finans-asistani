@@ -10,7 +10,7 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Saniye | 30 | Sayısal saniye karşılığı (0 = kapalı) |
 | Aktif | Evet | Otomatik veri yenileme açık/kapalı |
 | Önbellek Süresi | 30 sn | Sunucu veri TTL süresi |
-| Son Güncelleme | 2026-10-06T06:14:28.817Z | Son güncelleme zamanı |
+| Son Güncelleme | 2026-10-06T06:24:56.428Z | Son güncelleme zamanı |
 
 ---
 

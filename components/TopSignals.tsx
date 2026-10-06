@@ -3,8 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import SignalBadge from "./SignalBadge";
+import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
+import TimeframeSelector from "./TimeframeSelector";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import type { RankedStock, TopSignalsResponse } from "@/app/api/signals/top/route";
+import type { TimeframeKey } from "@/lib/timeframes";
 
 function StockRankingCard({
   title,
@@ -164,16 +167,19 @@ function StockRankingCard({
 
 export default function TopSignals() {
   const [data, setData] = useState<TopSignalsResponse | null>(null);
+  const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSignals = useCallback(async (force = false) => {
+  const fetchSignals = useCallback(async (tf?: TimeframeKey, force = false) => {
+    const activeTf = tf ?? timeframe;
     try {
       if (force) setRefreshing(true);
       else setLoading(true);
 
-      const res = await fetch(`/api/signals/top${force ? "?force=true" : ""}`, {
+      const res = await fetch(`/api/signals/top?timeframe=${activeTf}${force ? "&force=true" : ""}`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -186,18 +192,59 @@ export default function TopSignals() {
       setLoading(false);
       setRefreshing(false);
     }
+  }, [timeframe]);
+
+  // Load saved timeframe from timeframe-settings.md on mount
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/timeframe/settings", { cache: "no-store" });
+        if (res.ok && active) {
+          const json = await res.json();
+          if (json.settings?.topSignals) {
+            const savedTf = json.settings.topSignals as TimeframeKey;
+            setTimeframe(savedTf);
+            void fetchSignals(savedTf);
+            return;
+          }
+        }
+      } catch {
+        // fallback
+      }
+      if (active) void fetchSignals("1d");
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
+  // Periodic auto-refresh
   useEffect(() => {
-    void fetchSignals();
+    if (refreshInterval <= 0) return;
 
-    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
-      void fetchSignals(true);
-    }, 30_000);
+      void fetchSignals(timeframe, true);
+    }, refreshInterval * 1000);
 
     return () => clearInterval(interval);
-  }, [fetchSignals]);
+  }, [fetchSignals, refreshInterval, timeframe]);
+
+  const handleTimeframeChange = async (newTf: TimeframeKey) => {
+    setTimeframe(newTf);
+    void fetchSignals(newTf, true);
+
+    try {
+      await fetch("/api/timeframe/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel: "topSignals", timeframe: newTf }),
+      });
+    } catch (e) {
+      console.error("[TopSignals] Periyot kaydedilemedi:", e);
+    }
+  };
 
   return (
     <section className="w-full">
@@ -208,35 +255,35 @@ export default function TopSignals() {
             <h2 className="text-xl font-bold tracking-tight text-zinc-100">
               Lider Sinyaller
             </h2>
+            <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-300">
+              {data?.timeframeLabel ?? timeframe}
+            </span>
           </div>
           <p className="mt-1 text-xs text-zinc-400">
-            BIST lider hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları
+            BIST lider hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları ({data?.timeframeLabel ?? "Günlük"})
             {data?.updatedAt && (
               <span> · Güncellenme: {new Date(data.updatedAt).toLocaleTimeString("tr-TR")}</span>
             )}
           </p>
         </div>
 
-        <button
-          onClick={() => void fetchSignals(true)}
-          disabled={loading || refreshing}
-          className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/90 px-3.5 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-zinc-700 hover:bg-zinc-800 disabled:opacity-50"
-        >
-          <svg
-            className={`h-3.5 w-3.5 ${refreshing ? "animate-spin text-sky-400" : ""}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          {refreshing ? "Güncelleniyor…" : "Yenile"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <TimeframeSelector
+            value={timeframe}
+            onChange={handleTimeframeChange}
+            disabled={loading || refreshing}
+            size="sm"
+          />
+          <AutoRefreshControl
+            intervalSeconds={refreshInterval}
+            onIntervalChange={(sec) => setRefreshInterval(sec)}
+            onRefresh={() => void fetchSignals(timeframe, true)}
+            isRefreshing={loading || refreshing}
+            lastUpdated={data?.updatedAt}
+            storageKey="top_signals_refresh_interval"
+            size="md"
+          />
+        </div>
       </div>
 
       {error ? (

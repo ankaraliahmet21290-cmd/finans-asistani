@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import type { MailIntervalKey, MailIntervalOption, MailScheduleConfig } from "@/lib/mail-settings-storage";
+import {
+  MAIL_INTERVAL_OPTIONS,
+  type MailIntervalKey,
+  type MailIntervalOption,
+  type MailScheduleConfig,
+} from "@/lib/mail-settings-types";
 
 interface MailSettingsResponse {
   ok: boolean;
@@ -26,11 +31,13 @@ interface MailSettingsResponse {
 interface MailScheduleControlProps {
   onScheduleChange?: (config: MailScheduleConfig) => void;
   size?: "sm" | "md";
+  align?: "left" | "right";
 }
 
 export default function MailScheduleControl({
   onScheduleChange,
   size = "md",
+  align = "left",
 }: MailScheduleControlProps) {
   const [data, setData] = useState<MailSettingsResponse | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -49,6 +56,19 @@ export default function MailScheduleControl({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close dropdown on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [isOpen]);
 
   // Fetch current mail settings from API
   const fetchSettings = async () => {
@@ -105,20 +125,22 @@ export default function MailScheduleControl({
     }
   };
 
+  const options = data?.options && data.options.length > 0 ? data.options : MAIL_INTERVAL_OPTIONS;
+
   const currentOption =
-    data?.options.find((o) => o.key === activeKey) ?? {
-      key: "15m",
-      minutes: 15,
-      label: "15 dk",
-      desc: "Standart seans içi tarama",
-      badge: "15 DK",
-    };
+    options.find((o) => o.key === activeKey) ??
+    options.find((o) => o.key === "15m") ??
+    options[0];
 
   const isConfigured = data?.mail.configured ?? false;
   const isOff = activeKey === "off";
+  const alignClass = align === "right" ? "right-0" : "left-0";
 
   return (
-    <div className="relative inline-flex items-center gap-2" ref={menuRef}>
+    <div
+      className={`relative inline-flex items-center gap-2 ${isOpen ? "z-50" : "z-10"}`}
+      ref={menuRef}
+    >
       {/* Selector Trigger Button */}
       <button
         type="button"
@@ -173,7 +195,9 @@ export default function MailScheduleControl({
 
       {/* Dropdown Menu Modal */}
       {isOpen && (
-        <div className="absolute right-0 top-full z-50 mt-1.5 w-72 sm:w-80 rounded-2xl border border-zinc-800 bg-zinc-950/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className={`absolute ${alignClass} top-full z-[100] mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-800 bg-zinc-950/98 p-2 shadow-2xl backdrop-blur-xl transition duration-150`}
+        >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-800/80 px-2.5 py-2 mb-1.5">
             <div>
@@ -197,7 +221,7 @@ export default function MailScheduleControl({
 
           {/* Options List */}
           <div className="space-y-1 max-h-[360px] overflow-y-auto pr-1">
-            {data?.options.map((opt) => {
+            {options.map((opt) => {
               const isSelected = opt.key === activeKey;
               return (
                 <button

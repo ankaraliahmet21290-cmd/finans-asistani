@@ -5,9 +5,11 @@ import Link from "next/link";
 import SignalBadge from "./SignalBadge";
 import WatchlistCombobox from "./WatchlistCombobox";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
+import TimeframeSelector from "./TimeframeSelector";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import type { AnalysisResult, AssetType } from "@/lib/types";
 import { DEFAULT_WATCHLIST, type WatchEntry } from "@/lib/watchlist";
+import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 
 type Row =
   | { status: "loading"; data?: AnalysisResult; error?: string }
@@ -22,12 +24,17 @@ const QUICK_SUGGESTIONS = [
   { ticker: "GC=F", name: "Ons Altın Vadeli", type: "gold" as const },
 ];
 
-// Helper to fetch analysis for a single ticker
-async function fetchSingleSymbolAnalysis(ticker: string, type: AssetType): Promise<Row> {
+// Helper to fetch analysis for a single ticker with timeframe
+async function fetchSingleSymbolAnalysis(
+  ticker: string,
+  type: AssetType,
+  tf: TimeframeKey = "1d"
+): Promise<Row> {
   try {
-    const res = await fetch(`/api/analyze?ticker=${encodeURIComponent(ticker)}&type=${type}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `/api/analyze?ticker=${encodeURIComponent(ticker)}&type=${type}&timeframe=${tf}`,
+      { cache: "no-store" }
+    );
     const body = await res.json();
     if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
     return { status: "ok", data: body as AnalysisResult };
@@ -39,11 +46,14 @@ async function fetchSingleSymbolAnalysis(ticker: string, type: AssetType): Promi
   }
 }
 
-// Helper to fetch analysis for a list of entries
-async function fetchAnalysisForEntries(list: WatchEntry[]): Promise<Record<string, Row>> {
+// Helper to fetch analysis for a list of entries with timeframe
+async function fetchAnalysisForEntries(
+  list: WatchEntry[],
+  tf: TimeframeKey = "1d"
+): Promise<Record<string, Row>> {
   const results = await Promise.all(
     list.map(async (w): Promise<[string, Row]> => {
-      const row = await fetchSingleSymbolAnalysis(w.ticker, w.type);
+      const row = await fetchSingleSymbolAnalysis(w.ticker, w.type, tf);
       return [w.ticker, row];
     })
   );
@@ -53,6 +63,7 @@ async function fetchAnalysisForEntries(list: WatchEntry[]): Promise<Record<strin
 export default function WatchlistTable() {
   const [entries, setEntries] = useState<WatchEntry[]>([...DEFAULT_WATCHLIST]);
   const [rows, setRows] = useState<Record<string, Row>>({});
+  const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -75,12 +86,26 @@ export default function WatchlistTable() {
     }
   }, []);
 
-  // Initial mount load
+  // Initial mount load: load timeframe settings and watchlist
   useEffect(() => {
     let active = true;
 
     (async () => {
       try {
+        let activeTf: TimeframeKey = "1d";
+        try {
+          const tfRes = await fetch("/api/timeframe/settings", { cache: "no-store" });
+          if (tfRes.ok) {
+            const tfJson = await tfRes.json();
+            if (tfJson.settings?.watchlist) {
+              activeTf = tfJson.settings.watchlist as TimeframeKey;
+              if (active) setTimeframe(activeTf);
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         const res = await fetch("/api/watchlist", { cache: "no-store" });
         if (!active) return;
         let currentEntries: WatchEntry[] = [...DEFAULT_WATCHLIST];
@@ -93,7 +118,7 @@ export default function WatchlistTable() {
         if (!active) return;
         setEntries(currentEntries);
 
-        const analyzedRows = await fetchAnalysisForEntries(currentEntries);
+        const analyzedRows = await fetchAnalysisForEntries(currentEntries, activeTf);
         if (!active) return;
         setRows(analyzedRows);
         setUpdatedAt(new Date().toISOString());
@@ -111,7 +136,8 @@ export default function WatchlistTable() {
   }, []);
 
   // Manual refresh callback
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (tf?: TimeframeKey) => {
+    const targetTf = tf ?? timeframe;
     setRefreshing(true);
     try {
       const res = await fetch("/api/watchlist", { cache: "no-store" });
@@ -124,7 +150,7 @@ export default function WatchlistTable() {
       }
       setEntries(currentEntries);
 
-      const analyzedRows = await fetchAnalysisForEntries(currentEntries);
+      const analyzedRows = await fetchAnalysisForEntries(currentEntries, targetTf);
       setRows(analyzedRows);
       setUpdatedAt(new Date().toISOString());
     } catch (err) {
@@ -136,16 +162,35 @@ export default function WatchlistTable() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [timeframe]);
+
+  const handleTimeframeChange = async (newTf: TimeframeKey) => {
+    setTimeframe(newTf);
+    void refresh(newTf);
+
+    try {
+      await fetch("/api/timeframe/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel: "watchlist", timeframe: newTf }),
+      });
+      setNotice({
+        type: "success",
+        text: `✓ Takip listesi periyodu ${TIMEFRAMES[newTf]?.label ?? newTf} olarak güncellendi (timeframe-settings.md kaydedildi).`,
+      });
+    } catch (err) {
+      console.error("[WatchlistTable] Periyot kaydedilemedi:", err);
+    }
+  };
 
   // Periodic auto-refresh
   useEffect(() => {
     if (refreshInterval <= 0) return;
     const interval = setInterval(() => {
-      void refresh();
+      void refresh(timeframe);
     }, refreshInterval * 1000);
     return () => clearInterval(interval);
-  }, [refresh, refreshInterval]);
+  }, [refresh, refreshInterval, timeframe]);
 
   // Notice auto-dismiss timer
   useEffect(() => {
@@ -192,7 +237,7 @@ export default function WatchlistTable() {
       });
 
       // Analyze the newly added item in background
-      void fetchSingleSymbolAnalysis(cleanTicker, type).then((analyzedRow) => {
+      void fetchSingleSymbolAnalysis(cleanTicker, type, timeframe).then((analyzedRow) => {
         setRows((prev) => ({
           ...prev,
           [cleanTicker]: analyzedRow,
@@ -248,7 +293,7 @@ export default function WatchlistTable() {
   return (
     <div className="w-full">
       {/* Header section */}
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="relative z-30 mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-semibold text-zinc-100">Takip Listesi</h1>
@@ -256,13 +301,16 @@ export default function WatchlistTable() {
               <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
               watchlist.md ({entries.length} varlık)
             </span>
+            <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-sky-300">
+              {TIMEFRAMES[timeframe]?.label ?? timeframe}
+            </span>
           </div>
           <p className="mt-1 text-sm text-zinc-400">
             Varlıklar doğrudan{" "}
             <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-xs text-zinc-300">
               watchlist.md
             </code>{" "}
-            dosyasından okunur. Skorlar anlık hesaplanır ·{" "}
+            dosyasından okunur. {TIMEFRAMES[timeframe]?.label ?? "Günlük"} mum ve göstergeleri hesaplanır ·{" "}
             {updatedAt
               ? `son güncelleme ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
               : isInitialLoading
@@ -271,15 +319,22 @@ export default function WatchlistTable() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <TimeframeSelector
+            value={timeframe}
+            onChange={handleTimeframeChange}
+            disabled={refreshing}
+            size="sm"
+          />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}
             onIntervalChange={(sec) => setRefreshInterval(sec)}
-            onRefresh={() => void refresh()}
+            onRefresh={() => void refresh(timeframe)}
             isRefreshing={refreshing}
             lastUpdated={updatedAt}
             storageKey="watchlist_refresh_interval"
             size="md"
+            align="right"
           />
         </div>
       </div>
@@ -305,7 +360,7 @@ export default function WatchlistTable() {
       )}
 
       {/* Searchable Combobox & Quick Add Bar */}
-      <div className="mb-4 rounded-xl border border-zinc-800 bg-gradient-to-r from-zinc-900/90 via-zinc-900/60 to-zinc-950 p-3 sm:p-4">
+      <div className="relative z-20 mb-4 rounded-xl border border-zinc-800 bg-gradient-to-r from-zinc-900/90 via-zinc-900/60 to-zinc-950 p-3 sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-1">
             <label className="mb-1.5 block text-xs font-medium text-zinc-400">

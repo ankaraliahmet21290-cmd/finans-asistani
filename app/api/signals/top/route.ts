@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { analyzeSymbol } from "@/lib/analyze";
 import { BIST_30_TICKERS, findBistCompany } from "@/lib/bist";
+import { getActiveRefreshConfig } from "@/lib/refresh-settings-storage";
+import {
+  getActiveTimeframeSettings,
+  normalizeTimeframeKey,
+} from "@/lib/timeframe-settings-storage";
+import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { Signal } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -23,20 +29,24 @@ export interface RankedStock {
 export interface TopSignalsResponse {
   buys: RankedStock[];
   sells: RankedStock[];
+  timeframe: TimeframeKey;
+  timeframeLabel: string;
   updatedAt: string;
   totalEvaluated: number;
 }
 
-// In-memory cache for top signals: 5 minutes TTL
-let cachedData: TopSignalsResponse | null = null;
-let lastFetchedAt = 0;
-const CACHE_TTL_MS = 30 * 1000; // 30 seconds fresh data TTL
-let fetchPromise: Promise<TopSignalsResponse> | null = null;
+// In-memory cache by timeframe
+interface CacheEntry {
+  data: TopSignalsResponse;
+  lastFetchedAt: number;
+}
+const cacheByTimeframe = new Map<TimeframeKey, CacheEntry>();
+const inFlightPromises = new Map<TimeframeKey, Promise<TopSignalsResponse>>();
 
-async function computeTopSignals(): Promise<TopSignalsResponse> {
+async function computeTopSignals(timeframe: TimeframeKey = "1d"): Promise<TopSignalsResponse> {
   const evaluated = await Promise.allSettled(
     BIST_30_TICKERS.map(async (ticker): Promise<RankedStock> => {
-      const res = await analyzeSymbol(ticker, "stock");
+      const res = await analyzeSymbol(ticker, "stock", timeframe);
       const bist = findBistCompany(ticker);
       const code = bist ? bist.code : ticker.replace(/\.IS$/, "");
       const name = bist ? bist.name : res.name;
@@ -83,9 +93,13 @@ async function computeTopSignals(): Promise<TopSignalsResponse> {
     .sort((a, b) => a.score - b.score)
     .slice(0, 5);
 
+  const tfConfig = TIMEFRAMES[timeframe] ?? TIMEFRAMES["1d"];
+
   return {
     buys,
     sells,
+    timeframe,
+    timeframeLabel: tfConfig.label,
     updatedAt: new Date().toISOString(),
     totalEvaluated: stocks.length,
   };
@@ -94,28 +108,35 @@ async function computeTopSignals(): Promise<TopSignalsResponse> {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const force = searchParams.get("force") === "true";
-  const now = Date.now();
+  const rawTf = searchParams.get("timeframe") || searchParams.get("tf");
+  const fallbackTf = getActiveTimeframeSettings().topSignals;
+  const timeframe: TimeframeKey = rawTf ? normalizeTimeframeKey(rawTf) : fallbackTf;
 
-  if (!force && cachedData && now - lastFetchedAt < CACHE_TTL_MS) {
-    return NextResponse.json(cachedData);
+  const now = Date.now();
+  const ttl = getActiveRefreshConfig().cacheTtlMs;
+  const cached = cacheByTimeframe.get(timeframe);
+
+  if (!force && cached && now - cached.lastFetchedAt < ttl) {
+    return NextResponse.json(cached.data);
   }
 
-  if (fetchPromise) {
-    const data = await fetchPromise;
+  const existingInFlight = inFlightPromises.get(timeframe);
+  if (existingInFlight) {
+    const data = await existingInFlight;
     return NextResponse.json(data);
   }
 
-  fetchPromise = (async () => {
+  const promise = (async () => {
     try {
-      const data = await computeTopSignals();
-      cachedData = data;
-      lastFetchedAt = Date.now();
+      const data = await computeTopSignals(timeframe);
+      cacheByTimeframe.set(timeframe, { data, lastFetchedAt: Date.now() });
       return data;
     } finally {
-      fetchPromise = null;
+      inFlightPromises.delete(timeframe);
     }
   })();
 
-  const data = await fetchPromise;
+  inFlightPromises.set(timeframe, promise);
+  const data = await promise;
   return NextResponse.json(data);
 }

@@ -17,6 +17,7 @@ interface AutoRefreshControlProps {
   lastUpdated?: string | null;
   storageKey?: string;
   size?: "sm" | "md";
+  align?: "left" | "right";
 }
 
 export default function AutoRefreshControl({
@@ -27,6 +28,7 @@ export default function AutoRefreshControl({
   lastUpdated,
   storageKey = "app_refresh_interval",
   size = "md",
+  align = "right",
 }: AutoRefreshControlProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [remaining, setRemaining] = useState<number>(intervalSeconds);
@@ -44,6 +46,19 @@ export default function AutoRefreshControl({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close dropdown on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [isOpen]);
 
   // Sync initial setting from refresh-settings.md via API
   useEffect(() => {
@@ -146,8 +161,13 @@ export default function AutoRefreshControl({
   const currentOption =
     REFRESH_INTERVAL_OPTIONS.find((o) => o.value === intervalSeconds) ?? REFRESH_INTERVAL_OPTIONS[1];
 
+  const alignClass = align === "left" ? "left-0" : "right-0";
+
   return (
-    <div className="relative inline-flex items-center gap-1.5" ref={menuRef}>
+    <div
+      className={`relative inline-flex items-center gap-1.5 ${isOpen ? "z-50" : "z-10"}`}
+      ref={menuRef}
+    >
       {/* Interval Selector Button */}
       <div className="relative">
         <button
@@ -194,7 +214,9 @@ export default function AutoRefreshControl({
 
         {/* Dropdown Menu */}
         {isOpen && (
-          <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-2xl border border-zinc-800 bg-zinc-950/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+          <div
+            className={`absolute ${alignClass} top-full z-[100] mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-800 bg-zinc-950/98 p-2 shadow-2xl backdrop-blur-xl transition duration-150`}
+          >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800/80 px-2 py-1.5 mb-1.5">
               <div>

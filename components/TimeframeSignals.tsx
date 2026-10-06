@@ -127,7 +127,7 @@ export default function TimeframeSignals() {
   return (
     <section className="w-full">
       {/* Schedule & Banner Info */}
-      <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-900/40 bg-gradient-to-r from-sky-950/30 via-zinc-900/80 to-zinc-900/90 p-4 sm:p-5 backdrop-blur-md">
+      <div className="relative z-30 mb-4 flex flex-col gap-3 rounded-2xl border border-sky-900/40 bg-gradient-to-r from-sky-950/30 via-zinc-900/80 to-zinc-900/90 p-4 sm:p-5 backdrop-blur-md">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="relative flex h-3 w-3">
@@ -167,6 +167,7 @@ export default function TimeframeSignals() {
           <div className="flex flex-wrap items-center gap-2">
             <MailScheduleControl
               size="sm"
+              align="left"
               onScheduleChange={(cfg) => setMailConfig(cfg)}
             />
             <AutoRefreshControl
@@ -177,6 +178,7 @@ export default function TimeframeSignals() {
               lastUpdated={data?.scannedAt}
               storageKey="scanner_refresh_interval"
               size="sm"
+              align="left"
             />
             <button
               onClick={triggerScanAndMail}
@@ -209,7 +211,7 @@ export default function TimeframeSignals() {
       </div>
 
       {/* Filter Bars Container */}
-      <div className="mb-4 flex flex-col gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3 backdrop-blur-md">
+      <div className="relative z-10 mb-4 flex flex-col gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3 backdrop-blur-md">
         {/* Signal Mode Tabs: Karma, Teknik, Temel */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
