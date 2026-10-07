@@ -6,6 +6,7 @@ import SelectedCompanyPreview from "./SelectedCompanyPreview";
 import TopSignals from "./TopSignals";
 import TimeframeSignals from "./TimeframeSignals";
 import WatchlistTable from "./WatchlistTable";
+import TrackListTable from "./TrackListTable";
 import PositionTracker from "./PositionTracker";
 import TimeframeSelector from "./TimeframeSelector";
 import { findBistCompany, type BistCompany } from "@/lib/bist";
@@ -143,6 +144,11 @@ export default function HomeDashboard() {
 
       {/* Top AL and SAT Signals Ranking */}
       <TopSignals />
+
+      {/* TrackList Table (Sinyal Karsilastirma) */}
+      <section className="w-full">
+        <TrackListTable />
+      </section>
 
       {/* Main Watchlist Table */}
       <section className="w-full">

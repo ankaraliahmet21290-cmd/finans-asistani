@@ -173,9 +173,8 @@ export default function TimeframeSignals() {
                 {mailConfig?.intervalKey === "off"
                   ? "Otomatik e-posta gönderimi kapalıdır (mail-settings.md). İstediğiniz zaman sağdaki butondan anlık tarayıp gönderebilirsiniz."
                   : mailConfig?.intervalKey === "daily"
-                  ? "Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde günde 1 kez otomatik kategorize e-posta gönderir."
-                  : `Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde her ${
-                      mailConfig?.label ?? "15 dakikada bir"
+                    ? "Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde günde 1 kez otomatik kategorize e-posta gönderir."
+                    : `Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde her ${mailConfig?.label ?? "15 dakikada bir"
                     } otomatik kategorize e-posta gönderir.`}
               </p>
             </div>
@@ -238,33 +237,30 @@ export default function TimeframeSignals() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setSignalMode("hybrid")}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                signalMode === "hybrid"
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${signalMode === "hybrid"
                   ? "border-violet-500 bg-violet-500/20 text-violet-200 shadow-sm"
                   : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-              }`}
+                }`}
             >
               <span>🔀</span>
               <span>Karma Sinyaller</span>
             </button>
             <button
               onClick={() => setSignalMode("tech")}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                signalMode === "tech"
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${signalMode === "tech"
                   ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-sm"
                   : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-              }`}
+                }`}
             >
               <span>📈</span>
               <span>Sadece Teknik</span>
             </button>
             <button
               onClick={() => setSignalMode("fund")}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                signalMode === "fund"
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${signalMode === "fund"
                   ? "border-amber-500 bg-amber-500/20 text-amber-200 shadow-sm"
                   : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-              }`}
+                }`}
             >
               <span>🏢</span>
               <span>Sadece Temel</span>
@@ -290,11 +286,10 @@ export default function TimeframeSignals() {
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
                   title={tab.fullLabel}
-                  className={`relative shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
-                    isActive
+                  className={`relative shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${isActive
                       ? "bg-gradient-to-b from-sky-500 to-sky-600 text-white shadow-sm font-semibold"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60"
-                  }`}
+                    }`}
                 >
                   <span>{tab.label}</span>
                 </button>

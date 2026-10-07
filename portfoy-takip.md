@@ -6,8 +6,8 @@ Fiyat Stop-Loss veya Kâr Al seviyesine ulaştığında otomatik e-posta alarmı
 ## Ayarlar
 - **Tarama Aralığı:** 5 dk
 - **Sadece Seans İçi:** Evet
-- **Son Kontrol:** 2026-10-07T03:15:37.147Z
-- **Son Alarm:** ** —
+- **Son Kontrol:** 2026-10-07T06:56:34.897Z
+- **Son Alarm:** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** —
 
 ## Aktif Pozisyonlar
 

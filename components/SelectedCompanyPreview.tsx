@@ -24,6 +24,8 @@ export default function SelectedCompanyPreview({
   const [data, setData] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingTrack, setAddingTrack] = useState(false);
+  const [trackNotice, setTrackNotice] = useState<{type: "success" | "error", text: string} | null>(null);
 
   useEffect(() => {
     setActiveTimeframe(timeframe);
@@ -65,6 +67,32 @@ export default function SelectedCompanyPreview({
   }, [company.ticker, activeTimeframe]);
 
   const up = (data?.change ?? 0) >= 0;
+
+  const handleTrack = async () => {
+    if (!data) return;
+    setAddingTrack(true);
+    setTrackNotice(null);
+    try {
+      const res = await fetch("/api/tracklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker: company.ticker,
+          type: "stock",
+          price: data.price,
+          signal: data.signal,
+          timeframe: activeTimeframe,
+        }),
+      });
+      if (!res.ok) throw new Error("Eklenemedi");
+      setTrackNotice({ type: "success", text: "Takip Listem'e eklendi!" });
+      setTimeout(() => setTrackNotice(null), 3000);
+    } catch (err) {
+      setTrackNotice({ type: "error", text: "Eklenirken hata oluştu" });
+    } finally {
+      setAddingTrack(false);
+    }
+  };
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-950/30 via-zinc-900/80 to-zinc-900 p-5 shadow-2xl backdrop-blur-md transition">
@@ -169,6 +197,12 @@ export default function SelectedCompanyPreview({
         </div>
       )}
 
+      {trackNotice && (
+        <div className={`mt-2 rounded-xl border p-3 text-xs ${trackNotice.type === "success" ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-300" : "border-red-900/60 bg-red-950/30 text-red-300"}`}>
+          {trackNotice.text}
+        </div>
+      )}
+
       {data && (
         <div className="mt-4 grid gap-3 border-t border-zinc-800/80 pt-4 sm:grid-cols-2">
           <div>
@@ -224,12 +258,23 @@ export default function SelectedCompanyPreview({
         <span className="text-[11px] text-zinc-500">
           Mum grafiği, Bollinger bantları, RSI & MACD panelleri için detay sayfasına gidin.
         </span>
-        <Link
-          href={`/symbol/${encodeURIComponent(company.ticker)}?tf=${activeTimeframe}`}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-500"
-        >
-          Tüm Grafikleri ve Detayları Gör →
-        </Link>
+        <div className="flex items-center gap-2">
+          {data && (
+            <button
+              onClick={handleTrack}
+              disabled={addingTrack}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/50 bg-sky-500/10 px-3.5 py-1.5 text-xs font-semibold text-sky-400 shadow-sm transition hover:bg-sky-500/20 disabled:opacity-50"
+            >
+              {addingTrack ? "Ekleniyor..." : "Takibe Al"}
+            </button>
+          )}
+          <Link
+            href={`/symbol/${encodeURIComponent(company.ticker)}?tf=${activeTimeframe}`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-500"
+          >
+            Tüm Grafikleri ve Detayları Gör →
+          </Link>
+        </div>
       </div>
     </div>
   );
