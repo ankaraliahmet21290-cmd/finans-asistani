@@ -302,3 +302,141 @@ export async function sendCategorizedTimeframeMail(
 
   return sendMailPayload({ subject, text, html, recipients });
 }
+
+export interface PositionAlarmNotification {
+  type: "stop_loss" | "take_profit";
+  position: {
+    ticker: string;
+    code: string;
+    name: string;
+    timeframe: string;
+    entryPrice: number;
+    currentPrice: number;
+    stopLoss: number;
+    takeProfit: number;
+    profitLossPercent: number;
+    notes?: string;
+  };
+}
+
+export async function sendPositionAlarmMail(
+  alarm: PositionAlarmNotification,
+  recipients?: string[]
+): Promise<boolean> {
+  const { type, position } = alarm;
+  const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const isStop = type === "stop_loss";
+  const nowTime = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  const nowDate = new Date().toLocaleDateString("tr-TR");
+
+  const subject = isStop
+    ? `🛑 STOP-LOSS ALARMI: ${position.code} Zarar Durdur Seviyesine Ulaştı (${position.currentPrice.toFixed(2)} TL)`
+    : `🎯 KÂR AL HEDEFİ ALARMI: ${position.code} Hedefe Ulaştı! (+%${position.profitLossPercent.toFixed(1)})`;
+
+  const text = `FİNANS ASİSTANI · POZİSYON ALARMI (${nowDate} ${nowTime})\n\n` +
+    `Sembol: ${position.code} (${position.name})\n` +
+    `Durum: ${isStop ? "ZARAR DURDUR (STOP-LOSS) SEVİYESİNE ULAŞILDI" : "KÂR AL (TAKE-PROFIT) HEDEFİNE ULAŞILDI"}\n` +
+    `Alınan Periyot: ${position.timeframe.toUpperCase()}\n` +
+    `Alış Fiyatı: ₺${position.entryPrice.toFixed(2)}\n` +
+    `Güncel Fiyat: ₺${position.currentPrice.toFixed(2)}\n` +
+    `Kâr/Zarar: %${position.profitLossPercent > 0 ? "+" : ""}${position.profitLossPercent.toFixed(2)}\n` +
+    `Belirlenen Stop-Loss: ₺${position.stopLoss.toFixed(2)}\n` +
+    `Belirlenen Kâr Al Hedefi: ₺${position.takeProfit.toFixed(2)}\n\n` +
+    `Grafik & Detay: ${baseUrl}/symbol/${encodeURIComponent(position.ticker)}\n\n` +
+    `${RISK_NOTE}`;
+
+  const themeColor = isStop ? "#dc2626" : "#16a34a";
+  const themeBg = isStop ? "#fef2f2" : "#f0fdf4";
+  const themeBorder = isStop ? "#f87171" : "#4ade80";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #09090b; color: #f4f4f5; margin: 0; padding: 24px; }
+    .card { max-width: 580px; margin: 0 auto; background: #18181b; border: 1px solid #27272a; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .alert-header { background: ${themeColor}; color: #ffffff; padding: 20px 24px; text-align: left; }
+    .content { padding: 24px; }
+    .metric-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #27272a; font-size: 13px; }
+    .metric-label { color: #a1a1aa; }
+    .metric-val { font-weight: 700; color: #fafafa; font-family: monospace; }
+    .btn { display: inline-block; background: ${themeColor}; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 13px; padding: 12px 24px; border-radius: 10px; margin-top: 20px; text-align: center; }
+    .footer { padding: 16px 24px; background: #09090b; border-top: 1px solid #27272a; font-size: 11px; color: #71717a; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="alert-header">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">
+        ${isStop ? "🛑 OTOMATİK RİSK KORUMA UYARISI" : "🎯 OTOMATİK HEDEF ULAŞMA BİLDİRİMİ"}
+      </div>
+      <h2 style="margin: 6px 0 0; font-size: 20px; font-weight: 800; color: #ffffff;">
+        ${escapeHtml(position.code)} · ${isStop ? "Stop-Loss Seviyesine Ulaşıldı!" : "Kâr Al Hedefine Ulaşıldı!"}
+      </h2>
+      <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">
+        ${escapeHtml(position.name)} · Alınan Periyot: [${position.timeframe.toUpperCase()}] · ${nowDate} ${nowTime}
+      </p>
+    </div>
+
+    <div class="content">
+      <div style="background: ${themeBg}; border: 1px solid ${themeBorder}; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; color: #18181b;">
+        <div style="font-size: 12px; font-weight: 600; color: #52525b;">${isStop ? "ZARAR DURDURMA ALARMI" : "KÂR REALİZASYONU ALARMI"}</div>
+        <div style="font-size: 22px; font-weight: 800; color: ${themeColor}; margin: 4px 0;">
+          ₺${position.currentPrice.toFixed(2)} 
+          <span style="font-size: 14px; font-weight: 700; margin-left: 8px;">
+            (${position.profitLossPercent > 0 ? "+" : ""}${position.profitLossPercent.toFixed(2)}%)
+          </span>
+        </div>
+        <div style="font-size: 12px; color: #3f3f46;">
+          ${
+            isStop
+              ? `Hisse belirlenen <strong>₺${position.stopLoss.toFixed(2)}</strong> stop-loss seviyesinin altına indi. Sermaye güvenliği için pozisyonu gözden geçirmeniz önerilir.`
+              : `Hisse hedeflenen <strong>₺${position.takeProfit.toFixed(2)}</strong> seviyesine ulaştı. Kârınızı realize etme aşamasına geldiniz.`
+          }
+        </div>
+      </div>
+
+      <div style="background: #09090b; border: 1px solid #27272a; border-radius: 12px; padding: 14px 18px;">
+        <div class="metric-row">
+          <span class="metric-label">Alış Fiyatı</span>
+          <span class="metric-val">₺${position.entryPrice.toFixed(2)}</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Güncel Fiyat</span>
+          <span class="metric-val" style="color: ${themeColor}; font-size: 14px;">₺${position.currentPrice.toFixed(2)}</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Net Kâr / Zarar</span>
+          <span class="metric-val" style="color: ${position.profitLossPercent >= 0 ? "#22c55e" : "#ef4444"};">
+            ${position.profitLossPercent > 0 ? "+" : ""}${position.profitLossPercent.toFixed(2)}%
+          </span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Belirlenen Stop-Loss</span>
+          <span class="metric-val" style="color: #ef4444;">₺${position.stopLoss.toFixed(2)}</span>
+        </div>
+        <div class="metric-row" style="border-bottom: none;">
+          <span class="metric-label">Belirlenen Kâr Al Hedefi</span>
+          <span class="metric-val" style="color: #22c55e;">₺${position.takeProfit.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${baseUrl}/symbol/${encodeURIComponent(position.ticker)}" class="btn">
+          Grafiği ve Pozisyonu İncele →
+        </a>
+      </div>
+    </div>
+
+    <div class="footer">
+      ${RISK_NOTE}
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return sendMailPayload({ subject, text, html, recipients });
+}
+

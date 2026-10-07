@@ -197,6 +197,117 @@ async function checkSchedulerTick() {
   }
 }
 
+import { loadPositionsFile, savePositionsFile } from "./position-storage";
+import { getCandles } from "./data";
+import { sendPositionAlarmMail } from "./mail";
+
+async function checkPositionTrackerTick() {
+  try {
+    const { settings, positions } = await loadPositionsFile();
+    if (settings.checkInterval === "off" || settings.intervalMinutes === 0) return;
+    if (settings.onlyTradingHours && !isWithinTradingHours()) return;
+
+    const now = Date.now();
+    const lastCheck = settings.lastCheckAt ? new Date(settings.lastCheckAt).getTime() : 0;
+    const intervalMs = settings.intervalMinutes * 60 * 1000;
+
+    if (now - lastCheck < intervalMs) return;
+
+    const activePositions = positions.filter((p) => p.status === "active");
+    if (activePositions.length === 0) {
+      settings.lastCheckAt = new Date().toISOString();
+      await savePositionsFile(settings, positions);
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    let alarmsSent = 0;
+
+    const updated = await Promise.all(
+      positions.map(async (pos) => {
+        if (pos.status !== "active") return pos;
+
+        try {
+          const candleRes = await getCandles(pos.ticker, pos.timeframe);
+          const currentPrice =
+            candleRes.regularMarketPrice ?? candleRes.closes.at(-1) ?? pos.entryPrice;
+
+          const profitLossPercent =
+            pos.entryPrice > 0
+              ? ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100
+              : 0;
+
+          // STOP-LOSS Check
+          if (currentPrice <= pos.stopLoss && pos.notifiedType !== "stop_loss") {
+            await sendPositionAlarmMail({
+              type: "stop_loss",
+              position: {
+                ticker: pos.ticker,
+                code: pos.code,
+                name: pos.name,
+                timeframe: pos.timeframe,
+                entryPrice: pos.entryPrice,
+                currentPrice,
+                stopLoss: pos.stopLoss,
+                takeProfit: pos.takeProfit,
+                profitLossPercent,
+                notes: pos.notes,
+              },
+            });
+            alarmsSent++;
+            return {
+              ...pos,
+              status: "stop_loss_hit" as const,
+              notifiedAt: nowIso,
+              notifiedType: "stop_loss" as const,
+            };
+          }
+
+          // TAKE-PROFIT Check
+          if (currentPrice >= pos.takeProfit && pos.notifiedType !== "take_profit") {
+            await sendPositionAlarmMail({
+              type: "take_profit",
+              position: {
+                ticker: pos.ticker,
+                code: pos.code,
+                name: pos.name,
+                timeframe: pos.timeframe,
+                entryPrice: pos.entryPrice,
+                currentPrice,
+                stopLoss: pos.stopLoss,
+                takeProfit: pos.takeProfit,
+                profitLossPercent,
+                notes: pos.notes,
+              },
+            });
+            alarmsSent++;
+            return {
+              ...pos,
+              status: "take_profit_hit" as const,
+              notifiedAt: nowIso,
+              notifiedType: "take_profit" as const,
+            };
+          }
+
+          return pos;
+        } catch {
+          return pos;
+        }
+      })
+    );
+
+    settings.lastCheckAt = nowIso;
+    if (alarmsSent > 0) {
+      settings.lastAlarmSentAt = nowIso;
+      settings.totalAlarmsSent += alarmsSent;
+    }
+
+    await savePositionsFile(settings, updated);
+  } catch (err) {
+    console.error("[scheduler] checkPositionTrackerTick hatası:", err);
+  }
+}
+
 export function ensureSchedulerStarted(): SchedulerState {
   if (state.initialized) {
     return getSchedulerState();
@@ -210,6 +321,7 @@ export function ensureSchedulerStarted(): SchedulerState {
   // Check every 30 seconds for accurate triggering
   timerId = setInterval(() => {
     void checkSchedulerTick();
+    void checkPositionTrackerTick();
   }, 30 * 1000);
 
   // Unref timer so it doesn't block process exit

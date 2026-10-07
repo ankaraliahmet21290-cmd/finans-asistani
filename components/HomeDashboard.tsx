@@ -6,6 +6,7 @@ import SelectedCompanyPreview from "./SelectedCompanyPreview";
 import TopSignals from "./TopSignals";
 import TimeframeSignals from "./TimeframeSignals";
 import WatchlistTable from "./WatchlistTable";
+import PositionTracker from "./PositionTracker";
 import TimeframeSelector from "./TimeframeSelector";
 import { findBistCompany, type BistCompany } from "@/lib/bist";
 import type { TimeframeKey } from "@/lib/timeframes";
@@ -133,6 +134,9 @@ export default function HomeDashboard() {
           onClose={() => setSelectedCompany(null)}
         />
       )}
+
+      {/* Active Position Tracking & Live Stop-Loss / Take-Profit Desk */}
+      <PositionTracker />
 
       {/* Multi-Timeframe Categorized Signals (1h, 2h, 4h, 1wk, 1mo) with 15 min mail trigger */}
       <TimeframeSignals />
