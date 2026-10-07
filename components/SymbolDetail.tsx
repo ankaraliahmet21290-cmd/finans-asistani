@@ -305,7 +305,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-400 animate-pulse" />
                   <span className="font-mono text-xs font-bold uppercase tracking-wider text-violet-400">
-                    Bütünleşik Hibrit Karar Sistemi (%60 Teknik + %40 Temel)
+                    Bütünleşik Hibrit Karar Sistemi (%{Math.round((currentResult.hybridAssessment?.techWeight ?? 0.6) * 100)} Teknik + %{Math.round((currentResult.hybridAssessment?.fundWeight ?? 0.4) * 100)} Temel)
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-zinc-100">
@@ -370,12 +370,22 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             {/* Score Distribution Bar */}
             <div className="mt-4 border-t border-zinc-800/80 pt-3">
               <div className="flex items-center justify-between text-xs text-zinc-400 mb-1.5 font-medium">
-                <span>Model Ağırlık Dağılımı</span>
-                <span>%60 Teknik Analiz · %40 Temel Bilanço</span>
+                <span>Model Ağırlık Dağılımı ({currentResult.timeframe ?? "1d"})</span>
+                <span>
+                  %{Math.round((currentResult.hybridAssessment?.techWeight ?? 0.6) * 100)} Teknik Analiz · %{Math.round((currentResult.hybridAssessment?.fundWeight ?? 0.4) * 100)} Temel Bilanço
+                </span>
               </div>
               <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden flex">
-                <div className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 w-[60%]" title="Teknik Ağırlık %60" />
-                <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 w-[40%]" title="Temel Ağırlık %40" />
+                <div
+                  className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500"
+                  style={{ width: `${Math.round((currentResult.hybridAssessment?.techWeight ?? 0.6) * 100)}%` }}
+                  title={`Teknik Ağırlık %${Math.round((currentResult.hybridAssessment?.techWeight ?? 0.6) * 100)}`}
+                />
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all duration-500"
+                  style={{ width: `${Math.round((currentResult.hybridAssessment?.fundWeight ?? 0.4) * 100)}%` }}
+                  title={`Temel Ağırlık %${Math.round((currentResult.hybridAssessment?.fundWeight ?? 0.4) * 100)}`}
+                />
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 import { computeIndicators } from "./indicators";
 import { getCandles, getFundamentals, getMacro, gramGoldTRY } from "./data";
 import { finalSignal, fundamentalScore, getHybridAssessment, technicalScore } from "./scoring";
-import { findBistCompany } from "./bist";
+import { findBistCompany, isFinancialOrBank } from "./bist";
 import type { AnalysisResult, AssetType, FundamentalResult, Fundamentals, TimeframeKey } from "./types";
 
 export async function analyzeSymbol(
@@ -24,15 +24,17 @@ export async function analyzeSymbol(
 
   if (type === "stock") {
     fundamentals = await getFundamentals(ticker);
-    fund = fundamentalScore(fundamentals);
+    const isBank = isFinancialOrBank(ticker);
+    fund = fundamentalScore(fundamentals, isBank);
   }
 
-  const { score, signal } = finalSignal(tech.score, fund?.score ?? null);
+  const { score, signal } = finalSignal(tech.score, fund?.score ?? null, timeframe);
   const hybridAssessment = getHybridAssessment(
     tech.signal,
     fund?.signal ?? null,
     tech.score,
-    fund?.score ?? null
+    fund?.score ?? null,
+    timeframe
   );
 
   const price = candleResult.regularMarketPrice ?? closes.at(-1) ?? 0;

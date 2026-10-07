@@ -111,3 +111,24 @@ export function searchBistCompanies(query: string, limit = 20): BistCompany[] {
 
   return [...exactCodeMatches, ...prefixCodeMatches, ...nameMatches].slice(0, limit);
 }
+
+const BANK_FINANCIAL_CODES = new Set([
+  "GARAN",
+  "AKBNK",
+  "ISCTR",
+  "YKBNK",
+  "VAKBN",
+  "HALKB",
+  "ALBRK",
+  "TSKB",
+  "SKBNK",
+  "QNBFB",
+  "KLNMA",
+  "ICBCT",
+]);
+
+export function isFinancialOrBank(query: string): boolean {
+  const clean = query.trim().toUpperCase().replace(/\.IS$/, "");
+  return BANK_FINANCIAL_CODES.has(clean);
+}
+

@@ -320,8 +320,9 @@ export default function TimeframeSignals() {
             const cat = data?.categories[tfKey];
             if (!cat) return null;
 
-            // Filter items based on active signalMode
-            const allItems = [...cat.buys, ...cat.sells];
+            // Filter items based on active signalMode (using full evaluated items array)
+            const allItems =
+              cat.items && cat.items.length > 0 ? cat.items : [...cat.buys, ...cat.sells];
             const buys: TimeframeStockSignal[] = [];
             const sells: TimeframeStockSignal[] = [];
 

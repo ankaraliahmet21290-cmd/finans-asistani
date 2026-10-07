@@ -1,7 +1,7 @@
 import { computeIndicators } from "./indicators";
 import { finalSignal, fundamentalScore, technicalScore } from "./scoring";
 import { getCandles, getFundamentals } from "./data";
-import { BIST_30_TICKERS, findBistCompany } from "./bist";
+import { BIST_30_TICKERS, findBistCompany, isFinancialOrBank } from "./bist";
 import type { Candle, Signal } from "./types";
 
 import { TIMEFRAMES, type CategoryTimeframeKey, type TimeframeConfig, type TimeframeKey } from "./timeframes";
@@ -26,13 +26,17 @@ export interface TimeframeStockSignal {
   reasons: string[];
 }
 
+export interface TimeframeCategoryData {
+  label: string;
+  buys: TimeframeStockSignal[];
+  sells: TimeframeStockSignal[];
+  items: TimeframeStockSignal[];
+}
+
 export interface CategorizedSignals {
   scannedAt: string;
   isWithinHours: boolean;
-  categories: Record<
-    CategoryTimeframeKey,
-    { label: string; buys: TimeframeStockSignal[]; sells: TimeframeStockSignal[] }
-  >;
+  categories: Record<CategoryTimeframeKey, TimeframeCategoryData>;
   totalSignalsCount: number;
 }
 
@@ -90,7 +94,8 @@ export async function analyzeTimeframe(
     } else {
       try {
         const f = await getFundamentals(ticker);
-        const fundRes = fundamentalScore(f);
+        const isBank = isFinancialOrBank(ticker);
+        const fundRes = fundamentalScore(f, isBank);
         fundScore = fundRes.score;
         fundSignal = fundRes.signal;
       } catch {
@@ -98,7 +103,7 @@ export async function analyzeTimeframe(
       }
     }
 
-    const { score: hybridScore, signal: hybridSignal } = finalSignal(tech.score, fundScore);
+    const { score: hybridScore, signal: hybridSignal } = finalSignal(tech.score, fundScore, tf);
     const lastRsi = ind.rsi.at(-1) != null ? Math.round(ind.rsi.at(-1)! * 10) / 10 : null;
 
     return {
@@ -154,16 +159,16 @@ export async function scanCategorizedSignals(universe = BIST_30_TICKERS): Promis
   ];
 
   const categories: CategorizedSignals["categories"] = {
-    "5m": { label: "5 Dakikalık Sinyaller", buys: [], sells: [] },
-    "10m": { label: "10 Dakikalık Sinyaller", buys: [], sells: [] },
-    "15m": { label: "15 Dakikalık Sinyaller", buys: [], sells: [] },
-    "30m": { label: "30 Dakikalık Sinyaller", buys: [], sells: [] },
-    "1h": { label: "1 Saatlik Sinyaller", buys: [], sells: [] },
-    "2h": { label: "2 Saatlik Sinyaller", buys: [], sells: [] },
-    "4h": { label: "4 Saatlik Sinyaller", buys: [], sells: [] },
-    "1d": { label: "Günlük Sinyaller", buys: [], sells: [] },
-    "1wk": { label: "Haftalık Sinyaller", buys: [], sells: [] },
-    "1mo": { label: "Aylık Sinyaller", buys: [], sells: [] },
+    "5m": { label: "5 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+    "10m": { label: "10 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+    "15m": { label: "15 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+    "30m": { label: "30 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+    "1h": { label: "1 Saatlik Sinyaller", buys: [], sells: [], items: [] },
+    "2h": { label: "2 Saatlik Sinyaller", buys: [], sells: [], items: [] },
+    "4h": { label: "4 Saatlik Sinyaller", buys: [], sells: [], items: [] },
+    "1d": { label: "Günlük Sinyaller", buys: [], sells: [], items: [] },
+    "1wk": { label: "Haftalık Sinyaller", buys: [], sells: [], items: [] },
+    "1mo": { label: "Aylık Sinyaller", buys: [], sells: [], items: [] },
   };
 
   // 1. Preload fundamentals ONCE per ticker (drops 300 calls down to 30 calls)
@@ -172,7 +177,8 @@ export async function scanCategorizedSignals(universe = BIST_30_TICKERS): Promis
     universe.map(async (ticker) => {
       try {
         const f = await getFundamentals(ticker);
-        const fundRes = fundamentalScore(f);
+        const isBank = isFinancialOrBank(ticker);
+        const fundRes = fundamentalScore(f, isBank);
         fundMap.set(ticker, { score: fundRes.score, signal: fundRes.signal });
       } catch {
         fundMap.set(ticker, { score: null, signal: null });
@@ -188,6 +194,7 @@ export async function scanCategorizedSignals(universe = BIST_30_TICKERS): Promis
       );
       for (const r of results) {
         if (!r) continue;
+        categories[tf].items.push(r);
         if (r.signal === "AL") {
           categories[tf].buys.push(r);
         } else if (r.signal === "SAT") {

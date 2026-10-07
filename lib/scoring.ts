@@ -8,6 +8,7 @@ import type {
   ScoreItem,
   Signal,
   TechnicalResult,
+  TimeframeKey,
   TrendStrength,
   VolatilityRisk,
 } from "./types";
@@ -235,25 +236,49 @@ export function technicalScore(
     }
   }
 
-  // 6. RSI (14) (Ağırlık: 0.9)
+  // 6. RSI (14) (Ağırlık: 0.9 - Trend Rejimi Uyumlu)
   const rsi = last(ind.rsi);
+  const isBullTrend = trendStrength?.regime === "strong_trend" && trendStrength.direction === "up";
+  const isBearTrend = trendStrength?.regime === "strong_trend" && trendStrength.direction === "down";
+
   if (rsi != null) {
     if (rsi < 30) {
-      items.push({
-        name: "RSI(14)",
-        point: 1,
-        weight: 0.9,
-        category: "momentum",
-        detail: `RSI ${rsi.toFixed(1)} < 30 → aşırı satım (tepki alımı potansiyeli)`,
-      });
+      if (isBearTrend) {
+        items.push({
+          name: "RSI(14)",
+          point: 0.2,
+          weight: 0.7,
+          category: "momentum",
+          detail: `RSI ${rsi.toFixed(1)} < 30 (aşırı satım), ancak güçlü ayı trendinde tepki alımları sınırlı kalabilir`,
+        });
+      } else {
+        items.push({
+          name: "RSI(14)",
+          point: 1,
+          weight: 0.9,
+          category: "momentum",
+          detail: `RSI ${rsi.toFixed(1)} < 30 → aşırı satım bölgesi (tepki alımı potansiyeli)`,
+        });
+      }
     } else if (rsi > 70) {
-      items.push({
-        name: "RSI(14)",
-        point: -1,
-        weight: 0.9,
-        category: "momentum",
-        detail: `RSI ${rsi.toFixed(1)} > 70 → aşırı alım (kâr satışı riski)`,
-      });
+      if (isBullTrend) {
+        // Güçlü boğa trendinde RSI > 70 bir satış değil, kuvvetli momentum koşusudur (Warren Buffett & Quant kuralı)
+        items.push({
+          name: "RSI(14)",
+          point: 0.2,
+          weight: 0.7,
+          category: "momentum",
+          detail: `RSI ${rsi.toFixed(1)} > 70 aşırı alımda, ancak ADX güçlü boğa trendini teyit ediyor (kuvvetli momentum koşusu)`,
+        });
+      } else {
+        items.push({
+          name: "RSI(14)",
+          point: -1,
+          weight: 0.9,
+          category: "momentum",
+          detail: `RSI ${rsi.toFixed(1)} > 70 → aşırı alım bölgesi (kâr satışı ve düzeltme riski)`,
+        });
+      }
     } else {
       items.push({
         name: "RSI(14)",
@@ -278,13 +303,23 @@ export function technicalScore(
         detail: `Dipte (%K=${stoch.k.toFixed(0)}) %D'yi yukarı kesti → güçlü dip dönüş teyidi`,
       });
     } else if (stochPrev.k >= stochPrev.d && stoch.k < stoch.d && stoch.k > 70) {
-      items.push({
-        name: "Stokastik(14,3)",
-        point: -1,
-        weight: 0.8,
-        category: "momentum",
-        detail: `Tepede (%K=${stoch.k.toFixed(0)}) %D'yi aşağı kesti → tepe yorulma teyidi`,
-      });
+      if (isBullTrend) {
+        items.push({
+          name: "Stokastik(14,3)",
+          point: -0.3,
+          weight: 0.6,
+          category: "momentum",
+          detail: `Tepede (%K=${stoch.k.toFixed(0)}) kısa vadeli osilatör soluklanması; ana trend yapısı güçlü`,
+        });
+      } else {
+        items.push({
+          name: "Stokastik(14,3)",
+          point: -1,
+          weight: 0.8,
+          category: "momentum",
+          detail: `Tepede (%K=${stoch.k.toFixed(0)}) %D'yi aşağı kesti → tepe yorulma teyidi`,
+        });
+      }
     } else if (stoch.k > stoch.d) {
       items.push({
         name: "Stokastik(14,3)",
@@ -466,7 +501,7 @@ export function technicalScore(
   };
 }
 
-export function fundamentalScore(f: Fundamentals): FundamentalResult {
+export function fundamentalScore(f: Fundamentals, isBank: boolean = false): FundamentalResult {
   const metrics: FundamentalMetric[] = [];
 
   const add = (
@@ -495,13 +530,13 @@ export function fundamentalScore(f: Fundamentals): FundamentalResult {
     metrics.push({ key, label, category, weight, value, display, point, detail });
   };
 
-  // --- KATEGORİ 1: KÂRLILIK & VERİMLİLİK (Kategori Ağırlığı: %35 - Şirketin Motoru) ---
-  // 1. Net Kâr Marjı (Ağırlık: 1.0)
+  // --- KATEGORİ 1: KÂRLILIK & VERİMLİLİK (Kategori Ağırlığı: Sanayi %35 / Banka %45) ---
+  // 1. Net Kâr Marjı (Ağırlık: Sanayi 1.0 / Banka 0.5)
   add(
     "profitMargins",
     "Net Kâr Marjı",
     "profitability",
-    1.0,
+    isBank ? 0.5 : 1.0,
     f.profitMargins,
     f.profitMargins != null ? pct(f.profitMargins) : "—",
     f.profitMargins == null ? null : f.profitMargins > 0.1 ? true : f.profitMargins <= 0 ? false : null,
@@ -510,55 +545,79 @@ export function fundamentalScore(f: Fundamentals): FundamentalResult {
     f.profitMargins != null ? `Net Kâr Marjı ${pct(f.profitMargins)} → dengeli marj` : "Veri yok"
   );
 
-  // 2. Faaliyet Kâr Marjı (Operating Margin - Ağırlık: 1.0)
+  // 2. Faaliyet Kâr Marjı (Ağırlık: Sanayi 1.0 / Banka 0.5)
   add(
     "operatingMargins",
     "Faaliyet Kâr Marjı",
     "profitability",
-    1.0,
+    isBank ? 0.5 : 1.0,
     f.operatingMargins,
     f.operatingMargins != null ? pct(f.operatingMargins) : "—",
     f.operatingMargins == null ? null : f.operatingMargins > 0.15 ? true : f.operatingMargins <= 0 ? false : null,
-    f.operatingMargins != null ? `Faaliyet Marjı ${pct(f.operatingMargins)} > %15 → ana faaliyet kârı güçlü` : "",
-    f.operatingMargins != null ? `Faaliyet Marjı ${pct(f.operatingMargins)} ≤ 0 → operasyonel kâr üretilemiyor` : "",
+    f.operatingMargins != null ? `Faaliyet Marjı ${pct(f.operatingMargins)} > %15 → operasyonel kâr güçlü` : "",
+    f.operatingMargins != null ? `Faaliyet Marjı ${pct(f.operatingMargins)} ≤ 0 → faaliyet kârı üretilemiyor` : "",
     f.operatingMargins != null ? `Faaliyet Marjı ${pct(f.operatingMargins)} → standart faaliyet marjı` : "Veri yok"
   );
 
-  // 3. ROE (Özkaynak Kârlılığı - Ağırlık: 0.8)
+  // 3. ROE (Özkaynak Kârlılığı - Bankalarda 1 numaralı Warren Buffett kriteri! Ağırlık: Sanayi 0.8 / Banka 1.3)
+  const roePositive = isBank
+    ? f.roe != null && f.roe > 0.20
+      ? true
+      : f.roe != null && f.roe < 0.10
+      ? false
+      : null
+    : f.roe != null && f.roe > 0.15
+    ? true
+    : f.roe != null && f.roe < 0.05
+    ? false
+    : null;
+
   add(
     "roe",
     "ROE (Özkaynak Kârı)",
     "profitability",
-    0.8,
+    isBank ? 1.3 : 0.8,
     f.roe,
     f.roe != null ? pct(f.roe) : "—",
-    f.roe == null ? null : f.roe > 0.15 ? true : f.roe < 0.05 ? false : null,
-    f.roe != null ? `ROE ${pct(f.roe)} > %15 → güçlü özkaynak kârlılığı` : "",
-    f.roe != null ? `ROE ${pct(f.roe)} < %5 → sermaye kârlılığı zayıf` : "",
+    f.roe == null ? null : roePositive,
+    f.roe != null ? `ROE ${pct(f.roe)} → ${isBank ? "mükemmel bankacılık özkaynak kârlılığı (Warren Buffett kriteri)" : "güçlü özkaynak kârlılığı"}` : "",
+    f.roe != null ? `ROE ${pct(f.roe)} → sermaye kârlılığı zayıf` : "",
     f.roe != null ? `ROE ${pct(f.roe)} → ılımlı sermaye getirisi` : "Veri yok"
   );
 
-  // 4. ROA (Aktif Kârlılığı - Ağırlık: 0.7)
+  // 4. ROA (Aktif Kârlılığı - Bankalarda kritik verimlilik! Ağırlık: Sanayi 0.7 / Banka 1.1)
+  const roaPositive = isBank
+    ? f.roa != null && f.roa > 0.018
+      ? true
+      : f.roa != null && f.roa < 0.008
+      ? false
+      : null
+    : f.roa != null && f.roa > 0.05
+    ? true
+    : f.roa != null && f.roa < 0.01
+    ? false
+    : null;
+
   add(
     "roa",
     "ROA (Aktif Kârlılığı)",
     "profitability",
-    0.7,
+    isBank ? 1.1 : 0.7,
     f.roa,
     f.roa != null ? pct(f.roa) : "—",
-    f.roa == null ? null : f.roa > 0.05 ? true : f.roa < 0.01 ? false : null,
-    f.roa != null ? `ROA ${pct(f.roa)} > %5 → şirket varlıklarını verimli kâra dönüştürüyor` : "",
-    f.roa != null ? `ROA ${pct(f.roa)} < %1 → aktif varlık verimliliği düşük` : "",
+    f.roa == null ? null : roaPositive,
+    f.roa != null ? `ROA ${pct(f.roa)} → ${isBank ? "banka varlıkları kâra dönüştürülüyor (>%1.8)" : "şirket varlıklarını verimli kâra dönüştürüyor"}` : "",
+    f.roa != null ? `ROA ${pct(f.roa)} → aktif varlık kârlılığı düşük` : "",
     f.roa != null ? `ROA ${pct(f.roa)} → olağan aktif kârlılığı` : "Veri yok"
   );
 
-  // --- KATEGORİ 2: DEĞERLEME & ÇARPANLAR (Kategori Ağırlığı: %30 - Fiyat Uygunluğu) ---
+  // --- KATEGORİ 2: DEĞERLEME & ÇARPANLAR (Kategori Ağırlığı: Sanayi %30 / Banka %40) ---
   // 5. PEG Oranı (Peter Lynch Büyüme Değerlemesi - Ağırlık: 1.2)
   add(
     "peg",
     "PEG (F/K / Büyüme)",
     "valuation",
-    1.2,
+    isBank ? 0.6 : 1.2,
     f.peg,
     f.peg != null ? f.peg.toFixed(2) : "—",
     f.peg == null ? null : f.peg > 0 && f.peg <= 1.0 ? true : f.peg > 2.0 || f.peg < 0 ? false : null,
@@ -569,7 +628,19 @@ export function fundamentalScore(f: Fundamentals): FundamentalResult {
     f.peg != null ? `PEG ${f.peg.toFixed(2)} → dengeli büyüme/fiyat oranı` : "Veri yok"
   );
 
-  // 6. F/K (Fiyat/Kazanç - Ağırlık: 1.0)
+  // 6. F/K (Fiyat/Kazanç - Bankalarda 2-7 ucuz, Sanayide 0-15 ucuz)
+  const pePositive = isBank
+    ? f.pe != null && f.pe > 0 && f.pe < 7
+      ? true
+      : f.pe != null && (f.pe > 12 || f.pe <= 0)
+      ? false
+      : null
+    : f.pe != null && f.pe > 0 && f.pe < 15
+    ? true
+    : f.pe != null && (f.pe > 30 || f.pe <= 0)
+    ? false
+    : null;
+
   add(
     "pe",
     "F/K (Fiyat/Kazanç)",
@@ -577,56 +648,96 @@ export function fundamentalScore(f: Fundamentals): FundamentalResult {
     1.0,
     f.pe,
     f.pe != null ? f.pe.toFixed(1) : "—",
-    f.pe == null ? null : f.pe > 0 && f.pe < 15 ? true : f.pe > 30 || f.pe <= 0 ? false : null,
-    `F/K ${f.pe?.toFixed(1)} → sektör ortalamasının altında, ucuz çarpan`,
+    pePositive,
+    `F/K ${f.pe?.toFixed(1)} → ${isBank ? "bankacılık çarpanlarına göre son derece ucuz" : "sektör ortalamasının altında, ucuz çarpan"}`,
     f.pe != null && f.pe <= 0 ? "F/K negatif → şirket net zarar açıklıyor" : `F/K ${f.pe?.toFixed(1)} → primli ve pahalı çarpan`,
     f.pe != null ? `F/K ${f.pe.toFixed(1)} → makul piyasa fiyatlaması` : "Veri yok"
   );
 
-  // 7. PD/DD (Piyasa/Defter - Ağırlık: 0.6; F/K ve PEG'den daha düşük, statik defter değeri yanıltmasını önler!)
+  // 7. PD/DD (Piyasa/Defter - Bankalarda < 0.9 iskontolu, Sanayide < 1.5)
+  const pbPositive = isBank
+    ? f.pb != null && f.pb < 0.9
+      ? true
+      : f.pb != null && f.pb > 1.8
+      ? false
+      : null
+    : f.pb != null && f.pb < 1.5
+    ? true
+    : f.pb != null && f.pb > 4
+    ? false
+    : null;
+
   add(
     "pb",
     "PD/DD (Piyasa/Defter)",
     "valuation",
-    0.6,
+    isBank ? 1.0 : 0.6,
     f.pb,
     f.pb != null ? f.pb.toFixed(2) : "—",
-    f.pb == null ? null : f.pb < 1.5 ? true : f.pb > 4 ? false : null,
-    f.pb != null ? `PD/DD ${f.pb.toFixed(2)} < 1.5 → net varlık değerine göre ucuz` : "",
-    f.pb != null ? `PD/DD ${f.pb.toFixed(2)} > 4 → özkaynaklarına göre yüksek primli` : "",
+    pbPositive,
+    f.pb != null ? `PD/DD ${f.pb.toFixed(2)} → ${isBank ? "defter değerine göre iskontolu banka çarpanı" : "net varlık değerine göre ucuz"}` : "",
+    f.pb != null ? `PD/DD ${f.pb.toFixed(2)} → ${isBank ? "özkaynaklarına göre primli banka fiyatlaması" : "özkaynaklarına göre yüksek primli"}` : "",
     f.pb != null ? `PD/DD ${f.pb.toFixed(2)} → makul defter değeri seviyesi` : "Veri yok"
   );
 
-  // --- KATEGORİ 3: MALİ SAĞLAMLIK & LİKİDİTE (Kategori Ağırlığı: %25 - Risk Kalkanı) ---
-  // 8. Cari Oran (Current Ratio / Likidite - Ağırlık: 1.0)
-  add(
-    "currentRatio",
-    "Cari Oran (Likidite)",
-    "solvency",
-    1.0,
-    f.currentRatio,
-    f.currentRatio != null ? f.currentRatio.toFixed(2) : "—",
-    f.currentRatio == null ? null : f.currentRatio >= 1.2 ? true : f.currentRatio < 1.0 ? false : null,
-    f.currentRatio != null ? `Cari Oran ${f.currentRatio.toFixed(2)} ≥ 1.2 → kısa vadeli borç ödeme kabiliyeti güçlü` : "",
-    f.currentRatio != null ? `Cari Oran ${f.currentRatio.toFixed(2)} < 1.0 → kısa vadeli likidite sıkışıklığı riski` : "",
-    f.currentRatio != null ? `Cari Oran ${f.currentRatio.toFixed(2)} → kabul edilebilir likidite tamponu` : "Veri yok"
-  );
+  // --- KATEGORİ 3: MALİ SAĞLAMLIK & LİKİDİTE (Sanayide %25, Bankalarda Sektör Standardı Gereği 0%) ---
+  // Bankalarda mevduatlar bilanço borcu sayıldığından Cari Oran ve Borç/Özkaynak uygulanamaz!
+  if (isBank) {
+    add(
+      "currentRatio",
+      "Cari Oran (Likidite)",
+      "solvency",
+      0.0,
+      f.currentRatio,
+      "—",
+      null,
+      "",
+      "",
+      "Bankacılık sektörü: Mevduat yasal borç sayıldığından sanayi likidite rasyoları model dışıdır"
+    );
+    add(
+      "debtToEquity",
+      "Borç/Özkaynak",
+      "solvency",
+      0.0,
+      f.debtToEquity,
+      "—",
+      null,
+      "",
+      "",
+      "Bankacılık sektörü: Mevduat kaldıracı nedeniyle sanayi borçluluk rasyosu model dışıdır"
+    );
+  } else {
+    // 8. Cari Oran (Current Ratio / Likidite - Ağırlık: 1.0)
+    add(
+      "currentRatio",
+      "Cari Oran (Likidite)",
+      "solvency",
+      1.0,
+      f.currentRatio,
+      f.currentRatio != null ? f.currentRatio.toFixed(2) : "—",
+      f.currentRatio == null ? null : f.currentRatio >= 1.2 ? true : f.currentRatio < 1.0 ? false : null,
+      f.currentRatio != null ? `Cari Oran ${f.currentRatio.toFixed(2)} ≥ 1.2 → kısa vadeli borç ödeme kabiliyeti güçlü` : "",
+      f.currentRatio != null ? `Cari Oran ${f.currentRatio.toFixed(2)} < 1.0 → kısa vadeli likidite sıkışıklığı riski` : "",
+      f.currentRatio != null ? `Cari Oran ${f.currentRatio.toFixed(2)} → kabul edilebilir likidite tamponu` : "Veri yok"
+    );
 
-  // 9. Borç / Özkaynak (Ağırlık: 1.0)
-  add(
-    "debtToEquity",
-    "Borç/Özkaynak",
-    "solvency",
-    1.0,
-    f.debtToEquity,
-    f.debtToEquity != null ? f.debtToEquity.toFixed(0) + "%" : "—",
-    f.debtToEquity == null ? null : f.debtToEquity < 100 ? true : f.debtToEquity > 200 ? false : null,
-    f.debtToEquity != null ? `Borç/Özkaynak %${f.debtToEquity.toFixed(0)} → düşük borçluluk riski` : "",
-    f.debtToEquity != null ? `Borç/Özkaynak %${f.debtToEquity.toFixed(0)} → yüksek borçlanma baskısı` : "",
-    f.debtToEquity != null ? `Borç/Özkaynak %${f.debtToEquity.toFixed(0)} → dengeli borç yapısı` : "Veri yok"
-  );
+    // 9. Borç / Özkaynak (Ağırlık: 1.0)
+    add(
+      "debtToEquity",
+      "Borç/Özkaynak",
+      "solvency",
+      1.0,
+      f.debtToEquity,
+      f.debtToEquity != null ? f.debtToEquity.toFixed(0) + "%" : "—",
+      f.debtToEquity == null ? null : f.debtToEquity < 100 ? true : f.debtToEquity > 200 ? false : null,
+      f.debtToEquity != null ? `Borç/Özkaynak %${f.debtToEquity.toFixed(0)} → düşük borçluluk riski` : "",
+      f.debtToEquity != null ? `Borç/Özkaynak %${f.debtToEquity.toFixed(0)} → yüksek borçlanma baskısı` : "",
+      f.debtToEquity != null ? `Borç/Özkaynak %${f.debtToEquity.toFixed(0)} → dengeli borç yapısı` : "Veri yok"
+    );
+  }
 
-  // --- KATEGORİ 4: BÜYÜME & TEMETTÜ (Kategori Ağırlığı: %10 - İlave İvme) ---
+  // --- KATEGORİ 4: BÜYÜME & TEMETTÜ (Sanayide %10 / Bankada %15) ---
   // 10. Gelir Büyümesi (Ağırlık: 1.0)
   add(
     "revenueGrowth",
@@ -658,20 +769,28 @@ export function fundamentalScore(f: Fundamentals): FundamentalResult {
   );
 
   // --- KATEGORİK AĞIRLIKLI HESAPLAMA (Weighted Fundamental Scoring) ---
-  const FUND_CATEGORY_BASE_WEIGHTS: Record<FundamentalCategory, number> = {
-    profitability: 0.35,  // %35: Kârlılık & Verimlilik
-    valuation: 0.30,      // %30: Değerleme & Çarpanlar
-    solvency: 0.25,       // %25: Mali Sağlamlık & Borç
-    growth: 0.10,         // %10: Büyüme & Temettü
-  };
+  const FUND_CATEGORY_BASE_WEIGHTS: Record<FundamentalCategory, number> = isBank
+    ? {
+        profitability: 0.45, // %45: ROE & ROA (Bankanın motoru)
+        valuation: 0.40,     // %40: F/K & PD/DD
+        growth: 0.15,        // %15: Büyüme & Temettü
+        solvency: 0.0,       // %0: Sanayi borç rasyoları devredışı
+      }
+    : {
+        profitability: 0.35,  // %35: Kârlılık & Verimlilik
+        valuation: 0.30,      // %30: Değerleme & Çarpanlar
+        solvency: 0.25,       // %25: Mali Sağlamlık & Borç
+        growth: 0.10,         // %10: Büyüme & Temettü
+      };
 
   const categoryScores: Partial<Record<FundamentalCategory, number>> = {};
   let totalWeightedScore = 0;
   let activeWeightSum = 0;
 
   for (const [catStr, catBaseWeight] of Object.entries(FUND_CATEGORY_BASE_WEIGHTS)) {
+    if (catBaseWeight <= 0) continue;
     const cat = catStr as FundamentalCategory;
-    const catMetrics = metrics.filter((m) => m.category === cat && m.value != null);
+    const catMetrics = metrics.filter((m) => m.category === cat && m.value != null && (m.weight ?? 1) > 0);
     if (catMetrics.length === 0) continue;
 
     let catWeightedSum = 0;
@@ -695,22 +814,65 @@ export function fundamentalScore(f: Fundamentals): FundamentalResult {
   return { score, signal, metrics, categoryScores };
 }
 
-export function finalSignal(tech: number, fund: number | null) {
-  const raw = fund == null ? tech : 0.6 * tech + 0.4 * fund;
+/**
+ * Dinamik Zaman Dilimi Ağırlıklandırması (Timeframe-Adaptive Weights):
+ * - Gün içi / Scalping (5dk - 30dk): Fiyatı bilanço değil likidite/teknik belirler (%90-%95 Teknik)
+ * - Kısa-Orta Vade (1s - 4s): Dalga trendleri (%70-%80 Teknik, %20-%30 Temel)
+ * - Günlük (1d): Klasik swing karar desteği (%60 Teknik, %40 Temel)
+ * - Haftalık / Aylık (1wk, 1mo): Warren Buffett Değer Yatırımı (%35-%45 Teknik, %55-%65 Temel)
+ */
+export function getTimeframeWeights(
+  tf: TimeframeKey = "1d",
+  hasFund: boolean
+): { techWeight: number; fundWeight: number } {
+  if (!hasFund) {
+    return { techWeight: 1.0, fundWeight: 0.0 };
+  }
+
+  switch (tf) {
+    case "5m":
+    case "10m":
+      return { techWeight: 0.95, fundWeight: 0.05 };
+    case "15m":
+    case "30m":
+      return { techWeight: 0.90, fundWeight: 0.10 };
+    case "1h":
+    case "2h":
+      return { techWeight: 0.80, fundWeight: 0.20 };
+    case "4h":
+      return { techWeight: 0.70, fundWeight: 0.30 };
+    case "1d":
+      return { techWeight: 0.60, fundWeight: 0.40 };
+    case "1wk":
+      return { techWeight: 0.45, fundWeight: 0.55 };
+    case "1mo":
+      return { techWeight: 0.35, fundWeight: 0.65 };
+    default:
+      return { techWeight: 0.60, fundWeight: 0.40 };
+  }
+}
+
+export function finalSignal(
+  tech: number,
+  fund: number | null,
+  timeframe: TimeframeKey = "1d"
+) {
+  const { techWeight, fundWeight } = getTimeframeWeights(timeframe, fund != null);
+  const raw = fund == null ? tech : techWeight * tech + fundWeight * fund;
   const score = Math.round(raw * 100) / 100;
   const signal: Signal = score >= 0.28 ? "AL" : score <= -0.28 ? "SAT" : "TUT";
-  return { score, signal } as const;
+  return { score, signal, techWeight, fundWeight } as const;
 }
 
 export function getHybridAssessment(
   techSignal: Signal,
   fundSignal: Signal | null,
   techScore: number,
-  fundScore: number | null
+  fundScore: number | null,
+  timeframe: TimeframeKey = "1d"
 ) {
   const hasFund = fundScore != null && fundSignal != null;
-  const techWeight = hasFund ? 0.6 : 1.0;
-  const fundWeight = hasFund ? 0.4 : 0.0;
+  const { techWeight, fundWeight } = getTimeframeWeights(timeframe, hasFund);
 
   if (!hasFund) {
     return {
@@ -722,9 +884,13 @@ export function getHybridAssessment(
     };
   }
 
+  const techPct = Math.round(techWeight * 100);
+  const fundPct = Math.round(fundWeight * 100);
+  const weightContext = `[Periyot Ağırlığı: %${techPct} Teknik / %${fundPct} Temel]`;
+
   if (techSignal === "AL" && fundSignal === "AL") {
     return {
-      label: "Güçlü Uyum (Teknik & Temel AL)",
+      label: `Güçlü Uyum (Teknik & Temel AL) ${weightContext}`,
       description: "Hem teknik indikatörler yukarı yönlü momentum üretiyor hem de şirket çarpanları ve kârlılığı güçlü alım bölgesinde.",
       techWeight,
       fundWeight,
@@ -734,7 +900,7 @@ export function getHybridAssessment(
 
   if (techSignal === "SAT" && fundSignal === "SAT") {
     return {
-      label: "Güçlü Uyum (Teknik & Temel SAT)",
+      label: `Güçlü Uyum (Teknik & Temel SAT) ${weightContext}`,
       description: "Hem teknik grafikler düşüş trendinde hem de şirket bilanço rasyoları negatif baskı yaratıyor.",
       techWeight,
       fundWeight,
@@ -744,7 +910,7 @@ export function getHybridAssessment(
 
   if (techSignal === "AL" && fundSignal === "TUT") {
     return {
-      label: "Teknik Destekli Alım (Temel Dengeli)",
+      label: `Teknik Destekli Alım (Temel Dengeli) ${weightContext}`,
       description: "Teknik momentum ve kırılımlar güçlü AL üretirken şirket temel rasyoları makul ve dengeli seyrediyor.",
       techWeight,
       fundWeight,
@@ -754,7 +920,7 @@ export function getHybridAssessment(
 
   if (techSignal === "TUT" && fundSignal === "AL") {
     return {
-      label: "Temel Değer Fırsatı (Teknik Beklemede)",
+      label: `Temel Değer Fırsatı (Teknik Beklemede) ${weightContext}`,
       description: "Şirketin finansalları ve kârlılığı çok cazip ancak fiyatta henüz güçlü bir teknik hareket başlamamış.",
       techWeight,
       fundWeight,
@@ -764,7 +930,7 @@ export function getHybridAssessment(
 
   if (techSignal === "SAT" && fundSignal === "TUT") {
     return {
-      label: "Teknik Düzeltme Baskısı (Temel Nötr)",
+      label: `Teknik Düzeltme Baskısı (Temel Nötr) ${weightContext}`,
       description: "Kısa/orta vadeli teknik göstergeler aşırı alım ya da satış baskısı işaret ediyor; temel yapı nötr.",
       techWeight,
       fundWeight,
@@ -774,7 +940,7 @@ export function getHybridAssessment(
 
   if (techSignal === "TUT" && fundSignal === "SAT") {
     return {
-      label: "Temel Zayıflık Uyarısı (Teknik Kararsız)",
+      label: `Temel Zayıflık Uyarısı (Teknik Kararsız) ${weightContext}`,
       description: "Hisse çarpanları pahalı veya borçluluk yüksek; teknik yön yatay olsa da temkinli olunmalı.",
       techWeight,
       fundWeight,
@@ -784,7 +950,7 @@ export function getHybridAssessment(
 
   if (techSignal === "AL" && fundSignal === "SAT") {
     return {
-      label: "Ayrışan Sinyal (Teknik AL, Temel Zayıf)",
+      label: `Ayrışan Sinyal (Teknik AL, Temel Zayıf) ${weightContext}`,
       description: "Teknik olarak yukarı tepki/momentumu var ancak temel rasyolar pahalılık gösteriyor. Yakın stop-loss ile takip önerilir.",
       techWeight,
       fundWeight,
@@ -794,7 +960,7 @@ export function getHybridAssessment(
 
   if (techSignal === "SAT" && fundSignal === "AL") {
     return {
-      label: "Ayrışan Sinyal (Teknik SAT, Temel Ucuz)",
+      label: `Ayrışan Sinyal (Teknik SAT, Temel Ucuz) ${weightContext}`,
       description: "Şirket temel olarak çok ucuz ve kârlı olsa da fiyatta teknik satış baskısı sürüyor. Kademeli alım veya dönüş teyidi beklenebilir.",
       techWeight,
       fundWeight,
@@ -803,7 +969,7 @@ export function getHybridAssessment(
   }
 
   return {
-    label: "Nötr / Dengeli Görünüm",
+    label: `Nötr / Dengeli Görünüm ${weightContext}`,
     description: "Teknik ve temel göstergeler belirgin bir yön kırılımı üretmiyor; bekle-gör stratejisi önerilir.",
     techWeight,
     fundWeight,
