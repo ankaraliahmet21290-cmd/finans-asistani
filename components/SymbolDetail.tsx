@@ -390,7 +390,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             </div>
 
             {/* Actionable Summary Metrics */}
-            <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-zinc-800/80">
+            <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-zinc-800/80">
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
                 <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Trend Rejimi (ADX)</span>
                 <span className="font-semibold text-xs text-zinc-200">
@@ -402,16 +402,24 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   {currentResult.tech.trendStrength?.adx != null ? ` (${currentResult.tech.trendStrength.adx})` : ""}
                 </span>
               </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
-                <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Dinamik Stop-Loss (ATR)</span>
-                <span className="font-mono font-bold text-xs text-red-400">
+              <div className="rounded-xl border border-red-900/30 bg-red-950/15 p-2.5">
+                <span className="text-[10px] text-red-400/80 uppercase font-semibold block">🛑 Dinamik Stop-Loss (1.5x ATR)</span>
+                <span className="font-mono font-bold text-xs sm:text-sm text-red-400">
                   {currentResult.tech.volatility?.stopLoss != null
                     ? formatPrice(currentResult.tech.volatility.stopLoss, currentResult.currency)
                     : "—"}
                 </span>
               </div>
-              <div className="col-span-2 sm:col-span-1 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
-                <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Değerleme / Büyüme (PEG)</span>
+              <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/15 p-2.5">
+                <span className="text-[10px] text-emerald-400/80 uppercase font-semibold block">🎯 Dinamik Kâr Al / Hedef (2.5x ATR)</span>
+                <span className="font-mono font-bold text-xs sm:text-sm text-emerald-400">
+                  {currentResult.tech.volatility?.takeProfit != null
+                    ? formatPrice(currentResult.tech.volatility.takeProfit, currentResult.currency)
+                    : "—"}
+                </span>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
+                <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Değerleme (PEG / FK)</span>
                 <span className="font-mono font-bold text-xs text-amber-400">
                   {currentResult.fundamentals?.peg != null
                     ? `${currentResult.fundamentals.peg.toFixed(2)} (${currentResult.fundamentals.peg <= 1.0 ? "İskontolu" : "Primli"})`

@@ -471,9 +471,9 @@ export function technicalScore(
   const atrVal = last(ind.atr);
   if (atrVal != null && price > 0) {
     const atrPercent = (atrVal / price) * 100;
-    const isBullish = roundedScore > 0;
-    const stopLoss = isBullish ? Math.max(0, price - 1.5 * atrVal) : price + 1.5 * atrVal;
-    const takeProfit = isBullish ? price + 2.5 * atrVal : Math.max(0, price - 2.5 * atrVal);
+    // Spot hisse yatırımı için Stop-Loss her zaman fiyatın altı (-1.5 ATR), Kâr Al her zaman fiyatın üstüdür (+2.5 ATR)
+    const stopLoss = Math.max(0, price - 1.5 * atrVal);
+    const takeProfit = price + 2.5 * atrVal;
 
     volatility = {
       atr: Math.round(atrVal * 100) / 100,
