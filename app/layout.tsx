@@ -42,6 +42,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <BistCombobox compact placeholder="BIST hisse ara (⌘K)..." autoNavigate={true} />
             </div>
 
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Link
+                href="/kullanim-kilavuzu"
+                className="shrink-0 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-300 transition hover:border-sky-400 hover:bg-sky-500/20 sm:text-xs"
+              >
+                📖 <span className="hidden sm:inline">Kullanım </span>Kılavuzu
+              </Link>
+              <Link
+                href="/teknik-detay-klavuzu"
+                className="shrink-0 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-[11px] font-medium text-indigo-300 transition hover:border-indigo-400 hover:bg-indigo-500/20 sm:text-xs"
+              >
+                📊 <span className="hidden sm:inline">Teknik </span>Detay Kılavuzu
+              </Link>
+            </div>
+
             <div className="hidden items-center gap-3 sm:flex">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />

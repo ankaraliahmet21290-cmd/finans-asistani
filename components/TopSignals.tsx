@@ -5,6 +5,8 @@ import Link from "next/link";
 import SignalBadge from "./SignalBadge";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import TimeframeSelector from "./TimeframeSelector";
+import IndexTypeSelector from "./IndexTypeSelector";
+import { INDEX_TYPES, type IndexTypeKey } from "@/lib/index-types";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import type { RankedStock, TopSignalsResponse } from "@/app/api/signals/top/route";
 import type { TimeframeKey } from "@/lib/timeframes";
@@ -168,6 +170,7 @@ function StockRankingCard({
 export default function TopSignals() {
   const [data, setData] = useState<TopSignalsResponse | null>(null);
   const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
+  const [indexType, setIndexType] = useState<IndexTypeKey>("bist30");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
@@ -215,6 +218,18 @@ export default function TopSignals() {
       if (active) void fetchSignals("1d");
     })();
 
+    (async () => {
+      try {
+        const res = await fetch("/api/index-type/settings", { cache: "no-store" });
+        if (res.ok && active) {
+          const json = await res.json();
+          if (json.settings?.topSignals) setIndexType(json.settings.topSignals as IndexTypeKey);
+        }
+      } catch {
+        // varsayılan endeks kullanılır
+      }
+    })();
+
     return () => {
       active = false;
     };
@@ -246,6 +261,20 @@ export default function TopSignals() {
     }
   };
 
+  const handleIndexTypeChange = async (newKey: IndexTypeKey) => {
+    setIndexType(newKey);
+    try {
+      await fetch("/api/index-type/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel: "topSignals", indexType: newKey }),
+      });
+    } catch (e) {
+      console.error("[TopSignals] Endeks tipi kaydedilemedi:", e);
+    }
+    void fetchSignals(timeframe, true);
+  };
+
   return (
     <section className="w-full">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -260,7 +289,7 @@ export default function TopSignals() {
             </span>
           </div>
           <p className="mt-1 text-xs text-zinc-400">
-            BIST lider hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları ({data?.timeframeLabel ?? "Günlük"})
+            {INDEX_TYPES[indexType].label} hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları ({data?.timeframeLabel ?? "Günlük"})
             {data?.updatedAt && (
               <span> · Güncellenme: {new Date(data.updatedAt).toLocaleTimeString("tr-TR")}</span>
             )}
@@ -268,6 +297,12 @@ export default function TopSignals() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <IndexTypeSelector
+            id="top-signals-index-type"
+            value={indexType}
+            onChange={handleIndexTypeChange}
+            disabled={loading || refreshing}
+          />
           <TimeframeSelector
             value={timeframe}
             onChange={handleTimeframeChange}

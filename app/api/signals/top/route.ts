@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { analyzeSymbol } from "@/lib/analyze";
-import { BIST_30_TICKERS, findBistCompany } from "@/lib/bist";
+import { findBistCompany } from "@/lib/bist";
+import { mapWithLimit } from "@/lib/concurrency";
+import { getIndexTickers, getIndexTypeSettingsFromFile } from "@/lib/index-type-storage";
+import type { IndexTypeKey } from "@/lib/index-types";
 import { getActiveRefreshConfig } from "@/lib/refresh-settings-storage";
 import {
   getActiveTimeframeSettings,
@@ -33,19 +36,24 @@ export interface TopSignalsResponse {
   timeframeLabel: string;
   updatedAt: string;
   totalEvaluated: number;
+  indexType: IndexTypeKey;
 }
 
-// In-memory cache by timeframe
+// In-memory cache by index type + timeframe
 interface CacheEntry {
   data: TopSignalsResponse;
   lastFetchedAt: number;
 }
-const cacheByTimeframe = new Map<TimeframeKey, CacheEntry>();
-const inFlightPromises = new Map<TimeframeKey, Promise<TopSignalsResponse>>();
+const cacheByTimeframe = new Map<string, CacheEntry>();
+const inFlightPromises = new Map<string, Promise<TopSignalsResponse>>();
 
-async function computeTopSignals(timeframe: TimeframeKey = "1d"): Promise<TopSignalsResponse> {
-  const evaluated = await Promise.allSettled(
-    BIST_30_TICKERS.map(async (ticker): Promise<RankedStock> => {
+async function computeTopSignals(
+  timeframe: TimeframeKey = "1d",
+  indexType: IndexTypeKey = "bist30"
+): Promise<TopSignalsResponse> {
+  const tickers = getIndexTickers(indexType);
+  const evaluated = await mapWithLimit(tickers, 16, async (ticker): Promise<RankedStock | null> => {
+    try {
       const res = await analyzeSymbol(ticker, "stock", timeframe);
       const bist = findBistCompany(ticker);
       const code = bist ? bist.code : ticker.replace(/\.IS$/, "");
@@ -73,15 +81,12 @@ async function computeTopSignals(timeframe: TimeframeKey = "1d"): Promise<TopSig
         fundScore: res.fund?.score ?? null,
         reasons: [...techReasons, ...fundReasons].slice(0, 3),
       };
-    })
-  );
-
-  const stocks: RankedStock[] = [];
-  for (const item of evaluated) {
-    if (item.status === "fulfilled" && item.value) {
-      stocks.push(item.value);
+    } catch {
+      return null;
     }
-  }
+  });
+
+  const stocks: RankedStock[] = evaluated.filter((s): s is RankedStock => s !== null);
 
   // AL Puanı En Yüksek (Highest positive score, descending)
   const buys = [...stocks]
@@ -102,6 +107,7 @@ async function computeTopSignals(timeframe: TimeframeKey = "1d"): Promise<TopSig
     timeframeLabel: tfConfig.label,
     updatedAt: new Date().toISOString(),
     totalEvaluated: stocks.length,
+    indexType,
   };
 }
 
@@ -111,16 +117,18 @@ export async function GET(req: Request) {
   const rawTf = searchParams.get("timeframe") || searchParams.get("tf");
   const fallbackTf = getActiveTimeframeSettings().topSignals;
   const timeframe: TimeframeKey = rawTf ? normalizeTimeframeKey(rawTf) : fallbackTf;
+  const { topSignals: indexType } = await getIndexTypeSettingsFromFile();
+  const cacheKey = `${indexType}:${timeframe}`;
 
   const now = Date.now();
   const ttl = getActiveRefreshConfig().cacheTtlMs;
-  const cached = cacheByTimeframe.get(timeframe);
+  const cached = cacheByTimeframe.get(cacheKey);
 
   if (!force && cached && now - cached.lastFetchedAt < ttl) {
     return NextResponse.json(cached.data);
   }
 
-  const existingInFlight = inFlightPromises.get(timeframe);
+  const existingInFlight = inFlightPromises.get(cacheKey);
   if (existingInFlight) {
     const data = await existingInFlight;
     return NextResponse.json(data);
@@ -128,15 +136,15 @@ export async function GET(req: Request) {
 
   const promise = (async () => {
     try {
-      const data = await computeTopSignals(timeframe);
-      cacheByTimeframe.set(timeframe, { data, lastFetchedAt: Date.now() });
+      const data = await computeTopSignals(timeframe, indexType);
+      cacheByTimeframe.set(cacheKey, { data, lastFetchedAt: Date.now() });
       return data;
     } finally {
-      inFlightPromises.delete(timeframe);
+      inFlightPromises.delete(cacheKey);
     }
   })();
 
-  inFlightPromises.set(timeframe, promise);
+  inFlightPromises.set(cacheKey, promise);
   const data = await promise;
   return NextResponse.json(data);
 }

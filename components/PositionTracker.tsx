@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import BistCombobox from "./BistCombobox";
+import MailRecipientsControl from "./MailRecipientsControl";
 import { formatPrice, formatPercent, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { BistCompany } from "@/lib/bist";
@@ -228,6 +229,9 @@ export default function PositionTracker() {
                 ))}
               </select>
             </div>
+
+            {/* Mail Recipients Control */}
+            <MailRecipientsControl size="sm" />
 
             {/* Check Now Button */}
             <button

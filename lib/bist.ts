@@ -1,4 +1,5 @@
 import bistCompaniesData from "./bist-companies.json";
+import bist100TickersData from "./bist-100-tickers.json";
 
 export interface BistCompany {
   code: string;
@@ -8,6 +9,7 @@ export interface BistCompany {
 }
 
 export const BIST_COMPANIES: readonly BistCompany[] = bistCompaniesData as BistCompany[];
+export const BIST_100_TICKERS: readonly string[] = bist100TickersData as string[];
 
 // Prominent BIST 30 tickers used for market overview and top buy/sell rankings
 export const BIST_30_TICKERS: readonly string[] = [

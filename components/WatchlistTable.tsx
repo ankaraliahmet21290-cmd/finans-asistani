@@ -6,6 +6,7 @@ import SignalBadge from "./SignalBadge";
 import WatchlistCombobox from "./WatchlistCombobox";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import TimeframeSelector from "./TimeframeSelector";
+import MailRecipientsControl from "./MailRecipientsControl";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import type { AnalysisResult, AssetType } from "@/lib/types";
 import { DEFAULT_WATCHLIST, type WatchEntry } from "@/lib/watchlist";
@@ -310,7 +311,14 @@ export default function WatchlistTable() {
             <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-xs text-zinc-300">
               watchlist.md
             </code>{" "}
-            dosyasından okunur. {TIMEFRAMES[timeframe]?.label ?? "Günlük"} mum ve göstergeleri hesaplanır ·{" "}
+            dosyasından okunur. {TIMEFRAMES[timeframe]?.label ?? "Günlük"} mum ve göstergeleri hesaplanır (
+            <Link
+              href="/teknik-detay-klavuzu"
+              className="font-medium text-sky-400 underline underline-offset-2 transition hover:text-sky-300"
+            >
+              📊 Sinyal Hesaplama Mantığı
+            </Link>
+            ) ·{" "}
             {updatedAt
               ? `son güncelleme ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
               : isInitialLoading
@@ -326,6 +334,7 @@ export default function WatchlistTable() {
             disabled={refreshing}
             size="sm"
           />
+          <MailRecipientsControl size="sm" />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}
             onIntervalChange={(sec) => setRefreshInterval(sec)}

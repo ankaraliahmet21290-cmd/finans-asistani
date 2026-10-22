@@ -1,7 +1,10 @@
 import { computeIndicators } from "./indicators";
 import { finalSignal, fundamentalScore, technicalScore } from "./scoring";
 import { getCandles, getFundamentals } from "./data";
-import { BIST_30_TICKERS, findBistCompany, isFinancialOrBank } from "./bist";
+import { findBistCompany, isFinancialOrBank } from "./bist";
+import { mapWithLimit } from "./concurrency";
+import { getIndexTickers, getIndexTypeSettingsFromFile } from "./index-type-storage";
+import type { IndexTypeKey } from "./index-types";
 import type { Candle, Signal } from "./types";
 
 import { TIMEFRAMES, type CategoryTimeframeKey, type TimeframeConfig, type TimeframeKey } from "./timeframes";
@@ -38,39 +41,96 @@ export interface CategorizedSignals {
   isWithinHours: boolean;
   categories: Record<CategoryTimeframeKey, TimeframeCategoryData>;
   totalSignalsCount: number;
+  indexType?: IndexTypeKey;
+  totalScanned?: number;
 }
 
-let cachedScanData: CategorizedSignals | null = null;
-let lastScanTimestamp = 0;
-const SCAN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+import fs from "fs/promises";
+import path from "path";
 
-export function getCachedScan(): CategorizedSignals | null {
-  if (cachedScanData && Date.now() - lastScanTimestamp < SCAN_CACHE_TTL_MS) {
-    return cachedScanData;
+const CACHE_DIR = path.join(process.cwd(), ".cache");
+
+async function ensureCacheDir() {
+  try {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+  } catch {
+    // ignore
+  }
+}
+
+export async function readDiskCache(indexType: IndexTypeKey): Promise<CategorizedSignals | null> {
+  try {
+    const filePath = path.join(CACHE_DIR, `signals-${indexType}.json`);
+    const data = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(data) as CategorizedSignals;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeDiskCache(indexType: IndexTypeKey, data: CategorizedSignals): Promise<void> {
+  try {
+    await ensureCacheDir();
+    const filePath = path.join(CACHE_DIR, `signals-${indexType}.json`);
+    await fs.writeFile(filePath, JSON.stringify(data), "utf-8");
+  } catch (err) {
+    console.error("[multitimeframe] writeDiskCache hatası:", err);
+  }
+}
+
+const cachedScans = new Map<string, { at: number; data: CategorizedSignals }>();
+const ongoingScans = new Map<string, Promise<CategorizedSignals>>();
+const SCAN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const SCAN_CONCURRENCY = 4;
+
+export function getCachedScan(indexType?: IndexTypeKey): CategorizedSignals | null {
+  const key = indexType || "default";
+  const item = cachedScans.get(key);
+  if (item && Date.now() - item.at < SCAN_CACHE_TTL_MS) {
+    return item.data;
+  }
+  return null;
+}
+
+export async function getCachedScanAsync(indexType?: IndexTypeKey): Promise<CategorizedSignals | null> {
+  const key = indexType || "default";
+  const item = cachedScans.get(key);
+  if (item && Date.now() - item.at < SCAN_CACHE_TTL_MS) {
+    return item.data;
+  }
+
+  // Bellekte yoksa diskten yükle
+  const diskData = await readDiskCache(key as IndexTypeKey);
+  if (diskData) {
+    cachedScans.set(key, { at: Date.now(), data: diskData });
+    return diskData;
   }
   return null;
 }
 
 export function setCachedScan(data: CategorizedSignals): void {
-  cachedScanData = data;
-  lastScanTimestamp = Date.now();
+  const key = data.indexType || "default";
+  cachedScans.set(key, { at: Date.now(), data });
+  void writeDiskCache(key as IndexTypeKey, data);
 }
 
 export async function getTimeframeCandles(
   ticker: string,
-  tf: TimeframeKey
+  tf: TimeframeKey,
+  preferDirect?: boolean
 ): Promise<Candle[]> {
-  const res = await getCandles(ticker, tf);
+  const res = await getCandles(ticker, tf, { preferDirect });
   return res.candles;
 }
 
 export async function analyzeTimeframe(
   ticker: string,
   tf: TimeframeKey,
-  preloadedFund?: { score: number | null; signal: Signal | null }
+  preloadedFund?: { score: number | null; signal: Signal | null },
+  preferDirect?: boolean
 ): Promise<TimeframeStockSignal | null> {
   try {
-    const candles = await getTimeframeCandles(ticker, tf);
+    const candles = await getTimeframeCandles(ticker, tf, preferDirect);
     if (candles.length < 20) return null;
 
     const closes = candles.map((c) => c.close);
@@ -142,39 +202,52 @@ export function isWithinTradingHours(date = new Date()): boolean {
   return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
 }
 
-// Scan multi-timeframe signals across active universe
-export async function scanCategorizedSignals(universe = BIST_30_TICKERS): Promise<CategorizedSignals> {
-  const isHours = isWithinTradingHours();
-  const timeframes: CategoryTimeframeKey[] = [
-    "5m",
-    "10m",
-    "15m",
-    "30m",
-    "1h",
-    "2h",
-    "4h",
-    "1d",
-    "1wk",
-    "1mo",
-  ];
+// Scan multi-timeframe signals across the universe of the selected index type (endeks-tip.md)
+export async function scanCategorizedSignals(indexType?: IndexTypeKey): Promise<CategorizedSignals> {
+  const activeIndexType = indexType ?? (await getIndexTypeSettingsFromFile()).multiTimeframe;
+  const key = activeIndexType || "default";
 
-  const categories: CategorizedSignals["categories"] = {
-    "5m": { label: "5 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
-    "10m": { label: "10 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
-    "15m": { label: "15 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
-    "30m": { label: "30 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
-    "1h": { label: "1 Saatlik Sinyaller", buys: [], sells: [], items: [] },
-    "2h": { label: "2 Saatlik Sinyaller", buys: [], sells: [], items: [] },
-    "4h": { label: "4 Saatlik Sinyaller", buys: [], sells: [], items: [] },
-    "1d": { label: "Günlük Sinyaller", buys: [], sells: [], items: [] },
-    "1wk": { label: "Haftalık Sinyaller", buys: [], sells: [], items: [] },
-    "1mo": { label: "Aylık Sinyaller", buys: [], sells: [], items: [] },
-  };
+  // Devam eden bir tarama varsa yeni bir tarama başlatma, var olanı bekle (Deduplication)
+  const existing = ongoingScans.get(key);
+  if (existing) {
+    return await existing;
+  }
 
-  // 1. Preload fundamentals ONCE per ticker (drops 300 calls down to 30 calls)
-  const fundMap = new Map<string, { score: number | null; signal: Signal | null }>();
-  await Promise.all(
-    universe.map(async (ticker) => {
+  const runScan = async (): Promise<CategorizedSignals> => {
+    const universe = getIndexTickers(activeIndexType);
+    const isHours = isWithinTradingHours();
+    // BIST 30 seçildiğinde doğrudan Yahoo'nun orijinal 15m, 30m, 1wk, 1mo uç noktalarından çeker.
+    // BIST 100 ve BIST TÜM seçildiğinde rate-limit koruması ve hız için 3 temel veriden türetir.
+    const preferDirect = activeIndexType === "bist30";
+    const timeframes: CategoryTimeframeKey[] = [
+      "5m",
+      "10m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "4h",
+      "1d",
+      "1wk",
+      "1mo",
+    ];
+
+    const categories: CategorizedSignals["categories"] = {
+      "5m": { label: "5 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+      "10m": { label: "10 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+      "15m": { label: "15 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+      "30m": { label: "30 Dakikalık Sinyaller", buys: [], sells: [], items: [] },
+      "1h": { label: "1 Saatlik Sinyaller", buys: [], sells: [], items: [] },
+      "2h": { label: "2 Saatlik Sinyaller", buys: [], sells: [], items: [] },
+      "4h": { label: "4 Saatlik Sinyaller", buys: [], sells: [], items: [] },
+      "1d": { label: "Günlük Sinyaller", buys: [], sells: [], items: [] },
+      "1wk": { label: "Haftalık Sinyaller", buys: [], sells: [], items: [] },
+      "1mo": { label: "Aylık Sinyaller", buys: [], sells: [], items: [] },
+    };
+
+    // 1. Preload fundamentals ONCE per ticker (1 saatlik cache ile korunur)
+    const fundMap = new Map<string, { score: number | null; signal: Signal | null }>();
+    await mapWithLimit(universe, SCAN_CONCURRENCY, async (ticker) => {
       try {
         const f = await getFundamentals(ticker);
         const isBank = isFinancialOrBank(ticker);
@@ -183,45 +256,55 @@ export async function scanCategorizedSignals(universe = BIST_30_TICKERS): Promis
       } catch {
         fundMap.set(ticker, { score: null, signal: null });
       }
-    })
-  );
+    });
 
-  // 2. Scan all timeframes in parallel
-  await Promise.all(
-    timeframes.map(async (tf) => {
-      const results = await Promise.all(
-        universe.map((t) => analyzeTimeframe(t, tf, fundMap.get(t)))
-      );
-      for (const r of results) {
+    // 2. Scan each ticker for all timeframes with bounded concurrency
+    await mapWithLimit(universe, SCAN_CONCURRENCY, async (ticker) => {
+      const fund = fundMap.get(ticker);
+      for (const tf of timeframes) {
+        const r = await analyzeTimeframe(ticker, tf, fund, preferDirect);
         if (!r) continue;
-        categories[tf].items.push(r);
+        const cat = categories[r.timeframe as CategoryTimeframeKey];
+        if (!cat) continue;
+        cat.items.push(r);
         if (r.signal === "AL") {
-          categories[tf].buys.push(r);
+          cat.buys.push(r);
         } else if (r.signal === "SAT") {
-          categories[tf].sells.push(r);
+          cat.sells.push(r);
         }
       }
+    });
 
-      // Sort buys descending, sells ascending
+    // Sort buys descending, sells ascending
+    for (const tf of timeframes) {
       categories[tf].buys.sort((a, b) => b.score - a.score);
       categories[tf].sells.sort((a, b) => a.score - b.score);
-    })
-  );
+    }
 
-  let totalSignalsCount = 0;
-  for (const tf of timeframes) {
-    totalSignalsCount += categories[tf].buys.length + categories[tf].sells.length;
-  }
+    let totalSignalsCount = 0;
+    for (const tf of timeframes) {
+      totalSignalsCount += categories[tf].buys.length + categories[tf].sells.length;
+    }
 
-  const result: CategorizedSignals = {
-    scannedAt: new Date().toISOString(),
-    isWithinHours: isHours,
-    categories,
-    totalSignalsCount,
+    const result: CategorizedSignals = {
+      scannedAt: new Date().toISOString(),
+      isWithinHours: isHours,
+      categories,
+      totalSignalsCount,
+      indexType: activeIndexType,
+      totalScanned: universe.length,
+    };
+
+    // Update in-memory & disk cache
+    setCachedScan(result);
+
+    return result;
   };
 
-  // Update in-memory cache
-  setCachedScan(result);
+  const p = runScan().finally(() => {
+    ongoingScans.delete(key);
+  });
 
-  return result;
+  ongoingScans.set(key, p);
+  return await p;
 }

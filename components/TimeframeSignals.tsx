@@ -5,6 +5,8 @@ import Link from "next/link";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import MailScheduleControl from "./MailScheduleControl";
 import MailRecipientsControl from "./MailRecipientsControl";
+import IndexTypeSelector from "./IndexTypeSelector";
+import type { IndexTypeKey } from "@/lib/index-types";
 import { formatPrice, formatSigned } from "@/lib/format";
 import type { CategorizedSignals, TimeframeStockSignal } from "@/lib/multitimeframe";
 import type { CategoryTimeframeKey } from "@/lib/timeframes";
@@ -49,6 +51,26 @@ export default function TimeframeSignals() {
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mailConfig, setMailConfig] = useState<MailScheduleConfig | null>(null);
+  const [indexType, setIndexType] = useState<IndexTypeKey>("bist30");
+
+  // Load saved index type from endeks-tip.md on mount
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/index-type/settings", { cache: "no-store" });
+        if (res.ok && active) {
+          const json = await res.json();
+          if (json.settings?.multiTimeframe) setIndexType(json.settings.multiTimeframe as IndexTypeKey);
+        }
+      } catch {
+        // varsayılan endeks kullanılır
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Load saved interval preference from localStorage on mount
   useEffect(() => {
@@ -103,6 +125,20 @@ export default function TimeframeSignals() {
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleIndexTypeChange = async (newKey: IndexTypeKey) => {
+    setIndexType(newKey);
+    try {
+      await fetch("/api/index-type/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel: "multiTimeframe", indexType: newKey }),
+      });
+    } catch (e) {
+      console.error("[TimeframeSignals] Endeks tipi kaydedilemedi:", e);
+    }
+    void fetchData(true);
   };
 
   useEffect(() => {
@@ -181,6 +217,12 @@ export default function TimeframeSignals() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <IndexTypeSelector
+              id="multi-timeframe-index-type"
+              value={indexType}
+              onChange={handleIndexTypeChange}
+              disabled={loading || scanning}
+            />
             <MailScheduleControl
               size="sm"
               align="left"
@@ -300,10 +342,19 @@ export default function TimeframeSignals() {
       </div>
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900/50" />
-          ))}
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-sky-900/30 bg-zinc-900/60 p-8 text-center backdrop-blur-md">
+          <div className="relative flex h-10 w-10">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
+            <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/20 border border-sky-400/40 text-lg">
+              📊
+            </span>
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-zinc-100">Zaman Dilimi Sinyalleri Analiz Ediliyor…</h4>
+            <p className="mt-1 text-xs text-zinc-400 max-w-md">
+              {indexType === "bist100" ? "BIST 100" : indexType === "bistall" ? "BIST TÜM" : "BIST 30"} hisseleri için 10 farklı zaman diliminde teknik ve temel göstergeler taranıyor.
+            </p>
+          </div>
         </div>
       ) : error ? (
         <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-4 text-xs text-red-400">
