@@ -3,14 +3,18 @@
 import { useEffect, useState } from "react";
 import MailRecipientsModal from "./MailRecipientsModal";
 
+export type MailRecipientsContext = "multiTimeframe" | "positions" | "watchlist";
+
 interface MailRecipientsControlProps {
   size?: "sm" | "md";
   className?: string;
+  context?: MailRecipientsContext;
 }
 
 export default function MailRecipientsControl({
   size = "md",
   className = "",
+  context = "multiTimeframe",
 }: MailRecipientsControlProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeCount, setActiveCount] = useState<number | null>(null);
@@ -31,12 +35,19 @@ export default function MailRecipientsControl({
     void fetchCount();
   }, []);
 
+  const buttonTitle =
+    context === "positions"
+      ? "Portföy acil durum alarm e-posta alıcılarını yönet (Tetikleme anında gönderim)"
+      : context === "watchlist"
+      ? "Takip listesi AL/SAT sinyal e-posta alıcılarını yönet (Tetikleme anında gönderim)"
+      : "Çoklu zaman dilimi tarama rapor alıcıları & sıklık ayarlarını yönet";
+
   return (
     <>
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        title="E-posta alıcı listesini yönet (mail-recipients.md)"
+        title={buttonTitle}
         className={`group flex items-center gap-2 rounded-xl border border-sky-900/40 bg-gradient-to-r from-sky-950/40 via-zinc-900/90 to-zinc-900/90 font-medium text-zinc-300 shadow-sm transition hover:border-sky-500/60 hover:bg-zinc-800/80 hover:text-zinc-100 ${
           size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-xs sm:text-sm"
         } ${className}`}
@@ -60,6 +71,7 @@ export default function MailRecipientsControl({
           void fetchCount();
         }}
         onCountChange={(count) => setActiveCount(count)}
+        context={context}
       />
     </>
   );

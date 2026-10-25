@@ -1,4 +1,4 @@
-export type AssetType = "stock" | "gold";
+export type AssetType = "stock" | "gold" | "commodity" | "forex" | "crypto" | "us_stock";
 
 export type Signal = "AL" | "SAT" | "TUT";
 
@@ -155,6 +155,61 @@ export interface HybridAssessment {
   alignment: "strong" | "moderate" | "divergent" | "neutral";
 }
 
+export interface PivotPoints {
+  pivot: number;
+  r1: number;
+  r2: number;
+  r3: number;
+  s1: number;
+  s2: number;
+  s3: number;
+  fibR1: number;
+  fibR2: number;
+  fibR3: number;
+  fibS1: number;
+  fibS2: number;
+  fibS3: number;
+}
+
+export interface CryptoFundamentals {
+  marketCap: number | null;
+  volume24h: number | null;
+  volumeToMarketCap: number | null;
+  circulatingSupply: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  athDropPercent: number | null;
+}
+
+export interface ForexCommodityMetrics {
+  pivotPoints?: PivotPoints;
+  dxyValue: number | null;
+  dxyChangePercent: number | null;
+  us10yYield: number | null;
+  goldSilverRatio: number | null;
+  gramGoldTRY: number | null;
+  atr: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+}
+
+export interface UsStockFundamentals {
+  targetMeanPrice: number | null;
+  upsidePercent: number | null;
+  recommendationKey: string | null;
+  recommendationMean: number | null; // 1.0 (Strong Buy) - 5.0 (Sell)
+  pe: number | null;
+  forwardPe: number | null;
+  peg: number | null;
+  pb: number | null;
+  roe: number | null;
+  revenueGrowth: number | null;
+  profitMargins: number | null;
+  operatingMargins: number | null;
+  debtToEquity: number | null;
+  dividendYield: number | null;
+}
+
 export interface AnalysisResult {
   ticker: string;
   type: AssetType;
@@ -169,6 +224,9 @@ export interface AnalysisResult {
   tech: TechnicalResult;
   fund: FundamentalResult | null;
   fundamentals: Fundamentals | null;
+  cryptoFundamentals?: CryptoFundamentals | null;
+  forexCommodityMetrics?: ForexCommodityMetrics | null;
+  usStockFundamentals?: UsStockFundamentals | null;
   score: number;
   signal: Signal;
   hybridAssessment?: HybridAssessment;

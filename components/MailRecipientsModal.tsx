@@ -7,17 +7,23 @@ import {
   type MailIntervalKey,
 } from "@/lib/mail-settings-types";
 
+export type MailRecipientsContext = "multiTimeframe" | "positions" | "watchlist";
+
 interface MailRecipientsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCountChange?: (count: number) => void;
+  context?: MailRecipientsContext;
 }
 
 export default function MailRecipientsModal({
   isOpen,
   onClose,
   onCountChange,
+  context = "multiTimeframe",
 }: MailRecipientsModalProps) {
+  const isMultiTimeframe = context === "multiTimeframe";
+
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -107,7 +113,7 @@ export default function MailRecipientsModal({
         body: JSON.stringify({
           email: emailTrimmed,
           name: newName.trim() || undefined,
-          intervalKey: newFrequency,
+          intervalKey: isMultiTimeframe ? newFrequency : "15m",
           enabled: true,
         }),
       });
@@ -119,7 +125,9 @@ export default function MailRecipientsModal({
         setNewName("");
         const freqOption = MAIL_INTERVAL_OPTIONS.find((o) => o.key === newFrequency);
         setMessage({
-          text: `✓ "${emailTrimmed}" (${freqOption?.label ?? newFrequency} sıklığında) eklendi ve mail-recipients.md dosyasına kaydedildi!`,
+          text: isMultiTimeframe
+            ? `✓ "${emailTrimmed}" (${freqOption?.label ?? newFrequency} sıklığında) eklendi ve kaydedildi!`
+            : `✓ "${emailTrimmed}" alıcı listesine eklendi ve kaydedildi!`,
           type: "success",
         });
         if (onCountChange) onCountChange(data.activeCount ?? 0);
@@ -272,16 +280,26 @@ export default function MailRecipientsModal({
         <div className="flex items-start justify-between pb-4 border-b border-zinc-800/80">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xl">✉️</span>
+              <span className="text-xl">
+                {context === "positions" ? "💼" : context === "watchlist" ? "📡" : "✉️"}
+              </span>
               <h2 className="text-base sm:text-lg font-bold text-zinc-100">
-                E-Posta Alıcı Listesi ve Kişiye Özel Gönderim Sıklığı
+                {context === "positions"
+                  ? "Portföy Alarm E-Posta Alıcıları"
+                  : context === "watchlist"
+                  ? "Takip Listesi Sinyal E-Posta Alıcıları"
+                  : "Çoklu Zaman Dilimi Rapor Alıcıları & Sıklık Ayarı"}
               </h2>
               <span className="rounded-md bg-indigo-950/80 border border-indigo-700/50 px-2 py-0.5 text-[10px] font-mono text-indigo-300">
                 mail-recipients.md
               </span>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Her bir alıcı için <strong className="text-indigo-300 font-semibold">özel mail sıklığı</strong> (5 dk, 10 dk, 15 dk, 30 dk, 1 saat, Günlük) belirleyebilirsiniz. Raporlar her kişinin kendi sıklık saatinde otomatik gönderilir.
+              {context === "positions"
+                ? "Fiyat belirlediğiniz Stop-Loss (🛑) veya Kâr Al (🎯) seviyelerine ulaştığında sistem bu listedeki Aktif adreslere anında acil durum alarmı gönderir."
+                : context === "watchlist"
+                ? "Takip listenizdeki hisselerde AL/SAT sinyali değiştiğinde sistem bu listedeki Aktif adreslere anında bildirim gönderir."
+                : "Her bir alıcı için özel bülten sıklığı (5 dk, 10 dk, 15 dk, 30 dk, 1 saat, Günlük) belirleyebilirsiniz. Raporlar her kişinin kendi sıklık saatinde otomatik gönderilir."}
             </p>
           </div>
           <button
@@ -323,14 +341,14 @@ export default function MailRecipientsModal({
         <form onSubmit={handleAddRecipient} className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300 mb-2.5 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <span>+ Yeni Alıcı & Sıklık Ekle</span>
+              <span>+ Yeni Alıcı Ekle</span>
             </span>
             <span className="text-[10px] font-normal text-zinc-500 font-mono">
               Otomatik mail-recipients.md senkronize
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-            <div className="sm:col-span-5">
+            <div className={isMultiTimeframe ? "sm:col-span-5" : "sm:col-span-6"}>
               <label className="block text-[10px] font-medium text-zinc-400 mb-1">
                 E-Posta Adresi <span className="text-red-400">*</span>
               </label>
@@ -344,7 +362,7 @@ export default function MailRecipientsModal({
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
-            <div className="sm:col-span-3">
+            <div className={isMultiTimeframe ? "sm:col-span-3" : "sm:col-span-4"}>
               <label className="block text-[10px] font-medium text-zinc-400 mb-1">
                 İsim / Not
               </label>
@@ -356,22 +374,24 @@ export default function MailRecipientsModal({
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-medium text-indigo-300 mb-1">
-                Mail Sıklığı
-              </label>
-              <select
-                value={newFrequency}
-                onChange={(e) => setNewFrequency(e.target.value as MailIntervalKey)}
-                className="w-full rounded-lg border border-indigo-700/60 bg-zinc-950 px-2.5 py-2 text-xs font-semibold text-indigo-200 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                {MAIL_INTERVAL_OPTIONS.map((opt) => (
-                  <option key={opt.key} value={opt.key} className="bg-zinc-950 text-zinc-200">
-                    {opt.label} ({opt.badge})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {isMultiTimeframe && (
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-medium text-indigo-300 mb-1">
+                  Mail Sıklığı
+                </label>
+                <select
+                  value={newFrequency}
+                  onChange={(e) => setNewFrequency(e.target.value as MailIntervalKey)}
+                  className="w-full rounded-lg border border-indigo-700/60 bg-zinc-950 px-2.5 py-2 text-xs font-semibold text-indigo-200 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                    <option key={opt.key} value={opt.key} className="bg-zinc-950 text-zinc-200">
+                      {opt.label} ({opt.badge})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="sm:col-span-2 flex items-end">
               <button
                 type="submit"
@@ -467,38 +487,51 @@ export default function MailRecipientsModal({
                             ? `Eklenme: ${new Date(r.addedAt).toLocaleDateString("tr-TR")}`
                             : "Kayıtlı"}
                         </span>
-                        <span className="text-zinc-600">·</span>
-                        <span className="text-indigo-400 font-medium">
-                          Sıklık: {r.intervalLabel || r.intervalKey || "15 dk"}
-                        </span>
+                        {isMultiTimeframe ? (
+                          <>
+                            <span className="text-zinc-600">·</span>
+                            <span className="text-indigo-400 font-medium">
+                              Sıklık: {r.intervalLabel || r.intervalKey || "15 dk"}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-zinc-600">·</span>
+                            <span className="text-amber-400/90 font-medium">
+                              ⚡ Tetiklemeli Bildirim
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {/* Sıklık Seçici (Per-recipient frequency dropdown) */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-zinc-400 hidden md:inline">Sıklık:</span>
-                      <select
-                        value={currentKey}
-                        disabled={actionLoading}
-                        onChange={(e) =>
-                          handleFrequencyChange(r.email, e.target.value as MailIntervalKey)
-                        }
-                        title={`${r.email} için e-posta gönderim sıklığını değiştir`}
-                        className="rounded-lg border border-indigo-900/60 bg-zinc-950 px-2 py-1 text-[11px] font-semibold text-indigo-200 focus:border-indigo-400 focus:outline-none hover:bg-zinc-900 transition"
-                      >
-                        {MAIL_INTERVAL_OPTIONS.map((opt) => (
-                          <option
-                            key={opt.key}
-                            value={opt.key}
-                            className="bg-zinc-950 text-zinc-200"
-                          >
-                            {opt.label} ({opt.badge})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {/* Sıklık Seçici (Sadece Çoklu Zaman Dilimi ekranından açıldığında gösterilir) */}
+                    {isMultiTimeframe && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-zinc-400 hidden md:inline">Sıklık:</span>
+                        <select
+                          value={currentKey}
+                          disabled={actionLoading}
+                          onChange={(e) =>
+                            handleFrequencyChange(r.email, e.target.value as MailIntervalKey)
+                          }
+                          title={`${r.email} için e-posta gönderim sıklığını değiştir`}
+                          className="rounded-lg border border-indigo-900/60 bg-zinc-950 px-2 py-1 text-[11px] font-semibold text-indigo-200 focus:border-indigo-400 focus:outline-none hover:bg-zinc-900 transition"
+                        >
+                          {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                            <option
+                              key={opt.key}
+                              value={opt.key}
+                              className="bg-zinc-950 text-zinc-200"
+                            >
+                              {opt.label} ({opt.badge})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     {/* Status Toggle Button */}
                     <button
@@ -564,8 +597,21 @@ export default function MailRecipientsModal({
           <div className="text-[10px] text-zinc-500 flex items-center gap-1">
             <span>💾 Dosya:</span>
             <code className="text-indigo-400 font-mono">./mail-recipients.md</code>
-            <span className="text-zinc-600 hidden sm:inline">|</span>
-            <span className="text-zinc-400 hidden sm:inline">Her alıcı için bağımsız sıklık</span>
+            {isMultiTimeframe ? (
+              <>
+                <span className="text-zinc-600 hidden sm:inline">|</span>
+                <span className="text-zinc-400 hidden sm:inline">Her alıcı için bağımsız bülten sıklığı</span>
+              </>
+            ) : (
+              <>
+                <span className="text-zinc-600 hidden sm:inline">|</span>
+                <span className="text-amber-400/80 hidden sm:inline">
+                  {context === "positions"
+                    ? "Stop/Hedef seviyesi aşıldığında anlık bildirim"
+                    : "Sinyal değiştiğinde anlık bildirim"}
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

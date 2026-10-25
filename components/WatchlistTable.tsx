@@ -292,7 +292,7 @@ export default function WatchlistTable() {
             size="sm"
           />
           <WatchlistScheduleControl size="sm" />
-          <MailRecipientsControl size="sm" />
+          <MailRecipientsControl size="sm" context="watchlist" />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}
             onIntervalChange={(sec) => setRefreshInterval(sec)}

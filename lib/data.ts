@@ -1,5 +1,14 @@
 import YahooFinance from "yahoo-finance2";
-import type { Candle, Fundamentals, MacroPoint, TimeframeKey } from "./types";
+import type {
+  Candle,
+  CryptoFundamentals,
+  ForexCommodityMetrics,
+  Fundamentals,
+  MacroPoint,
+  PivotPoints,
+  TimeframeKey,
+  UsStockFundamentals,
+} from "./types";
 import { getActiveRefreshConfig } from "./refresh-settings-storage";
 
 const yf = new YahooFinance({
@@ -559,4 +568,270 @@ export async function gramGoldTRY(xauUsd: number): Promise<number | null> {
   const usdTry = await getUsdTry();
   if (usdTry == null) return null;
   return (xauUsd * usdTry) / OUNCE_TO_GRAM;
+}
+
+/**
+ * Klasik ve Fibonacci Pivot Seviyeleri (Forex ve Emtialar için temel destek/direnç motoru)
+ */
+export function calculatePivotPoints(high: number, low: number, close: number): PivotPoints {
+  const p = (high + low + close) / 3;
+  const range = high - low;
+
+  // Klasik Pivotlar
+  const r1 = 2 * p - low;
+  const s1 = 2 * p - high;
+  const r2 = p + range;
+  const s2 = p - range;
+  const r3 = high + 2 * (p - low);
+  const s3 = low - 2 * (high - p);
+
+  // Fibonacci Pivotlar
+  const fibR1 = p + 0.382 * range;
+  const fibS1 = p - 0.382 * range;
+  const fibR2 = p + 0.618 * range;
+  const fibS2 = p - 0.618 * range;
+  const fibR3 = p + 1.0 * range;
+  const fibS3 = p - 1.0 * range;
+
+  return {
+    pivot: Number(p.toFixed(4)),
+    r1: Number(r1.toFixed(4)),
+    r2: Number(r2.toFixed(4)),
+    r3: Number(r3.toFixed(4)),
+    s1: Number(s1.toFixed(4)),
+    s2: Number(s2.toFixed(4)),
+    s3: Number(s3.toFixed(4)),
+    fibR1: Number(fibR1.toFixed(4)),
+    fibR2: Number(fibR2.toFixed(4)),
+    fibR3: Number(fibR3.toFixed(4)),
+    fibS1: Number(fibS1.toFixed(4)),
+    fibS2: Number(fibS2.toFixed(4)),
+    fibS3: Number(fibS3.toFixed(4)),
+  };
+}
+
+/**
+ * Emtia ve Döviz için Özel Makroekonomik ve Teknik Metrikler
+ */
+export async function getForexCommodityMetrics(
+  ticker: string,
+  candles: Candle[]
+): Promise<ForexCommodityMetrics> {
+  return cached(`forex_metrics:${ticker}`, async () => {
+    try {
+      const quotes = await yf.quote(["DX-Y.NYB", "^TNX", "GC=F", "SI=F", "USDTRY=X"]);
+      const dxy = quotes.find((q) => q.symbol === "DX-Y.NYB");
+      const us10y = quotes.find((q) => q.symbol === "^TNX");
+      const gold = quotes.find((q) => q.symbol === "GC=F");
+      const silver = quotes.find((q) => q.symbol === "SI=F");
+      const usdTry = quotes.find((q) => q.symbol === "USDTRY=X");
+
+      // Pivot seviyeleri için son tamamlanmış gün/mum değerleri
+      let pivotPoints: PivotPoints | undefined;
+      let atr: number | null = null;
+
+      if (candles.length >= 2) {
+        const lastCandle = candles[candles.length - 1];
+        const prevCandle = candles[candles.length - 2];
+        pivotPoints = calculatePivotPoints(prevCandle.high, prevCandle.low, prevCandle.close);
+
+        // Basit ATR (14 periyot)
+        const recentCandles = candles.slice(-15);
+        if (recentCandles.length >= 2) {
+          let sumTr = 0;
+          for (let i = 1; i < recentCandles.length; i++) {
+            const h = recentCandles[i].high;
+            const l = recentCandles[i].low;
+            const pc = recentCandles[i - 1].close;
+            const tr = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+            sumTr += tr;
+          }
+          atr = Number((sumTr / (recentCandles.length - 1)).toFixed(4));
+        }
+      }
+
+      const goldPrice = gold?.regularMarketPrice ?? null;
+      const silverPrice = silver?.regularMarketPrice ?? null;
+      const goldSilverRatio =
+        goldPrice && silverPrice && silverPrice > 0 ? Number((goldPrice / silverPrice).toFixed(2)) : null;
+
+      const gramGold =
+        goldPrice && usdTry?.regularMarketPrice
+          ? Number(((goldPrice * usdTry.regularMarketPrice) / OUNCE_TO_GRAM).toFixed(2))
+          : null;
+
+      const targetQuote = quotes.find((q) => q.symbol === ticker);
+
+      return {
+        pivotPoints,
+        dxyValue: dxy?.regularMarketPrice ?? null,
+        dxyChangePercent: dxy?.regularMarketChangePercent ?? null,
+        us10yYield: us10y?.regularMarketPrice ?? null,
+        goldSilverRatio,
+        gramGoldTRY: gramGold,
+        atr,
+        fiftyTwoWeekHigh: targetQuote?.fiftyTwoWeekHigh ?? null,
+        fiftyTwoWeekLow: targetQuote?.fiftyTwoWeekLow ?? null,
+      };
+    } catch (err) {
+      console.warn(`[getForexCommodityMetrics] Error for ${ticker}:`, err);
+      return {
+        dxyValue: null,
+        dxyChangePercent: null,
+        us10yYield: null,
+        goldSilverRatio: null,
+        gramGoldTRY: null,
+        atr: null,
+        fiftyTwoWeekHigh: null,
+        fiftyTwoWeekLow: null,
+      };
+    }
+  }, 60 * 1000); // 1 dk önbellek
+}
+
+/**
+ * Kripto Paralar için Özel Temel & Ekosistem Göstergeleri
+ */
+export async function getCryptoFundamentals(ticker: string): Promise<CryptoFundamentals> {
+  return cached(`crypto_fund:${ticker}`, async () => {
+    try {
+      const q = await yf.quote(ticker);
+      const marketCap = q.marketCap ?? null;
+      const volume24h = q.regularMarketVolume ?? null;
+      const volumeToMarketCap =
+        marketCap && volume24h && marketCap > 0 ? Number((volume24h / marketCap).toFixed(4)) : null;
+      const circulatingSupply = q.circulatingSupply ?? null;
+      const fiftyTwoWeekHigh = q.fiftyTwoWeekHigh ?? null;
+      const fiftyTwoWeekLow = q.fiftyTwoWeekLow ?? null;
+      const price = q.regularMarketPrice ?? 0;
+
+      const athDropPercent =
+        fiftyTwoWeekHigh && fiftyTwoWeekHigh > 0
+          ? Number((((price - fiftyTwoWeekHigh) / fiftyTwoWeekHigh) * 100).toFixed(2))
+          : null;
+
+      return {
+        marketCap,
+        volume24h,
+        volumeToMarketCap,
+        circulatingSupply,
+        fiftyTwoWeekHigh,
+        fiftyTwoWeekLow,
+        athDropPercent,
+      };
+    } catch (err) {
+      console.warn(`[getCryptoFundamentals] Error for ${ticker}:`, err);
+      return {
+        marketCap: null,
+        volume24h: null,
+        volumeToMarketCap: null,
+        circulatingSupply: null,
+        fiftyTwoWeekHigh: null,
+        fiftyTwoWeekLow: null,
+        athDropPercent: null,
+      };
+    }
+  }, 60 * 1000);
+}
+
+/**
+ * ABD Borsası için Wall Street Analist Konsensüsü & Temel Metrikler
+ */
+export async function getUsStockFundamentals(
+  ticker: string,
+  currentPrice?: number
+): Promise<UsStockFundamentals> {
+  return cached(`us_stock_fund:${ticker}`, async () => {
+    try {
+      const s = await fetchWithRetry(() =>
+        yf.quoteSummary(ticker, {
+          modules: ["summaryDetail", "defaultKeyStatistics", "financialData"],
+        })
+      );
+
+      const targetMeanPrice = (s.financialData?.targetMeanPrice as number | undefined) ?? null;
+      const price = currentPrice ?? (s.financialData?.currentPrice as number | undefined) ?? 0;
+      const upsidePercent =
+        targetMeanPrice && price > 0
+          ? Number((((targetMeanPrice - price) / price) * 100).toFixed(2))
+          : null;
+
+      const recommendationKey = (s.financialData?.recommendationKey as string | undefined) ?? null;
+      const recommendationMean = (s.financialData?.recommendationMean as number | undefined) ?? null;
+
+      const pe =
+        (s.summaryDetail?.trailingPE as number | undefined) ??
+        (s.summaryDetail?.forwardPE as number | undefined) ??
+        null;
+      const forwardPe = (s.summaryDetail?.forwardPE as number | undefined) ?? null;
+      const peg = (s.defaultKeyStatistics?.pegRatio as number | undefined) ?? null;
+      const pb = (s.defaultKeyStatistics?.priceToBook as number | undefined) ?? null;
+      const roe = (s.financialData?.returnOnEquity as number | undefined) ?? null;
+      const revenueGrowth = (s.financialData?.revenueGrowth as number | undefined) ?? null;
+      const profitMargins = (s.financialData?.profitMargins as number | undefined) ?? null;
+      const operatingMargins = (s.financialData?.operatingMargins as number | undefined) ?? null;
+      const debtToEquity = (s.financialData?.debtToEquity as number | undefined) ?? null;
+      const dividendYield = (s.summaryDetail?.dividendYield as number | undefined) ?? null;
+
+      return {
+        targetMeanPrice,
+        upsidePercent,
+        recommendationKey,
+        recommendationMean,
+        pe,
+        forwardPe,
+        peg,
+        pb,
+        roe,
+        revenueGrowth,
+        profitMargins,
+        operatingMargins,
+        debtToEquity,
+        dividendYield,
+      };
+    } catch (err) {
+      console.warn(`[getUsStockFundamentals] Error for ${ticker}:`, err);
+      return {
+        targetMeanPrice: null,
+        upsidePercent: null,
+        recommendationKey: null,
+        recommendationMean: null,
+        pe: null,
+        forwardPe: null,
+        peg: null,
+        pb: null,
+        roe: null,
+        revenueGrowth: null,
+        profitMargins: null,
+        operatingMargins: null,
+        debtToEquity: null,
+        dividendYield: null,
+      };
+    }
+  }, FUNDAMENTALS_TTL_MS);
+}
+
+/**
+ * Toplu Fiyat & Değişim Sorgulama (Dashboard Hızlı Yükleme)
+ */
+export async function getBatchQuotes(tickers: string[]) {
+  return cached(`batch_quotes:${tickers.sort().join(",")}`, async () => {
+    try {
+      const quotes = await yf.quote(tickers);
+      const res: Record<string, { price: number; change: number; changePercent: number; name: string }> = {};
+      for (const q of quotes) {
+        if (!q.symbol) continue;
+        res[q.symbol] = {
+          price: q.regularMarketPrice ?? 0,
+          change: q.regularMarketChange ?? 0,
+          changePercent: q.regularMarketChangePercent ?? 0,
+          name: q.shortName || q.longName || q.symbol,
+        };
+      }
+      return res;
+    } catch (err) {
+      console.error("[getBatchQuotes] Error:", err);
+      return {};
+    }
+  }, 10 * 1000); // 10 saniye önbellek
 }

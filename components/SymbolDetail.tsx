@@ -1272,6 +1272,195 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 />
               </Panel>
             </>
+          ) : currentResult.cryptoFundamentals ? (
+            <>
+              {/* Crypto Fundamentals & Ecosystem View */}
+              <Panel
+                title="🪙 Kripto Para Temel & Likidite Göstergeleri"
+                subtitle="Kripto varlıklar için şirket bilançosu yerine piyasa değeri, likidite oranı ve ATH döngüsü incelenir"
+              >
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* Market Cap */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">Piyasa Değeri (Market Cap)</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-zinc-100 block">
+                      {currentResult.cryptoFundamentals.marketCap != null
+                        ? `$${formatNumber(currentResult.cryptoFundamentals.marketCap, 0)}`
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">Toplam ağ sermayesi</span>
+                  </div>
+
+                  {/* 24h Volume / Market Cap */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">24s Hacim / Piyasa Değeri</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-emerald-400 block">
+                      {currentResult.cryptoFundamentals.volumeToMarketCap != null
+                        ? `%${(currentResult.cryptoFundamentals.volumeToMarketCap * 100).toFixed(2)}`
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">
+                      {currentResult.cryptoFundamentals.volumeToMarketCap != null && currentResult.cryptoFundamentals.volumeToMarketCap > 0.08
+                        ? "🔥 Yüksek likidite & işlem aktivitesi"
+                        : "Dengeli likidite"}
+                    </span>
+                  </div>
+
+                  {/* Dolaşımdaki Arz */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">Dolaşımdaki Arz</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-zinc-200 block">
+                      {currentResult.cryptoFundamentals.circulatingSupply != null
+                        ? formatNumber(currentResult.cryptoFundamentals.circulatingSupply, 0)
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">Aktif dolaşım adedi</span>
+                  </div>
+
+                  {/* 52 Haftalık Zirveden Düşüş */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">52H Zirveden Uzaklık</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-amber-400 block">
+                      {currentResult.cryptoFundamentals.athDropPercent != null
+                        ? `${currentResult.cryptoFundamentals.athDropPercent.toFixed(1)}%`
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">
+                      52H Zirve: ${formatNumber(currentResult.cryptoFundamentals.fiftyTwoWeekHigh, 2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3.5 text-xs text-zinc-400 leading-relaxed">
+                  💡 <strong>Kripto Varlıklarda Temel Analiz Nasıl Yorumlanır?</strong>
+                  <ul className="mt-1.5 space-y-1 list-disc list-inside text-zinc-300">
+                    <li><strong>24s Hacim/MCap:</strong> %10&apos;un üzerindeki oranlar güçlü sermaye girişi ve volatilite habercisidir.</li>
+                    <li><strong>ATH Uzaklığı:</strong> Zirveden %60-%80 düşüşler döngüsel dip ve akümülasyon fırsatı barındırabilir.</li>
+                    <li><strong>7/24 Kesintisiz Piyasa:</strong> Hafta sonu gap riski yoktur, indikatörler 7/24 sürekli veri ile hesaplanır.</li>
+                  </ul>
+                </div>
+              </Panel>
+
+              {/* Price Chart */}
+              <Panel
+                title={`Kripto Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                subtitle="Hareketli ortalamalar ve volatilite bantları"
+              >
+                <PriceChart
+                  candles={currentResult.candles}
+                  sma50={currentResult.ind.sma50}
+                  sma200={currentResult.ind.sma200}
+                  bb={currentResult.ind.bb}
+                  timeframe={selectedTf}
+                />
+              </Panel>
+            </>
+          ) : currentResult.forexCommodityMetrics ? (
+            <>
+              {/* Forex / Commodity Pivot & Macro View */}
+              <Panel
+                title="🥇 Pivot Destek / Direnç & Makro Göstergeler"
+                subtitle="Emtia ve döviz işlemlerinde kurumsal destek/direnç seviyeleri ve küresel makro rasyolar"
+              >
+                {/* Pivot Level Matrix */}
+                {currentResult.forexCommodityMetrics.pivotPoints && (
+                  <div className="mb-4">
+                    <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider block mb-2">
+                      Klasik Pivot Noktaları (Giriş / Çıkış Hedefleri)
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                      <div className="rounded-xl border border-red-950 bg-red-950/20 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-red-400 uppercase">S3</span>
+                        <p className="font-mono text-xs font-bold text-zinc-300 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.s3}</p>
+                      </div>
+                      <div className="rounded-xl border border-red-900/60 bg-red-950/30 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-red-400 uppercase">S2</span>
+                        <p className="font-mono text-xs font-bold text-zinc-200 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.s2}</p>
+                      </div>
+                      <div className="rounded-xl border border-amber-900/60 bg-amber-950/30 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-amber-400 uppercase">S1</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.s1}</p>
+                      </div>
+                      <div className="rounded-xl border-2 border-sky-500/60 bg-sky-950/40 p-2.5 text-center">
+                        <span className="text-[10px] font-extrabold text-sky-300 uppercase">PIVOT (P)</span>
+                        <p className="font-mono text-sm font-black text-white mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.pivot}</p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase">R1</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.r1}</p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-900/80 bg-emerald-950/40 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-emerald-300 uppercase">R2</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.r2}</p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-800 bg-emerald-950/50 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-emerald-300 uppercase">R3</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.r3}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Macro cards */}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium">🌐 Dolar Endeksi (DXY)</span>
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="font-mono text-lg font-bold text-zinc-100">
+                        {currentResult.forexCommodityMetrics.dxyValue ? formatNumber(currentResult.forexCommodityMetrics.dxyValue, 2) : "—"}
+                      </span>
+                      <span className="text-xs text-zinc-500">Ters Korelasyon</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium">⚖️ Altın/Gümüş Rasyosu</span>
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="font-mono text-lg font-bold text-zinc-100">
+                        {currentResult.forexCommodityMetrics.goldSilverRatio ? formatNumber(currentResult.forexCommodityMetrics.goldSilverRatio, 1) : "—"}
+                      </span>
+                      <span className="text-xs text-zinc-500">XAU/XAG</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium">📈 ABD 10 Yıllık Tahvil</span>
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="font-mono text-lg font-bold text-zinc-100">
+                        {currentResult.forexCommodityMetrics.us10yYield ? `%${formatNumber(currentResult.forexCommodityMetrics.us10yYield, 2)}` : "—"}
+                      </span>
+                      <span className="text-xs text-zinc-500">Reel Faiz</span>
+                    </div>
+                  </div>
+                </div>
+
+                {currentResult.gramGoldTRY != null && (
+                  <div className="mt-4 rounded-xl border border-amber-900/40 bg-amber-950/20 p-3.5 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-amber-300">Gram Altın (TL) Karşılığı</span>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">Ons Altın × USD/TRY ÷ 31.1035</p>
+                    </div>
+                    <span className="font-mono text-xl font-bold text-amber-300 tabular-nums">
+                      {formatNumber(currentResult.gramGoldTRY, 2)} TL
+                    </span>
+                  </div>
+                )}
+              </Panel>
+
+              {/* Price Chart */}
+              <Panel
+                title={`Emtia / Döviz Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                subtitle="Hareketli ortalamalar ve volatilite bantları"
+              >
+                <PriceChart
+                  candles={currentResult.candles}
+                  sma50={currentResult.ind.sma50}
+                  sma200={currentResult.ind.sma200}
+                  bb={currentResult.ind.bb}
+                  timeframe={selectedTf}
+                />
+              </Panel>
+            </>
           ) : (
             <>
               {/* Macro & Gold View */}
@@ -1317,7 +1506,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
               {/* Price Chart */}
               <Panel
-                title={`Altın Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                title={`Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
                 subtitle="Hareketli ortalamalar ve volatilite bantları"
               >
                 <PriceChart

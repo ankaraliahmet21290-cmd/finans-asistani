@@ -231,8 +231,8 @@ export default function PositionTracker() {
               </select>
             </div>
 
-            {/* Mail Recipients Control */}
-            <MailRecipientsControl size="sm" />
+            {/* Mail Recipients Control (Portföy Alarm Alıcıları - Tetikleme Bazlı) */}
+            <MailRecipientsControl size="sm" context="positions" />
 
             {/* Check Now Button */}
             <button

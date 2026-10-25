@@ -227,7 +227,7 @@ export default function TimeframeSignals() {
               align="left"
               onScheduleChange={(cfg) => setMailConfig(cfg)}
             />
-            <MailRecipientsControl size="sm" />
+            <MailRecipientsControl size="sm" context="multiTimeframe" />
             <AutoRefreshControl
               intervalSeconds={refreshInterval}
               onIntervalChange={(sec) => setRefreshInterval(sec)}

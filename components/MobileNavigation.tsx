@@ -217,6 +217,47 @@ export default function MobileNavigation() {
 
                   {/* Quick Navigation Sections */}
                   <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                    {/* Piyasalar & Varlık Türleri */}
+                    <div className="pb-3 border-b border-zinc-800/80">
+                      <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                        Piyasalar & Varlıklar
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <Link
+                          href="/"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/80 p-2.5 text-xs font-semibold text-zinc-200 transition hover:border-sky-500 hover:text-sky-300"
+                        >
+                          <span className="text-base">🇹🇷</span>
+                          <span>BIST Hisseleri</span>
+                        </Link>
+                        <Link
+                          href="/emtia-doviz"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/80 p-2.5 text-xs font-semibold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
+                        >
+                          <span className="text-base">🥇</span>
+                          <span>Emtia & Döviz</span>
+                        </Link>
+                        <Link
+                          href="/kripto"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/80 p-2.5 text-xs font-semibold text-zinc-200 transition hover:border-emerald-500 hover:text-emerald-300"
+                        >
+                          <span className="text-base">🪙</span>
+                          <span>Kripto Para</span>
+                        </Link>
+                        <Link
+                          href="/abd-borsasi"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/80 p-2.5 text-xs font-semibold text-zinc-200 transition hover:border-indigo-500 hover:text-indigo-300"
+                        >
+                          <span className="text-base">🇺🇸</span>
+                          <span>ABD Borsası</span>
+                        </Link>
+                      </div>
+                    </div>
+
                     <div>
                       <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
                         Hızlı Geçiş

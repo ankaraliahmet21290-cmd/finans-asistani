@@ -325,6 +325,7 @@ export default function MailScheduleControl({
       <MailRecipientsModal
         isOpen={isRecipientsModalOpen}
         onClose={() => setIsRecipientsModalOpen(false)}
+        context="multiTimeframe"
       />
     </div>
   );
