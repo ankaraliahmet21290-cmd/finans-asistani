@@ -3,6 +3,8 @@ import { analyzeSymbol } from "@/lib/analyze";
 import { sendSignalMail } from "@/lib/mail";
 import { getPendingMail, getSignal, setPendingMail, setSignal } from "@/lib/store";
 import { getWatchlistFromFile } from "@/lib/watchlist-storage";
+import { getTimeframeSettingsFromFile } from "@/lib/timeframe-settings-storage";
+import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { SignalMailItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -17,19 +19,26 @@ export async function GET(req: Request) {
   const errors: { ticker: string; error: string }[] = [];
   const changed: SignalMailItem[] = [];
 
+  const tfConfig = await getTimeframeSettingsFromFile();
+  const watchlistTf = tfConfig.watchlist || "1d";
+  const tfLabel = TIMEFRAMES[watchlistTf]?.label ?? watchlistTf;
+
   const watchlist = await getWatchlistFromFile();
 
   for (const w of watchlist) {
+    const itemTf = (w.timeframe || watchlistTf) as TimeframeKey;
+    const itemTfLabel = TIMEFRAMES[itemTf]?.label ?? itemTf;
+
     try {
-      const res = await analyzeSymbol(w.ticker, w.type);
+      const res = await analyzeSymbol(w.ticker, w.type, itemTf);
 
       const fundReasons = res.fund?.metrics
         .filter((m) => m.point !== 0)
         .map((m) => m.detail) ?? [];
 
-      const prev = await getSignal(w.ticker);
+      const prev = await getSignal(w.ticker, itemTf);
       if (prev !== res.signal) {
-        await setSignal(w.ticker, res.signal);
+        await setSignal(w.ticker, res.signal, itemTf);
         if (prev) {
           changed.push({
             ticker: w.ticker,
@@ -37,6 +46,7 @@ export async function GET(req: Request) {
             score: res.score,
             reasons: [...res.tech.reasons, ...fundReasons],
             price: res.price,
+            timeframe: itemTfLabel,
           });
         }
       }
@@ -57,7 +67,7 @@ export async function GET(req: Request) {
   let mailed = false;
   if (items.length > 0) {
     try {
-      mailed = await sendSignalMail(items);
+      mailed = await sendSignalMail(items, undefined, tfLabel);
       await setPendingMail([]);
     } catch (e) {
       console.error("[cron] e-posta gönderilemedi, bir sonraki çalıştırmada tekrar denenecek:", e);

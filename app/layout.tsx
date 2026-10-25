@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppHeader from "@/components/AppHeader";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 import { ensureSchedulerStarted } from "@/lib/scheduler";
 import "./globals.css";
 
@@ -18,6 +19,15 @@ export const metadata: Metadata = {
   title: "Finans Asistanı · BIST Analiz & Karar Destek",
   description:
     "Borsa İstanbul hisseleri ve altın için teknik + temel analiz tabanlı AL/SAT/TUT karar destek aracı.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -38,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="tr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-zinc-950 text-zinc-100 selection:bg-sky-500/30 selection:text-sky-200">
+        <AnalyticsTracker />
         <AppHeader />
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 pb-24 md:pb-8">

@@ -56,11 +56,18 @@ async function write(key: string, value: string): Promise<void> {
   memory.set(key, value);
 }
 
-export async function getSignal(ticker: string): Promise<string | null> {
-  return read(`signal:${ticker}`);
+export async function getSignal(ticker: string, timeframe?: string): Promise<string | null> {
+  const key = timeframe ? `signal:${ticker}:${timeframe}` : `signal:${ticker}`;
+  const val = await read(key);
+  if (val) return val;
+  if (timeframe) return read(`signal:${ticker}`);
+  return null;
 }
 
-export async function setSignal(ticker: string, signal: string): Promise<void> {
+export async function setSignal(ticker: string, signal: string, timeframe?: string): Promise<void> {
+  if (timeframe) {
+    await write(`signal:${ticker}:${timeframe}`, signal);
+  }
   await write(`signal:${ticker}`, signal);
 }
 

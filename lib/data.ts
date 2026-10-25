@@ -827,6 +827,35 @@ export async function getBatchQuotes(tickers: string[]) {
           changePercent: q.regularMarketChangePercent ?? 0,
           name: q.shortName || q.longName || q.symbol,
         };
+
+        // Kripto varlıklar için fundamentals önbelleğini doğrudan tohumla (ekstra istekleri %100 önler)
+        if (q.marketCap != null || q.circulatingSupply != null || q.symbol.includes("-USD") || q.quoteType === "CRYPTOCURRENCY") {
+          const marketCap = q.marketCap ?? null;
+          const volume24h = q.regularMarketVolume ?? null;
+          const volumeToMarketCap =
+            marketCap && volume24h && marketCap > 0 ? Number((volume24h / marketCap).toFixed(4)) : null;
+          const circulatingSupply = q.circulatingSupply ?? null;
+          const fiftyTwoWeekHigh = q.fiftyTwoWeekHigh ?? null;
+          const fiftyTwoWeekLow = q.fiftyTwoWeekLow ?? null;
+          const price = q.regularMarketPrice ?? 0;
+          const athDropPercent =
+            fiftyTwoWeekHigh && fiftyTwoWeekHigh > 0
+              ? Number((((price - fiftyTwoWeekHigh) / fiftyTwoWeekHigh) * 100).toFixed(2))
+              : null;
+
+          cache.set(`crypto_fund:${q.symbol}`, {
+            at: Date.now(),
+            value: {
+              marketCap,
+              volume24h,
+              volumeToMarketCap,
+              circulatingSupply,
+              fiftyTwoWeekHigh,
+              fiftyTwoWeekLow,
+              athDropPercent,
+            },
+          });
+        }
       }
       return res;
     } catch (err) {

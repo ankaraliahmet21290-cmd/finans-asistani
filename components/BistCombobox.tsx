@@ -5,18 +5,23 @@ import { useRouter } from "next/navigation";
 import { BIST_COMPANIES, BIST_30_TICKERS, normalizeTurkish, type BistCompany } from "@/lib/bist";
 import { CURATED_MARKET_ITEMS } from "@/lib/markets";
 
+import { findCryptoAsset } from "@/lib/crypto-assets";
+
 const GLOBAL_SEARCH_ITEMS: BistCompany[] = [
-  ...Object.values(CURATED_MARKET_ITEMS).map((item) => ({
-    code: item.ticker.replace(".IS", "").replace("-USD", "").replace("=F", "").replace("=X", ""),
-    ticker: item.ticker,
-    name: `${item.icon ?? ""} ${item.name}`,
-    city:
-      item.category === "crypto"
-        ? "🪙 Kripto"
-        : item.category === "us_stock"
-        ? "🇺🇸 ABD"
-        : "🥇 Emtia/FX",
-  })),
+  ...Object.values(CURATED_MARKET_ITEMS).map((item) => {
+    const crypto = item.category === "crypto" ? findCryptoAsset(item.ticker) : undefined;
+    return {
+      code: crypto?.code ?? item.ticker.replace(".IS", "").replace("-USD", "").replace("=F", "").replace("=X", ""),
+      ticker: item.ticker,
+      name: `${item.icon ?? ""} ${item.name}`,
+      city:
+        item.category === "crypto"
+          ? "🪙 Kripto"
+          : item.category === "us_stock"
+          ? "🇺🇸 ABD"
+          : "🥇 Emtia/FX",
+    };
+  }),
   ...BIST_COMPANIES,
 ];
 
@@ -27,6 +32,7 @@ interface BistComboboxProps {
   autoNavigate?: boolean;
   onSelect?: (company: BistCompany) => void;
   selectedTicker?: string;
+  market?: "bist" | "crypto" | "us_stocks" | "commodity_forex" | "all";
 }
 
 export default function BistCombobox({
@@ -36,6 +42,7 @@ export default function BistCombobox({
   autoNavigate = true,
   onSelect,
   selectedTicker,
+  market = "bist",
 }: BistComboboxProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -61,18 +68,41 @@ export default function BistCombobox({
   const filtered = useMemo(() => {
     const q = normalizeTurkish(query);
     if (!q) {
-      // Return popular BIST 30 tickers when empty
+      if (market === "crypto") {
+        return GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🪙 Kripto");
+      }
+      if (market === "us_stocks") {
+        return GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🇺🇸 ABD");
+      }
+      if (market === "commodity_forex") {
+        return GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🥇 Emtia/FX");
+      }
+      if (market === "all") {
+        return GLOBAL_SEARCH_ITEMS.slice(0, 20);
+      }
+      // Default BIST 30 tickers when empty
       return BIST_30_TICKERS.map((t) =>
         BIST_COMPANIES.find((c) => c.ticker === t)
       ).filter((c): c is BistCompany => Boolean(c));
     }
+
+    const sourceItems =
+      market === "crypto"
+        ? GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🪙 Kripto")
+        : market === "us_stocks"
+        ? GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🇺🇸 ABD")
+        : market === "commodity_forex"
+        ? GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🥇 Emtia/FX")
+        : market === "bist"
+        ? BIST_COMPANIES
+        : GLOBAL_SEARCH_ITEMS;
 
     const exactCodes: BistCompany[] = [];
     const prefixCodes: BistCompany[] = [];
     const prefixNames: BistCompany[] = [];
     const containsMatches: BistCompany[] = [];
 
-    for (const c of GLOBAL_SEARCH_ITEMS) {
+    for (const c of sourceItems) {
       const codeNorm = normalizeTurkish(c.code);
       const nameNorm = normalizeTurkish(c.name);
 
@@ -98,7 +128,7 @@ export default function BistCombobox({
     }
 
     return [...exactCodes, ...prefixCodes, ...prefixNames, ...containsMatches].slice(0, 30);
-  }, [query]);
+  }, [market, query]);
 
   // Click outside listener
   useEffect(() => {

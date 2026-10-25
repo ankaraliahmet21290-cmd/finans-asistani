@@ -2,11 +2,15 @@ import fs from "fs/promises";
 import path from "path";
 import type { AssetType } from "./types";
 import { findBistCompany } from "./bist";
+import { detectAssetCategory, CURATED_MARKET_ITEMS } from "./markets";
+
+import { normalizeTimeframeKey, type TimeframeKey } from "./timeframe-settings-storage";
 
 export interface WatchlistFileEntry {
   ticker: string;
   type: AssetType;
   name?: string;
+  timeframe?: TimeframeKey;
 }
 
 import {
@@ -32,15 +36,15 @@ export {
 export const WATCHLIST_FILE_PATH = path.join(process.cwd(), "watchlist.md");
 
 export const DEFAULT_ENTRIES: WatchlistFileEntry[] = [
-  { ticker: "THYAO.IS", type: "stock", name: "Türk Hava Yolları" },
-  { ticker: "ASELS.IS", type: "stock", name: "Aselsan" },
-  { ticker: "AAPL", type: "stock", name: "Apple Inc." },
-  { ticker: "GC=F", type: "gold", name: "Ons Altın Vadeli" },
+  { ticker: "THYAO.IS", type: "stock", name: "Türk Hava Yolları", timeframe: "1d" },
+  { ticker: "ASELS.IS", type: "stock", name: "Aselsan", timeframe: "1d" },
+  { ticker: "AAPL", type: "stock", name: "Apple Inc.", timeframe: "1d" },
+  { ticker: "GC=F", type: "gold", name: "Ons Altın Vadeli", timeframe: "1d" },
 ];
 
 /**
  * Parses markdown content into a list of WatchlistFileEntry.
- * Supports markdown tables (| Ticker | Type | Name |) and bullet points (- TICKER).
+ * Supports markdown tables (| Ticker | Type | Name | Timeframe |) and bullet points (- TICKER).
  */
 export function parseWatchlistMarkdown(content: string): WatchlistFileEntry[] {
   const lines = content.split(/\r?\n/);
@@ -51,7 +55,7 @@ export function parseWatchlistMarkdown(content: string): WatchlistFileEntry[] {
     const line = rawLine.trim();
     if (!line) continue;
 
-    // Check for markdown table row: | Ticker | Type | Name |
+    // Check for markdown table row: | Ticker | Type | Name | Timeframe |
     if (line.startsWith("|") && line.endsWith("|")) {
       const parts = line
         .split("|")
@@ -76,43 +80,47 @@ export function parseWatchlistMarkdown(content: string): WatchlistFileEntry[] {
       if (!ticker) continue;
 
       const rawType = (parts[1] || "").toLowerCase().trim();
-      const type: AssetType =
-        rawType === "gold" ||
-        rawType === "altin" ||
-        rawType === "altın" ||
-        ticker.includes("GC=F") ||
-        ticker === "ALTIN"
-          ? "gold"
-          : "stock";
+      const type: AssetType = (
+        ["gold", "crypto", "forex", "commodity", "us_stock", "stock"].includes(rawType)
+          ? rawType
+          : detectAssetCategory(ticker)
+      ) as AssetType;
 
       const bist = findBistCompany(ticker);
-      const name = parts[2]?.trim() || bist?.name || (type === "gold" ? "Ons Altın Vadeli" : undefined);
+      const curated = CURATED_MARKET_ITEMS[ticker];
+      const name = parts[2]?.trim() || bist?.name || curated?.name || (type === "gold" ? "Ons Altın Vadeli" : undefined);
+      const rawTf = parts[3]?.trim();
+      const timeframe: TimeframeKey | undefined = rawTf ? normalizeTimeframeKey(rawTf) : undefined;
 
       if (!seen.has(ticker)) {
         seen.add(ticker);
-        entries.push({ ticker, type, name });
+        entries.push({ ticker, type, name, timeframe });
       }
       continue;
     }
 
-    // Fallback: bullet points like "- THYAO.IS" or "- THYAO.IS (stock) - Türk Hava Yolları"
-    const bulletMatch = line.match(/^[-*]\s*([A-Za-z0-9.=_-]+)(?:\s*\(([^)]+)\))?(?:\s*[-–]\s*(.+))?$/);
+    // Fallback: bullet points like "- THYAO.IS" or "- THYAO.IS (stock) [1h] - Türk Hava Yolları"
+    const bulletMatch = line.match(/^[-*]\s*([A-Za-z0-9.=_-]+)(?:\s*\(([^)]+)\))?(?:\s*\[([^\]]+)\])?(?:\s*[-–]\s*(.+))?$/);
     if (bulletMatch) {
       const ticker = bulletMatch[1].trim().toUpperCase();
       if (!ticker) continue;
 
       const hint = (bulletMatch[2] || "").toLowerCase().trim();
-      const extraName = bulletMatch[3]?.trim();
-      const type: AssetType =
-        hint === "gold" || hint === "altin" || hint === "altın" || ticker.includes("GC=F")
-          ? "gold"
-          : "stock";
+      const rawTf = bulletMatch[3]?.trim();
+      const extraName = bulletMatch[4]?.trim();
+      const type: AssetType = (
+        ["gold", "crypto", "forex", "commodity", "us_stock", "stock"].includes(hint)
+          ? hint
+          : detectAssetCategory(ticker)
+      ) as AssetType;
       const bist = findBistCompany(ticker);
-      const name = extraName || bist?.name || (type === "gold" ? "Ons Altın Vadeli" : undefined);
+      const curated = CURATED_MARKET_ITEMS[ticker];
+      const name = extraName || bist?.name || curated?.name || (type === "gold" ? "Ons Altın Vadeli" : undefined);
+      const timeframe: TimeframeKey | undefined = rawTf ? normalizeTimeframeKey(rawTf) : undefined;
 
       if (!seen.has(ticker)) {
         seen.add(ticker);
-        entries.push({ ticker, type, name });
+        entries.push({ ticker, type, name, timeframe });
       }
     }
   }
@@ -174,7 +182,8 @@ export function formatWatchlistMarkdown(
   const rows = entries.map((e) => {
     const bist = findBistCompany(e.ticker);
     const displayName = e.name || bist?.name || (e.type === "gold" ? "Ons Altın Vadeli" : "");
-    return `| ${e.ticker} | ${e.type} | ${displayName} |`;
+    const tf = e.timeframe || "1d";
+    return `| ${e.ticker} | ${e.type} | ${displayName} | ${tf} |`;
   });
 
   return `# Takip Listesi
@@ -188,8 +197,8 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 - **Son Kontrol:** ${settings.lastCheckAt ?? "—"}
 - **Son Sinyal Değişimi:** ${settings.lastChangedAt ?? "—"}
 
-| Sembol | Tür | Ad |
-| --- | --- | --- |
+| Sembol | Tür | Ad | Periyot |
+| --- | --- | --- | --- |
 ${rows.join("\n")}
 `;
 }
@@ -277,18 +286,44 @@ export async function saveWatchlistSettingsToFile(
 }
 
 /**
- * Adds an entry to watchlist.md if not already present.
+ * Adds an entry to watchlist.md if not already present, or updates timeframe if already exists.
  */
 export async function addWatchEntryToFile(entry: WatchlistFileEntry): Promise<WatchlistFileEntry[]> {
   const { settings, entries: current } = await getWatchlistWithSettingsFromFile();
   const normalizedTicker = entry.ticker.trim().toUpperCase();
 
   const existingIndex = current.findIndex((e) => e.ticker.toUpperCase() === normalizedTicker);
+  let updated: WatchlistFileEntry[];
+
   if (existingIndex >= 0) {
-    return current;
+    updated = current.map((e, idx) =>
+      idx === existingIndex
+        ? { ...e, ...entry, timeframe: entry.timeframe ?? e.timeframe ?? "1d" }
+        : e
+    );
+  } else {
+    updated = [...current, { ...entry, ticker: normalizedTicker, timeframe: entry.timeframe ?? "1d" }];
   }
 
-  const updated = [...current, { ...entry, ticker: normalizedTicker }];
+  await saveWatchlistWithSettingsToFile(updated, settings);
+  return updated;
+}
+
+/**
+ * Updates timeframe for a specific symbol in watchlist.md.
+ */
+export async function updateWatchEntryTimeframeToFile(
+  ticker: string,
+  timeframe: TimeframeKey
+): Promise<WatchlistFileEntry[]> {
+  const { settings, entries: current } = await getWatchlistWithSettingsFromFile();
+  const normalizedTicker = ticker.trim().toUpperCase();
+  const normTf = normalizeTimeframeKey(timeframe);
+
+  const updated = current.map((e) =>
+    e.ticker.toUpperCase() === normalizedTicker ? { ...e, timeframe: normTf } : e
+  );
+
   await saveWatchlistWithSettingsToFile(updated, settings);
   return updated;
 }

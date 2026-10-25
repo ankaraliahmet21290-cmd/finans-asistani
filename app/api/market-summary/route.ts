@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { MARKETS, CURATED_MARKET_ITEMS, detectAssetCategory, getMarketSessionStatus } from "@/lib/markets";
 import { getBatchQuotes, getUsdTry } from "@/lib/data";
 import { analyzeSymbol } from "@/lib/analyze";
+import { mapWithLimit } from "@/lib/concurrency";
+import { findCryptoAsset } from "@/lib/crypto-assets";
 import type { TimeframeKey } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -20,76 +22,79 @@ export async function GET(request: Request) {
     const session = getMarketSessionStatus(selectedMarket.id);
     const usdTry = await getUsdTry();
 
-    // 2. Compute lightweight signals for each featured ticker
-    const items = await Promise.all(
-      tickers.map(async (ticker) => {
-        const curated = CURATED_MARKET_ITEMS[ticker];
-        const category = detectAssetCategory(ticker);
-        const quote = batch[ticker];
+    // 2. Compute lightweight signals for each featured ticker with controlled concurrency
+    const items = await mapWithLimit(tickers, 8, async (ticker) => {
+      const curated = CURATED_MARKET_ITEMS[ticker];
+      const category = detectAssetCategory(ticker);
+      const quote = batch[ticker];
+      const cryptoAsset = findCryptoAsset(ticker);
 
-        try {
-          // Analyze symbol with cached candle engine
-          const analysis = await analyzeSymbol(ticker, category, tf);
-          return {
-            ticker,
-            name: curated?.name || analysis.name,
-            icon: curated?.icon,
-            category: curated?.category || category,
-            currency: curated?.currency || analysis.currency,
-            unit: curated?.unit,
-            price: analysis.price || quote?.price || 0,
-            change: analysis.change || quote?.change || 0,
-            changePercent: analysis.changePercent || quote?.changePercent || 0,
-            signal: analysis.signal,
-            score: analysis.score,
-            techScore: analysis.tech.score,
-            fundScore: analysis.fund?.score ?? null,
-            timeframe: tf,
-            // Asset-specific highlights
-            pivots: analysis.forexCommodityMetrics?.pivotPoints,
-            dxy: analysis.forexCommodityMetrics?.dxyValue,
-            goldSilverRatio: analysis.forexCommodityMetrics?.goldSilverRatio,
-            gramGoldTRY: analysis.gramGoldTRY,
-            crypto: analysis.cryptoFundamentals,
-            usStock: analysis.usStockFundamentals,
-            indicators: {
-              rsi: analysis.ind.rsi.at(-1) ?? null,
-              sma50: analysis.ind.sma50.at(-1) ?? null,
-              sma200: analysis.ind.sma200.at(-1) ?? null,
-              bbUpper: analysis.ind.bb.at(-1)?.upper ?? null,
-              bbLower: analysis.ind.bb.at(-1)?.lower ?? null,
-            },
-            reasons: analysis.tech.reasons.slice(0, 3),
-          };
-        } catch (e) {
-          console.warn(`[market-summary] Failed to analyze ${ticker}:`, e);
-          return {
-            ticker,
-            name: curated?.name || ticker,
-            icon: curated?.icon,
-            category: curated?.category || category,
-            currency: curated?.currency || "USD",
-            unit: curated?.unit,
-            price: quote?.price || 0,
-            change: quote?.change || 0,
-            changePercent: quote?.changePercent || 0,
-            signal: "TUT" as const,
-            score: 0,
-            techScore: 0,
-            fundScore: null,
-            timeframe: tf,
-            indicators: {
-              rsi: null,
-              sma50: null,
-              sma200: null,
-              bbUpper: null,
-              bbLower: null,
-            },
-            reasons: ["Veri hesaplanamadı"],
-          };
-        }
-      })
-    );
+      try {
+        // Analyze symbol with cached candle engine
+        const analysis = await analyzeSymbol(ticker, category, tf);
+        return {
+          ticker,
+          code: cryptoAsset?.code ?? ticker.replace(".IS", "").replace("-USD", ""),
+          name: curated?.name || cryptoAsset?.name || analysis.name,
+          icon: curated?.icon || cryptoAsset?.icon,
+          category: curated?.category || category,
+          subCategory: cryptoAsset?.subCategory,
+          currency: curated?.currency || analysis.currency,
+          unit: curated?.unit,
+          price: analysis.price || quote?.price || 0,
+          change: analysis.change || quote?.change || 0,
+          changePercent: analysis.changePercent || quote?.changePercent || 0,
+          signal: analysis.signal,
+          score: analysis.score,
+          techScore: analysis.tech.score,
+          fundScore: analysis.fund?.score ?? null,
+          timeframe: tf,
+          // Asset-specific highlights
+          pivots: analysis.forexCommodityMetrics?.pivotPoints,
+          dxy: analysis.forexCommodityMetrics?.dxyValue,
+          goldSilverRatio: analysis.forexCommodityMetrics?.goldSilverRatio,
+          gramGoldTRY: analysis.gramGoldTRY,
+          crypto: analysis.cryptoFundamentals,
+          usStock: analysis.usStockFundamentals,
+          indicators: {
+            rsi: analysis.ind.rsi.at(-1) ?? null,
+            sma50: analysis.ind.sma50.at(-1) ?? null,
+            sma200: analysis.ind.sma200.at(-1) ?? null,
+            bbUpper: analysis.ind.bb.at(-1)?.upper ?? null,
+            bbLower: analysis.ind.bb.at(-1)?.lower ?? null,
+          },
+          reasons: analysis.tech.reasons.slice(0, 3),
+        };
+      } catch (e) {
+        console.warn(`[market-summary] Failed to analyze ${ticker}:`, e);
+        return {
+          ticker,
+          code: cryptoAsset?.code ?? ticker.replace(".IS", "").replace("-USD", ""),
+          name: curated?.name || cryptoAsset?.name || ticker,
+          icon: curated?.icon || cryptoAsset?.icon,
+          category: curated?.category || category,
+          subCategory: cryptoAsset?.subCategory,
+          currency: curated?.currency || "USD",
+          unit: curated?.unit,
+          price: quote?.price || 0,
+          change: quote?.change || 0,
+          changePercent: quote?.changePercent || 0,
+          signal: "TUT" as const,
+          score: 0,
+          techScore: 0,
+          fundScore: null,
+          timeframe: tf,
+          indicators: {
+            rsi: null,
+            sma50: null,
+            sma200: null,
+            bbUpper: null,
+            bbLower: null,
+          },
+          reasons: ["Veri hesaplanamadı"],
+        };
+      }
+    });
 
     return NextResponse.json({
       market: selectedMarket,

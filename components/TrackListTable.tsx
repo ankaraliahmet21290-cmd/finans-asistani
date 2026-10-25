@@ -6,6 +6,8 @@ import { formatPercent, formatPrice } from "@/lib/format";
 import type { AnalysisResult } from "@/lib/types";
 import type { TrackEntry } from "@/lib/tracklist";
 
+import { detectAssetCategory } from "@/lib/markets";
+
 type RowData = {
   entry: TrackEntry;
   currentData?: AnalysisResult;
@@ -13,11 +15,37 @@ type RowData = {
   error?: string;
 };
 
-export default function TrackListTable() {
+export interface TrackListTableProps {
+  defaultCategory?: "all" | "bist" | "commodity_forex" | "crypto" | "us_stocks";
+  title?: string;
+  subtitle?: string;
+}
+
+export default function TrackListTable({
+  defaultCategory = "all",
+  title = "Sinyal Performansı (Takip Listem)",
+  subtitle = 'Geçmişte "Takibe Al" dediğiniz varlıkların kayıt anındaki fiyatı ile güncel fiyatını karşılaştırır.',
+}: TrackListTableProps = {}) {
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "bist" | "commodity_forex" | "crypto" | "us_stocks">(
+    defaultCategory
+  );
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
+
+  const CATEGORY_TABS: Array<{ key: "all" | "bist" | "commodity_forex" | "crypto" | "us_stocks"; label: string }> = [
+    { key: "all", label: "Tümü" },
+    { key: "bist", label: "🇹🇷 BIST" },
+    { key: "commodity_forex", label: "🥇 Emtia & FX" },
+    { key: "crypto", label: "🪙 Kripto" },
+    { key: "us_stocks", label: "🇺🇸 ABD" },
+  ];
+
+  const visibleRows = rows.filter((r) => {
+    if (categoryFilter === "all") return true;
+    return detectAssetCategory(r.entry.ticker) === categoryFilter;
+  });
 
   const loadTracklist = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -105,14 +133,14 @@ export default function TrackListTable() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">
-              Sinyal Performansı (Takip Listem)
+              {title}
             </h2>
             <span className="rounded-md border border-zinc-700/60 bg-zinc-800/80 px-2 py-0.5 font-mono text-[10px] text-zinc-400 hidden sm:inline-flex">
               takiplistem.md
             </span>
           </div>
           <p className="mt-1 text-xs sm:text-sm text-zinc-400">
-            Geçmişte &quot;Takibe Al&quot; dediğiniz hisselerin kayıt anındaki fiyatı ile güncel fiyatını karşılaştırır.
+            {subtitle}
           </p>
         </div>
 
@@ -138,6 +166,38 @@ export default function TrackListTable() {
         </div>
       </div>
 
+      {/* Category Filter Pills */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {CATEGORY_TABS.map((tab) => {
+          const count =
+            tab.key === "all"
+              ? rows.length
+              : rows.filter((r) => detectAssetCategory(r.entry.ticker) === tab.key).length;
+          const isActive = categoryFilter === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setCategoryFilter(tab.key)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition ${
+                isActive
+                  ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm"
+                  : "bg-zinc-900/80 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                  isActive ? "bg-sky-500/30 text-sky-200" : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {notice && (
         <div
           className={`mb-4 rounded-xl border px-4 py-2.5 text-xs sm:text-sm ${
@@ -161,12 +221,14 @@ export default function TrackListTable() {
           viewMode === "table" ? "hidden" : viewMode === "cards" ? "block" : "block md:hidden"
         } space-y-3`}
       >
-        {rows.length === 0 ? (
+        {visibleRows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-800 p-8 text-center text-xs text-zinc-500">
-            Henüz takip edilen kayıt yok. Ana ekrandan analizleri görüntülerken &quot;Takibe Al&quot; diyerek buraya ekleyebilirsiniz.
+            {categoryFilter === "all"
+              ? "Henüz takip edilen kayıt yok. Ana ekrandan analizleri görüntülerken \"Takibe Al\" diyerek buraya ekleyebilirsiniz."
+              : `Bu kategoride (${categoryFilter}) takip edilen kayıt yok.`}
           </div>
         ) : (
-          rows.map((row, idx) => {
+          visibleRows.map((row, idx) => {
             const e = row.entry;
             const d = new Date(e.date);
             const dateStr =
@@ -317,14 +379,16 @@ export default function TrackListTable() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-12 text-center text-zinc-500">
-                  Henüz takip edilen kayıt yok. Ana ekrandan analizleri görüntülerken &quot;Takibe Al&quot; diyerek buraya ekleyebilirsiniz.
+                  {categoryFilter === "all"
+                    ? "Henüz takip edilen kayıt yok. Ana ekrandan analizleri görüntülerken \"Takibe Al\" diyerek buraya ekleyebilirsiniz."
+                    : `Bu kategoride (${categoryFilter}) takip edilen kayıt yok.`}
                 </td>
               </tr>
             ) : (
-              rows.map((row, idx) => {
+              visibleRows.map((row, idx) => {
                 const e = row.entry;
                 const d = new Date(e.date);
                 const dateStr =

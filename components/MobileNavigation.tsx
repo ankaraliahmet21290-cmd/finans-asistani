@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import BistCombobox from "./BistCombobox";
+import Logo from "./Logo";
 
 export default function MobileNavigation() {
   const [mounted, setMounted] = useState(false);
@@ -199,12 +200,10 @@ export default function MobileNavigation() {
                   {/* Drawer Header */}
                   <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-sky-600 to-indigo-500 shadow-md">
-                        <span className="text-xs font-black text-white">FA</span>
-                      </div>
+                      <Logo size={28} />
                       <div>
                         <h3 className="text-sm font-bold text-zinc-100">Finans Asistanı</h3>
-                        <span className="text-[10px] text-zinc-500">BIST Karar Destek & Analiz</span>
+                        <span className="text-[10px] text-zinc-500">Çoklu Piyasa Karar Destek</span>
                       </div>
                     </div>
                     <button
@@ -329,6 +328,22 @@ export default function MobileNavigation() {
                         >
                           <span className="text-base">📊</span>
                           <span>Teknik Detay Kılavuzu</span>
+                        </Link>
+                        <Link
+                          href="/analitik"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition"
+                        >
+                          <span className="text-base">👥</span>
+                          <span>Canlı Ziyaretçi & IP Analitiği</span>
+                        </Link>
+                        <Link
+                          href="/ayarlar"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-300 hover:bg-sky-500/20 transition"
+                        >
+                          <span className="text-base">⚙️</span>
+                          <span>Genel Ayarlar & Bildirim Dağıtımı</span>
                         </Link>
                       </div>
                     </div>

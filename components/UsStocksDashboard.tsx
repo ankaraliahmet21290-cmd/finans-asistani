@@ -4,8 +4,33 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import SignalBadge from "./SignalBadge";
 import TimeframeSelector from "./TimeframeSelector";
+import PositionTracker from "./PositionTracker";
+import WatchlistTable from "./WatchlistTable";
+import TimeframeSignals from "./TimeframeSignals";
+import TopSignals from "./TopSignals";
+import TrackListTable from "./TrackListTable";
+import BistCombobox from "./BistCombobox";
+import SelectedCompanyPreview from "./SelectedCompanyPreview";
+import MailScheduleControl from "./MailScheduleControl";
+import MailRecipientsControl from "./MailRecipientsControl";
+import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import { formatNumber, formatPercent, formatPrice, formatSigned } from "@/lib/format";
+import { CURATED_MARKET_ITEMS } from "@/lib/markets";
+import type { BistCompany } from "@/lib/bist";
 import type { TimeframeKey } from "@/lib/types";
+
+const US_STOCK_CHIPS = [
+  { code: "NVDA", label: "🟢 Nvidia" },
+  { code: "AAPL", label: "🍎 Apple" },
+  { code: "MSFT", label: "🪟 Microsoft" },
+  { code: "TSLA", label: "⚡ Tesla" },
+  { code: "AMZN", label: "📦 Amazon" },
+  { code: "GOOGL", label: "🔍 Google" },
+  { code: "META", label: "♾️ Meta" },
+  { code: "AMD", label: "🔴 AMD" },
+  { code: "NFLX", label: "🎬 Netflix" },
+  { code: "PLTR", label: "🎯 Palantir" },
+];
 
 interface UsStockItemData {
   ticker: string;
@@ -68,6 +93,8 @@ export default function UsStocksDashboard() {
   const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
   const [data, setData] = useState<UsStockItemData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCompany, setSelectedCompany] = useState<BistCompany | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
 
   const loadData = async (tf: TimeframeKey) => {
     setLoading(true);
@@ -87,6 +114,15 @@ export default function UsStocksDashboard() {
   useEffect(() => {
     void loadData(timeframe);
   }, [timeframe]);
+
+  // Auto-refresh timer
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+    const timer = setInterval(() => {
+      void loadData(timeframe);
+    }, refreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [refreshInterval, timeframe]);
 
   const nvda = data.find((d) => d.ticker === "NVDA");
   const aapl = data.find((d) => d.ticker === "AAPL");
@@ -110,14 +146,76 @@ export default function UsStocksDashboard() {
             Nvidia, Apple, Microsoft, Tesla ve Wall Street devleri için <strong>Konsensüs Hedef Fiyatlar</strong>, PEG rasyosu, kârlılık çarpanları ve teknik AL/SAT sinyalleri.
           </p>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center gap-2.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Analiz Periyodu:
             </span>
             <TimeframeSelector value={timeframe} onChange={setTimeframe} size="sm" />
+            <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
+            <MailScheduleControl size="sm" market="us_stocks" />
+            <MailRecipientsControl size="sm" context="positions" />
+            <AutoRefreshControl
+              intervalSeconds={refreshInterval}
+              onIntervalChange={(sec) => setRefreshInterval(sec)}
+              onRefresh={() => void loadData(timeframe)}
+              isRefreshing={loading}
+              market="us_stocks"
+              storageKey="us_stocks_refresh_interval"
+              size="sm"
+            />
+          </div>
+
+          {/* Searchable Combobox for US Stocks */}
+          <div className="mt-4 w-full">
+            <BistCombobox
+              market="us_stocks"
+              placeholder="Amerikan hissesi ara (NVDA, Apple, Microsoft, Tesla...)"
+              autoNavigate={false}
+              onSelect={(company) => setSelectedCompany(company)}
+            />
+          </div>
+
+          {/* Quick chips */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-zinc-500 mr-1">Hızlı erişim:</span>
+            {US_STOCK_CHIPS.map((chip) => {
+              const isActive = selectedCompany?.ticker === chip.code;
+              return (
+                <button
+                  key={chip.code}
+                  type="button"
+                  onClick={() => {
+                    const curated = CURATED_MARKET_ITEMS[chip.code];
+                    setSelectedCompany({
+                      code: chip.code,
+                      ticker: chip.code,
+                      name: curated?.name ?? chip.label,
+                      city: "🇺🇸 ABD",
+                    });
+                  }}
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition active:scale-95 ${
+                    isActive
+                      ? "border-indigo-500 bg-indigo-500/20 text-indigo-300"
+                      : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
+
+      {/* Selected Asset Live Preview Card */}
+      {selectedCompany && (
+        <SelectedCompanyPreview
+          company={selectedCompany}
+          timeframe={timeframe}
+          onTimeframeChange={setTimeframe}
+          onClose={() => setSelectedCompany(null)}
+        />
+      )}
 
       {/* Top Mega-Cap Highlights */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -286,6 +384,51 @@ export default function UsStocksDashboard() {
             </table>
           </div>
         )}
+      </section>
+
+      {/* Active Position Tracking & Live Stop-Loss / Take-Profit Desk */}
+      <section id="portfolio-section" className="w-full scroll-mt-20">
+        <PositionTracker
+          defaultMarket="us_stocks"
+          title="Amerikan Borsası Pozisyon Takibi (Stop-Loss & Kâr Al)"
+          subtitle="S&P 500 ve Nasdaq hisse pozisyonlarınız için USD bazında anlık stop-loss ve kâr al e-posta alarmları"
+        />
+      </section>
+
+      {/* Multi-Timeframe Categorized Signals (5m, 15m, 1h, 4h, Günlük, Haftalık) */}
+      <section id="signals-section" className="w-full scroll-mt-20">
+        <TimeframeSignals
+          market="us_stocks"
+          title="Amerikan Borsası Çoklu Zaman Dilimi AL/SAT Sinyalleri"
+          subtitle="Wall Street devleri için teknik ve temel skorlara dayalı 10 farklı zaman diliminde AL/SAT sinyalleri."
+        />
+      </section>
+
+      {/* Top Signals Ranking for US Stocks */}
+      <section id="top-signals-section" className="w-full scroll-mt-20">
+        <TopSignals
+          market="us_stocks"
+          title="Amerikan Borsası Lider Sinyaller"
+          subtitle="S&P 500 ve Nasdaq devleri arasında analist konsensüsü ve teknik puana göre en yüksek AL ve SAT sinyalleri."
+        />
+      </section>
+
+      {/* TrackList Table (Sinyal Karşılaştırma) */}
+      <section id="tracklist-section" className="w-full scroll-mt-20">
+        <TrackListTable
+          defaultCategory="us_stocks"
+          title="Amerikan Borsası Sinyal Performansı (Takip Listem)"
+          subtitle="Takibe aldığınız ABD hisselerinin zaman içindeki başarı ve getiri performansı."
+        />
+      </section>
+
+      {/* Main Watchlist Table */}
+      <section id="watchlist-section" className="w-full scroll-mt-20">
+        <WatchlistTable
+          defaultCategory="us_stocks"
+          title="Amerikan Borsası İzleme Listesi"
+          subtitle="Takipteki ABD hisselerinde (NVDA, AAPL, MSFT, TSLA...) AL/SAT sinyali değiştiğinde otomatik e-posta tetiklenir."
+        />
       </section>
     </div>
   );

@@ -7,6 +7,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get("action");
   const force = searchParams.get("force") === "true";
+  const market = searchParams.get("market") || undefined;
 
   // Auto-start scheduler if not yet started
   ensureSchedulerStarted();
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
   }
 
   // Trigger manual or cron scan
-  const result = await runScheduledScan(force);
+  const result = await runScheduledScan(force, undefined, market);
   return NextResponse.json({
     ...result,
     scheduler: getSchedulerState(),

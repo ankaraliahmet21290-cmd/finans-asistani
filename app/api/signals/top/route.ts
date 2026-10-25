@@ -10,6 +10,7 @@ import {
   normalizeTimeframeKey,
 } from "@/lib/timeframe-settings-storage";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import { MARKETS, CURATED_MARKET_ITEMS, detectAssetCategory } from "@/lib/markets";
 import type { Signal } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export interface TopSignalsResponse {
   updatedAt: string;
   totalEvaluated: number;
   indexType: IndexTypeKey;
+  market?: string;
 }
 
 import fs from "fs/promises";
@@ -82,22 +84,37 @@ import {
 
 async function computeTopSignals(
   timeframe: TimeframeKey = "1d",
-  indexType: IndexTypeKey = "bist30"
+  indexType: IndexTypeKey = "bist30",
+  market?: string
 ): Promise<TopSignalsResponse> {
-  let tickers = [...getIndexTickers(indexType)];
-  // bistall (560+ hisse) canlı istekte zaman aşımına yol açabileceğinden ilk 100 hisse ile sınırla
-  if (indexType === "bistall" && tickers.length > 100) {
-    tickers = tickers.slice(0, 100);
+  let tickers: string[] = [];
+  if (market === "crypto") {
+    tickers = [...(MARKETS.find((m) => m.id === "crypto")?.featuredTickers ?? [])];
+  } else if (market === "us_stocks") {
+    tickers = [...(MARKETS.find((m) => m.id === "us_stocks")?.featuredTickers ?? [])];
+  } else if (market === "commodity_forex") {
+    tickers = [...(MARKETS.find((m) => m.id === "commodity_forex")?.featuredTickers ?? [])];
+  } else {
+    tickers = [...getIndexTickers(indexType)];
+    if (indexType === "bistall" && tickers.length > 100) {
+      tickers = tickers.slice(0, 100);
+    }
   }
 
   // 3 temel periyottan zaman hizalı türetme modu (hızlı ve rate-limit korumalı)
   const preferDirect = false;
   const evaluated = await mapWithLimit(tickers, 16, async (ticker): Promise<RankedStock | null> => {
     try {
-      const res = await analyzeSymbol(ticker, "stock", timeframe, { preferDirect });
+      const assetCat = detectAssetCategory(ticker);
+      const res = await analyzeSymbol(ticker, assetCat, timeframe, { preferDirect });
       const bist = findBistCompany(ticker);
-      const code = bist ? bist.code : ticker.replace(/\.IS$/, "");
-      const name = bist ? bist.name : res.name;
+      const curated = CURATED_MARKET_ITEMS[ticker];
+      const code = bist
+        ? bist.code
+        : curated
+        ? curated.ticker.replace("-USD", "").replace("=F", "").replace("=X", "")
+        : ticker.replace(/\.IS$/, "");
+      const name = bist ? bist.name : curated ? curated.name : res.name;
 
       const techReasons = res.tech.items
         .filter((i) => i.point !== 0)
@@ -183,19 +200,21 @@ async function computeTopSignals(
     updatedAt: new Date().toISOString(),
     totalEvaluated: stocks.length,
     indexType,
+    market,
   };
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const force = searchParams.get("force") === "true";
+  const market = searchParams.get("market") || undefined;
   const rawTf = searchParams.get("timeframe") || searchParams.get("tf");
   const fallbackTf = getActiveTimeframeSettings().topSignals;
   const timeframe: TimeframeKey = rawTf ? normalizeTimeframeKey(rawTf) : fallbackTf;
   const rawIndex = searchParams.get("indexType") || searchParams.get("index");
   const { topSignals: fileIndexType } = await getIndexTypeSettingsFromFile();
   const indexType: IndexTypeKey = rawIndex ? normalizeIndexTypeKey(rawIndex) : fileIndexType;
-  const cacheKey = `${indexType}:${timeframe}`;
+  const cacheKey = market ? `${market}:${timeframe}` : `${indexType}:${timeframe}`;
 
   const now = Date.now();
   const ttl = getActiveRefreshConfig().cacheTtlMs;
@@ -222,7 +241,7 @@ export async function GET(req: Request) {
 
   const promise = (async () => {
     try {
-      const data = await computeTopSignals(timeframe, indexType);
+      const data = await computeTopSignals(timeframe, indexType, market);
       cacheByTimeframe.set(cacheKey, { data, lastFetchedAt: Date.now() });
       void writeTopSignalsDiskCache(cacheKey, data);
       return data;

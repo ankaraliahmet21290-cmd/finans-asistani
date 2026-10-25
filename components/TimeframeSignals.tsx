@@ -41,7 +41,17 @@ const ALL_CATEGORY_KEYS: CategoryTimeframeKey[] = [
 
 type SignalMode = "hybrid" | "tech" | "fund";
 
-export default function TimeframeSignals() {
+export interface TimeframeSignalsProps {
+  market?: "bist" | "crypto" | "us_stocks" | "commodity_forex";
+  title?: string;
+  subtitle?: string;
+}
+
+export default function TimeframeSignals({
+  market = "bist",
+  title,
+  subtitle,
+}: TimeframeSignalsProps = {}) {
   const [data, setData] = useState<CategorizedSignals | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | CategoryTimeframeKey>("all");
   const [signalMode, setSignalMode] = useState<SignalMode>("hybrid");
@@ -68,6 +78,7 @@ export default function TimeframeSignals() {
 
   // Load saved index type from endeks-tip.md on mount
   useEffect(() => {
+    if (market !== "bist") return;
     let active = true;
     (async () => {
       try {
@@ -83,12 +94,16 @@ export default function TimeframeSignals() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [market]);
 
   const fetchData = useCallback(async (force = false, showLoading = false) => {
     try {
       if (showLoading) setLoading(true);
-      const res = await fetch(`/api/signals/timeframes${force ? "?force=true" : ""}`, {
+      const url =
+        market === "bist"
+          ? `/api/signals/timeframes${force ? "?force=true" : ""}`
+          : `/api/signals/timeframes?market=${market}${force ? "&force=true" : ""}`;
+      const res = await fetch(url, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -100,13 +115,17 @@ export default function TimeframeSignals() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [market]);
 
   const triggerScanAndMail = async () => {
     setScanning(true);
     setScanMessage(null);
     try {
-      const res = await fetch("/api/cron/multi-timeframe?force=true", { cache: "no-store" });
+      const url =
+        market && market !== "bist"
+          ? `/api/cron/multi-timeframe?force=true&market=${encodeURIComponent(market)}`
+          : "/api/cron/multi-timeframe?force=true";
+      const res = await fetch(url, { cache: "no-store" });
       const json = await res.json();
       if (json.ok) {
         setScanMessage(
@@ -188,7 +207,14 @@ export default function TimeframeSignals() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold text-zinc-100">
-                  Çoklu Zaman Dilimi AL/SAT Taraması
+                  {title ??
+                    (market === "crypto"
+                      ? "Kripto Para Çoklu Zaman Dilimi AL/SAT Taraması"
+                      : market === "us_stocks"
+                      ? "Amerikan Borsası Çoklu Zaman Dilimi AL/SAT Taraması"
+                      : market === "commodity_forex"
+                      ? "Emtia & Döviz Çoklu Zaman Dilimi AL/SAT Taraması"
+                      : "Çoklu Zaman Dilimi AL/SAT Taraması")}
                 </h2>
                 {mailConfig?.intervalKey === "off" ? (
                   <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[11px] font-mono font-semibold text-zinc-400 border border-zinc-700">
@@ -199,32 +225,41 @@ export default function TimeframeSignals() {
                     ✉️ {mailConfig?.label ?? "15 dk"} Otomatik
                   </span>
                 )}
+                {market === "crypto" && (
+                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-300 border border-emerald-500/30">
+                    7/24 Kesintisiz
+                  </span>
+                )}
                 <span className="rounded-md bg-zinc-800/80 px-2 py-0.5 text-[10px] font-mono text-zinc-400 border border-zinc-700/60 hidden sm:inline-flex">
                   mail-settings.md
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-1">
-                {mailConfig?.intervalKey === "off"
-                  ? "Otomatik e-posta gönderimi kapalıdır (mail-settings.md). İstediğiniz zaman sağdaki butondan anlık tarayıp gönderebilirsiniz."
-                  : mailConfig?.intervalKey === "daily"
-                    ? "Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde alıcıların özel sıklığına göre (veya günde 1 kez) otomatik rapor gönderir."
-                    : `Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde genel ${
+                {subtitle ??
+                  (mailConfig?.intervalKey === "off"
+                    ? "Otomatik e-posta gönderimi kapalıdır (mail-settings.md). İstediğiniz zaman sağdaki butondan anlık tarayıp gönderebilirsiniz."
+                    : mailConfig?.intervalKey === "daily"
+                    ? "Seans saatlerinde alıcıların özel sıklığına göre (veya günde 1 kez) otomatik rapor gönderir."
+                    : `Seans saatlerinde genel ${
                         mailConfig?.label ?? "15 dk"
-                      } veya her alıcının kendi özel sıklığına göre otomatik e-posta gönderir.`}
+                      } veya her alıcının kendi özel sıklığına göre otomatik e-posta gönderir.`)}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <IndexTypeSelector
-              id="multi-timeframe-index-type"
-              value={indexType}
-              onChange={handleIndexTypeChange}
-              disabled={loading || scanning}
-            />
+            {market === "bist" && (
+              <IndexTypeSelector
+                id="multi-timeframe-index-type"
+                value={indexType}
+                onChange={handleIndexTypeChange}
+                disabled={loading || scanning}
+              />
+            )}
             <MailScheduleControl
               size="sm"
               align="left"
+              market="bist"
               onScheduleChange={(cfg) => setMailConfig(cfg)}
             />
             <MailRecipientsControl size="sm" context="multiTimeframe" />
@@ -234,7 +269,8 @@ export default function TimeframeSignals() {
               onRefresh={() => void fetchData(true)}
               isRefreshing={loading}
               lastUpdated={data?.scannedAt}
-              storageKey="scanner_refresh_interval"
+              market="bist"
+              storageKey="scanner_refresh_interval_bist"
               size="sm"
               align="left"
             />
@@ -423,7 +459,10 @@ export default function TimeframeSignals() {
                                 {b.code}
                               </span>
                               <span className="text-xs font-bold text-zinc-100 tabular-nums">
-                                {formatPrice(b.price, "TRY")}
+                                {formatPrice(
+                                  b.price,
+                                  b.ticker.endsWith(".IS") || b.ticker.includes("TRY") ? "TRY" : "USD"
+                                )}
                               </span>
                             </div>
                             <div className="mt-1 flex items-center justify-between text-[11px]">
@@ -463,7 +502,10 @@ export default function TimeframeSignals() {
                                 {s.code}
                               </span>
                               <span className="text-xs font-bold text-zinc-100 tabular-nums">
-                                {formatPrice(s.price, "TRY")}
+                                {formatPrice(
+                                  s.price,
+                                  s.ticker.endsWith(".IS") || s.ticker.includes("TRY") ? "TRY" : "USD"
+                                )}
                               </span>
                             </div>
                             <div className="mt-1 flex items-center justify-between text-[11px]">

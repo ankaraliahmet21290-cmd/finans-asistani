@@ -33,12 +33,14 @@ interface MailScheduleControlProps {
   onScheduleChange?: (config: MailScheduleConfig) => void;
   size?: "sm" | "md";
   align?: "left" | "right";
+  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks";
 }
 
 export default function MailScheduleControl({
   onScheduleChange,
   size = "md",
   align = "left",
+  market,
 }: MailScheduleControlProps) {
   const [data, setData] = useState<MailSettingsResponse | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -80,17 +82,19 @@ export default function MailScheduleControl({
   // Fetch current mail settings from API once on mount
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch("/api/mail/settings", { cache: "no-store" });
+      const url = market ? `/api/mail/settings?market=${market}` : "/api/mail/settings";
+      const res = await fetch(url, { cache: "no-store" });
       if (res.ok) {
-        const json: MailSettingsResponse = await res.json();
+        const json = await res.json();
         setData(json);
-        setActiveKey(json.config.intervalKey);
+        const effectiveKey = (market && json.config.markets?.[market]) || json.effectiveIntervalKey || json.config.intervalKey;
+        setActiveKey(effectiveKey);
         if (onScheduleChangeRef.current) onScheduleChangeRef.current(json.config);
       }
     } catch (e) {
       console.error("[MailScheduleControl] Yükleme hatası:", e);
     }
-  }, []);
+  }, [market]);
 
   useEffect(() => {
     void fetchSettings();
@@ -106,7 +110,7 @@ export default function MailScheduleControl({
       const res = await fetch("/api/mail/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intervalKey: optKey }),
+        body: JSON.stringify({ intervalKey: optKey, market }),
       });
 
       if (res.ok) {
@@ -121,7 +125,8 @@ export default function MailScheduleControl({
             : null
         );
         if (onScheduleChange) onScheduleChange(json.config);
-        setSaveSuccessMsg(`✓ mail-settings.md: "${json.config.label}" kaydedildi`);
+        const marketLabel = market ? `[${market.toUpperCase()}] ` : "";
+        setSaveSuccessMsg(`✓ ${marketLabel}mail-settings.md: "${optKey}" kaydedildi`);
         setTimeout(() => setSaveSuccessMsg(null), 4000);
       }
     } catch (e) {

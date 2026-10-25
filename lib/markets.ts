@@ -19,6 +19,8 @@ export interface MarketConfig {
   featuredTickers: readonly string[];
 }
 
+import { ALL_CRYPTO_TICKERS, CRYPTO_ASSETS, findCryptoAsset } from "./crypto-assets";
+
 export const MARKETS: readonly MarketConfig[] = [
   {
     id: "bist",
@@ -47,8 +49,8 @@ export const MARKETS: readonly MarketConfig[] = [
     path: "/kripto",
     icon: "🪙",
     tradingHours: "7/24 Kesintisiz",
-    description: "Bitcoin, Ethereum, Solana ve popüler kripto paralar için 7/24 Supertrend & Stoch RSI sinyalleri.",
-    featuredTickers: ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD", "AVAX-USD", "DOGE-USD", "LINK-USD", "SUI-USD", "ADA-USD"],
+    description: "Bitcoin, Ethereum, Solana, Layer 1/2, AI, DeFi ve meme paralar için 7/24 Supertrend & Stoch RSI sinyalleri.",
+    featuredTickers: ALL_CRYPTO_TICKERS,
   },
   {
     id: "us_stocks",
@@ -75,17 +77,20 @@ export const CURATED_MARKET_ITEMS: Record<string, MarketItem> = {
   "DX-Y.NYB": { ticker: "DX-Y.NYB", name: "Dolar Endeksi (DXY)", category: "forex", currency: "USD", icon: "🌐" },
   "^TNX": { ticker: "^TNX", name: "ABD 10 Yıllık Tahvil Getirisi", category: "forex", currency: "%", icon: "📈" },
 
-  // --- Kripto Paralar ---
-  "BTC-USD": { ticker: "BTC-USD", name: "Bitcoin", category: "crypto", currency: "USD", icon: "₿" },
-  "ETH-USD": { ticker: "ETH-USD", name: "Ethereum", category: "crypto", currency: "USD", icon: "Ξ" },
-  "SOL-USD": { ticker: "SOL-USD", name: "Solana", category: "crypto", currency: "USD", icon: "◎" },
-  "BNB-USD": { ticker: "BNB-USD", name: "Binance Coin", category: "crypto", currency: "USD", icon: "🟡" },
-  "XRP-USD": { ticker: "XRP-USD", name: "Ripple", category: "crypto", currency: "USD", icon: "✕" },
-  "AVAX-USD": { ticker: "AVAX-USD", name: "Avalanche", category: "crypto", currency: "USD", icon: "🔺" },
-  "DOGE-USD": { ticker: "DOGE-USD", name: "Dogecoin", category: "crypto", currency: "USD", icon: "🐕" },
-  "LINK-USD": { ticker: "LINK-USD", name: "Chainlink", category: "crypto", currency: "USD", icon: "⬡" },
-  "SUI-USD": { ticker: "SUI-USD", name: "Sui", category: "crypto", currency: "USD", icon: "💧" },
-  "ADA-USD": { ticker: "ADA-USD", name: "Cardano", category: "crypto", currency: "USD", icon: "₳" },
+  // --- Kripto Paralar (Tüm Ekosistem: 80+ Varlık) ---
+  ...Object.fromEntries(
+    CRYPTO_ASSETS.map((c) => [
+      c.ticker,
+      {
+        ticker: c.ticker,
+        name: c.name,
+        category: "crypto" as const,
+        currency: c.currency,
+        description: c.description,
+        icon: c.icon,
+      },
+    ])
+  ),
 
   // --- ABD Borsası ---
   "NVDA": { ticker: "NVDA", name: "NVIDIA Corp.", category: "us_stock", currency: "USD", description: "Yapay zeka & yarı iletken devi", icon: "🟢" },
@@ -108,7 +113,7 @@ export function detectAssetCategory(ticker: string): "stock" | "gold" | "commodi
   if (upper === "GC=F" || upper === "ALTIN" || upper.includes("GOLD")) return "gold";
   if (upper === "SI=F" || upper === "BZ=F" || upper === "CL=F" || upper === "HG=F" || upper === "PL=F") return "commodity";
   if (upper.endsWith("=X") || upper === "DX-Y.NYB" || upper === "^TNX") return "forex";
-  if (upper.endsWith("-USD") || upper.endsWith("-TRY") || upper.endsWith("-USDT")) return "crypto";
+  if (findCryptoAsset(upper) || upper.endsWith("-USD") || upper.endsWith("-TRY") || upper.endsWith("-USDT")) return "crypto";
   if (upper.endsWith(".IS")) return "stock";
   if (CURATED_MARKET_ITEMS[upper]?.category === "us_stock") return "us_stock";
   if (upper.match(/^[A-Z]{1,5}$/)) {

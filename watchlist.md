@@ -6,15 +6,12 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 ## Sinyal Değişim Kontrol Ayarları
 - **Tarama Sıklığı:** 15m
 - **Yalnızca Seans İçi:** Evet
-- **Son Kontrol:** —
-- **Son Sinyal Değişimi:** —
+- **Son Kontrol:** 2026-10-25T16:18:03.619Z
+- **Son Sinyal Değişimi:** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** —
 
-| Sembol | Tür | Ad |
-| --- | --- | --- |
-| THYAO.IS | stock | Türk Hava Yolları |
-| ASELS.IS | stock | Aselsan |
-| AAPL | stock | Apple Inc. |
-| GC=F | gold | Ons Altın Vadeli |
-| GARAN.IS | stock | Garanti Bankası |
-| TUPRS.IS | stock | Tüpraş |
-| ALTNY.IS | stock | ALTINAY SAVUNMA TEKNOLOJİLERİ A.Ş. |
+| Sembol | Tür | Ad | Periyot |
+| --- | --- | --- | --- |
+| THYAO.IS | stock | Türk Hava Yolları | 1d |
+| ASELS.IS | stock | Aselsan | 1d |
+| AAPL | stock | Apple Inc. | 1d |
+| GC=F | gold | Ons Altın Vadeli | 1d |

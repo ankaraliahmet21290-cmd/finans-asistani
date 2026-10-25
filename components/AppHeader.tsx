@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BistCombobox from "./BistCombobox";
 import MobileNavigation from "./MobileNavigation";
+import Logo from "./Logo";
 import { MARKETS, getMarketSessionStatus } from "@/lib/markets";
 
 export default function AppHeader() {
@@ -25,10 +26,10 @@ export default function AppHeader() {
         {/* Brand Logo */}
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2 font-bold tracking-tight text-zinc-100 transition hover:text-sky-400"
+          className="group flex shrink-0 items-center gap-2.5 font-bold tracking-tight text-zinc-100 transition hover:text-sky-300"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-600 via-indigo-600 to-violet-600 shadow-md shadow-sky-500/20 ring-1 ring-white/10">
-            <span className="text-xs font-black tracking-tight text-white">FA</span>
+          <div className="transition-transform duration-300 group-hover:scale-105">
+            <Logo size={36} />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
@@ -63,6 +64,27 @@ export default function AppHeader() {
             className="shrink-0 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-300 transition hover:border-indigo-400 hover:bg-indigo-500/20"
           >
             📊 Teknik Detay
+          </Link>
+          <Link
+            href="/analitik"
+            className={`shrink-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+              pathname === "/analitik"
+                ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-200"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:border-emerald-400 hover:bg-emerald-500/20"
+            }`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>👥 Canlı Analitik</span>
+          </Link>
+          <Link
+            href="/ayarlar"
+            className={`shrink-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+              pathname === "/ayarlar"
+                ? "border-sky-500/50 bg-sky-500/20 text-sky-200"
+                : "border-zinc-700/60 bg-zinc-800/40 text-zinc-300 hover:border-sky-400 hover:bg-zinc-800/80"
+            }`}
+          >
+            <span>⚙️ Ayarlar</span>
           </Link>
 
           {/* Dynamic Active Market Session Indicator */}

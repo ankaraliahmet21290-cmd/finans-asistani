@@ -36,12 +36,15 @@ export interface TimeframeCategoryData {
   items: TimeframeStockSignal[];
 }
 
+import { MARKETS, CURATED_MARKET_ITEMS, getMarketSessionStatus } from "./markets";
+
 export interface CategorizedSignals {
   scannedAt: string;
   isWithinHours: boolean;
   categories: Record<CategoryTimeframeKey, TimeframeCategoryData>;
   totalSignalsCount: number;
   indexType?: IndexTypeKey;
+  market?: string;
   totalScanned?: number;
 }
 
@@ -58,9 +61,10 @@ async function ensureCacheDir() {
   }
 }
 
-export async function readDiskCache(indexType: IndexTypeKey): Promise<CategorizedSignals | null> {
+export async function readDiskCache(key: string = "default"): Promise<CategorizedSignals | null> {
   try {
-    const filePath = path.join(CACHE_DIR, `signals-${indexType}.json`);
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filePath = path.join(CACHE_DIR, `signals-${safeKey}.json`);
     const data = await fs.readFile(filePath, "utf-8");
     return JSON.parse(data) as CategorizedSignals;
   } catch {
@@ -68,10 +72,11 @@ export async function readDiskCache(indexType: IndexTypeKey): Promise<Categorize
   }
 }
 
-export async function writeDiskCache(indexType: IndexTypeKey, data: CategorizedSignals): Promise<void> {
+export async function writeDiskCache(key: string, data: CategorizedSignals): Promise<void> {
   try {
     await ensureCacheDir();
-    const filePath = path.join(CACHE_DIR, `signals-${indexType}.json`);
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filePath = path.join(CACHE_DIR, `signals-${safeKey}.json`);
     await fs.writeFile(filePath, JSON.stringify(data), "utf-8");
   } catch (err) {
     console.error("[multitimeframe] writeDiskCache hatası:", err);
@@ -83,8 +88,7 @@ const ongoingScans = new Map<string, Promise<CategorizedSignals>>();
 const SCAN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 const SCAN_CONCURRENCY = 4;
 
-export function getCachedScan(indexType?: IndexTypeKey): CategorizedSignals | null {
-  const key = indexType || "default";
+export function getCachedScan(key: string = "default"): CategorizedSignals | null {
   const item = cachedScans.get(key);
   if (item && Date.now() - item.at < SCAN_CACHE_TTL_MS) {
     return item.data;
@@ -92,15 +96,14 @@ export function getCachedScan(indexType?: IndexTypeKey): CategorizedSignals | nu
   return null;
 }
 
-export async function getCachedScanAsync(indexType?: IndexTypeKey): Promise<CategorizedSignals | null> {
-  const key = indexType || "default";
+export async function getCachedScanAsync(key: string = "default"): Promise<CategorizedSignals | null> {
   const item = cachedScans.get(key);
   if (item && Date.now() - item.at < SCAN_CACHE_TTL_MS) {
     return item.data;
   }
 
   // Bellekte yoksa diskten yükle
-  const diskData = await readDiskCache(key as IndexTypeKey);
+  const diskData = await readDiskCache(key);
   if (diskData) {
     cachedScans.set(key, { at: Date.now(), data: diskData });
     return diskData;
@@ -108,10 +111,10 @@ export async function getCachedScanAsync(indexType?: IndexTypeKey): Promise<Cate
   return null;
 }
 
-export function setCachedScan(data: CategorizedSignals): void {
-  const key = data.indexType || "default";
+export function setCachedScan(data: CategorizedSignals, customKey?: string): void {
+  const key = customKey || data.market || data.indexType || "default";
   cachedScans.set(key, { at: Date.now(), data });
-  void writeDiskCache(key as IndexTypeKey, data);
+  void writeDiskCache(key, data);
 }
 
 export async function getTimeframeCandles(
@@ -142,8 +145,13 @@ export async function analyzeTimeframe(
 
     const price = closes.at(-1) ?? 0;
     const bist = findBistCompany(ticker);
-    const code = bist ? bist.code : ticker.replace(/\.IS$/, "");
-    const name = bist ? bist.name : ticker;
+    const curated = CURATED_MARKET_ITEMS[ticker];
+    const code = bist
+      ? bist.code
+      : curated
+      ? curated.ticker.replace("-USD", "").replace("=F", "").replace("=X", "").replace("^", "")
+      : ticker.replace(/\.IS$/, "");
+    const name = bist ? bist.name : curated ? curated.name : ticker;
 
     let fundScore: number | null = null;
     let fundSignal: Signal | null = null;
@@ -202,10 +210,22 @@ export function isWithinTradingHours(date = new Date()): boolean {
   return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
 }
 
-// Scan multi-timeframe signals across the universe of the selected index type (endeks-tip.md)
-export async function scanCategorizedSignals(indexType?: IndexTypeKey): Promise<CategorizedSignals> {
-  const activeIndexType = indexType ?? (await getIndexTypeSettingsFromFile()).multiTimeframe;
-  const key = activeIndexType || "default";
+// Scan multi-timeframe signals across BIST indices or other markets (crypto, us_stocks, commodity_forex)
+export async function scanCategorizedSignals(
+  target?: string,
+  forceRefresh = false
+): Promise<CategorizedSignals> {
+  const isMarket = target === "crypto" || target === "us_stocks" || target === "commodity_forex";
+  let activeIndexType: IndexTypeKey | undefined = undefined;
+  if (!isMarket) {
+    activeIndexType = (target as IndexTypeKey) ?? (await getIndexTypeSettingsFromFile()).multiTimeframe;
+  }
+  const key = target || activeIndexType || "default";
+
+  if (!forceRefresh) {
+    const cached = await getCachedScan(key);
+    if (cached) return cached;
+  }
 
   // Devam eden bir tarama varsa yeni bir tarama başlatma, var olanı bekle (Deduplication)
   const existing = ongoingScans.get(key);
@@ -214,10 +234,23 @@ export async function scanCategorizedSignals(indexType?: IndexTypeKey): Promise<
   }
 
   const runScan = async (): Promise<CategorizedSignals> => {
-    const universe = getIndexTickers(activeIndexType);
-    const isHours = isWithinTradingHours();
-    // Tüm endeksler (BIST 30, BIST 100, BIST TÜM) için 3 temel veriden (5m, 1h, 1d) zaman hizalı türetme kullanılır.
-    // Bu sayede BIST 30 taraması da 3 kat hızlanır, Yahoo istek sayısı %60 azalır ve veriler seans saatlerine tam oturur.
+    let universe: readonly string[] = [];
+    let isHours = false;
+
+    if (target === "crypto") {
+      universe = MARKETS.find((m) => m.id === "crypto")?.featuredTickers ?? [];
+      isHours = true;
+    } else if (target === "us_stocks") {
+      universe = MARKETS.find((m) => m.id === "us_stocks")?.featuredTickers ?? [];
+      isHours = getMarketSessionStatus("us_stocks").isOpen;
+    } else if (target === "commodity_forex") {
+      universe = MARKETS.find((m) => m.id === "commodity_forex")?.featuredTickers ?? [];
+      isHours = getMarketSessionStatus("commodity_forex").isOpen;
+    } else {
+      universe = getIndexTickers(activeIndexType || "bist30");
+      isHours = isWithinTradingHours();
+    }
+
     const preferDirect = false;
     const timeframes: CategoryTimeframeKey[] = [
       "5m",
@@ -292,11 +325,12 @@ export async function scanCategorizedSignals(indexType?: IndexTypeKey): Promise<
       categories,
       totalSignalsCount,
       indexType: activeIndexType,
+      market: isMarket ? target : undefined,
       totalScanned: universe.length,
     };
 
     // Update in-memory & disk cache
-    setCachedScan(result);
+    setCachedScan(result, key);
 
     return result;
   };

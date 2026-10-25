@@ -6,6 +6,7 @@ import SignalBadge from "./SignalBadge";
 import TimeframeSelector from "./TimeframeSelector";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import { detectAssetCategory } from "@/lib/markets";
 import type { AnalysisResult } from "@/lib/types";
 import type { BistCompany } from "@/lib/bist";
 
@@ -47,8 +48,9 @@ export default function SelectedCompanyPreview({
       setLoading(true);
       setError(null);
       try {
+        const assetType = detectAssetCategory(company.ticker);
         const res = await fetch(
-          `/api/analyze?ticker=${encodeURIComponent(company.ticker)}&type=stock&timeframe=${activeTimeframe}`,
+          `/api/analyze?ticker=${encodeURIComponent(company.ticker)}&type=${assetType}&timeframe=${activeTimeframe}`,
           { cache: "no-store" }
         );
         const json = await res.json();
@@ -75,12 +77,13 @@ export default function SelectedCompanyPreview({
     setAddingTrack(true);
     setTrackNotice(null);
     try {
+      const assetType = detectAssetCategory(company.ticker);
       const res = await fetch("/api/tracklist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ticker: company.ticker,
-          type: "stock",
+          type: assetType,
           price: data.price,
           signal: data.signal,
           timeframe: activeTimeframe,

@@ -4,8 +4,31 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import SignalBadge from "./SignalBadge";
 import TimeframeSelector from "./TimeframeSelector";
+import PositionTracker from "./PositionTracker";
+import WatchlistTable from "./WatchlistTable";
+import TimeframeSignals from "./TimeframeSignals";
+import TopSignals from "./TopSignals";
+import TrackListTable from "./TrackListTable";
+import BistCombobox from "./BistCombobox";
+import SelectedCompanyPreview from "./SelectedCompanyPreview";
+import MailScheduleControl from "./MailScheduleControl";
+import MailRecipientsControl from "./MailRecipientsControl";
+import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import { formatNumber, formatPercent, formatPrice, formatSigned } from "@/lib/format";
+import { CURATED_MARKET_ITEMS } from "@/lib/markets";
+import type { BistCompany } from "@/lib/bist";
 import type { TimeframeKey } from "@/lib/types";
+
+const COMMODITY_CHIPS = [
+  { code: "GC=F", label: "🥇 Ons Altın" },
+  { code: "SI=F", label: "🥈 Gümüş" },
+  { code: "USDTRY=X", label: "💵 Dolar/TL" },
+  { code: "EURTRY=X", label: "💶 Euro/TL" },
+  { code: "BZ=F", label: "🛢️ Brent Petrol" },
+  { code: "CL=F", label: "⛽ Ham Petrol" },
+  { code: "DX-Y.NYB", label: "🌐 DXY Endeks" },
+  { code: "HG=F", label: "🥉 Bakır" },
+];
 
 interface MarketItemData {
   ticker: string;
@@ -50,6 +73,8 @@ export default function CommoditiesForexDashboard() {
   const [usdTry, setUsdTry] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTicker, setSelectedTicker] = useState<string>("GC=F");
+  const [selectedCompany, setSelectedCompany] = useState<BistCompany | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(60);
 
   const loadData = async (tf: TimeframeKey) => {
     setLoading(true);
@@ -70,6 +95,15 @@ export default function CommoditiesForexDashboard() {
   useEffect(() => {
     void loadData(timeframe);
   }, [timeframe]);
+
+  // Auto-refresh timer
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+    const timer = setInterval(() => {
+      void loadData(timeframe);
+    }, refreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [refreshInterval, timeframe]);
 
   const goldItem = data.find((d) => d.ticker === "GC=F");
   const silverItem = data.find((d) => d.ticker === "SI=F");
@@ -97,14 +131,76 @@ export default function CommoditiesForexDashboard() {
             Ons & Gram Altın, Gümüş, Dolar/TL, Euro/TL ve Petrol için <strong>Pivot Seviyeleri (Destek/Direnç)</strong>, DXY korelasyonu ve çoklu periyot AL/SAT sinyalleri.
           </p>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center gap-2.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Analiz Periyodu:
             </span>
             <TimeframeSelector value={timeframe} onChange={setTimeframe} size="sm" />
+            <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
+            <MailScheduleControl size="sm" market="commodity_forex" />
+            <MailRecipientsControl size="sm" context="positions" />
+            <AutoRefreshControl
+              intervalSeconds={refreshInterval}
+              onIntervalChange={(sec) => setRefreshInterval(sec)}
+              onRefresh={() => void loadData(timeframe)}
+              isRefreshing={loading}
+              market="commodity_forex"
+              storageKey="commodity_refresh_interval"
+              size="sm"
+            />
+          </div>
+
+          {/* Searchable Combobox for Commodities & Forex */}
+          <div className="mt-4 w-full">
+            <BistCombobox
+              market="commodity_forex"
+              placeholder="Altın, gümüş, döviz veya petrol ara (GC=F, Ons, Dolar, Brent...)"
+              autoNavigate={false}
+              onSelect={(company) => setSelectedCompany(company)}
+            />
+          </div>
+
+          {/* Quick chips */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-zinc-500 mr-1">Hızlı erişim:</span>
+            {COMMODITY_CHIPS.map((chip) => {
+              const isActive = selectedCompany?.ticker === chip.code;
+              return (
+                <button
+                  key={chip.code}
+                  type="button"
+                  onClick={() => {
+                    const curated = CURATED_MARKET_ITEMS[chip.code];
+                    setSelectedCompany({
+                      code: chip.code,
+                      ticker: chip.code,
+                      name: curated?.name ?? chip.label,
+                      city: "🥇 Emtia/FX",
+                    });
+                  }}
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition active:scale-95 ${
+                    isActive
+                      ? "border-amber-500 bg-amber-500/20 text-amber-300"
+                      : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
+
+      {/* Selected Asset Live Preview Card */}
+      {selectedCompany && (
+        <SelectedCompanyPreview
+          company={selectedCompany}
+          timeframe={timeframe}
+          onTimeframeChange={setTimeframe}
+          onClose={() => setSelectedCompany(null)}
+        />
+      )}
 
       {/* Quick Macro Barometer (Gram Altın, Ons, Dolar, Euro, DXY, Rasyo) */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -405,6 +501,51 @@ export default function CommoditiesForexDashboard() {
             </table>
           </div>
         )}
+      </section>
+
+      {/* Active Position Tracking & Live Stop-Loss / Take-Profit Desk */}
+      <section id="portfolio-section" className="w-full scroll-mt-20">
+        <PositionTracker
+          defaultMarket="commodity_forex"
+          title="Emtia & Döviz Pozisyon Takibi (Stop-Loss & Kâr Al)"
+          subtitle="Aldığınız altın, gümüş, döviz veya petrol pozisyonları için canlı kâr/zarar ve otomatik e-posta alarmları"
+        />
+      </section>
+
+      {/* Multi-Timeframe Categorized Signals (5m, 15m, 1h, 4h, Günlük, Haftalık) */}
+      <section id="signals-section" className="w-full scroll-mt-20">
+        <TimeframeSignals
+          market="commodity_forex"
+          title="Emtia & Döviz Çoklu Zaman Dilimi AL/SAT Sinyalleri"
+          subtitle="Altın, gümüş, döviz kurları ve petrol için tüm zaman dilimlerinde hesaplanan AL/SAT sinyalleri."
+        />
+      </section>
+
+      {/* Top Signals Ranking for Commodities & Forex */}
+      <section id="top-signals-section" className="w-full scroll-mt-20">
+        <TopSignals
+          market="commodity_forex"
+          title="Emtia & Döviz Lider Sinyaller"
+          subtitle="Emtia, altın ve döviz pariteleri arasında karar destek skoruna göre en güçlü AL ve SAT sinyalleri."
+        />
+      </section>
+
+      {/* TrackList Table (Sinyal Karşılaştırma) */}
+      <section id="tracklist-section" className="w-full scroll-mt-20">
+        <TrackListTable
+          defaultCategory="commodity_forex"
+          title="Emtia & Döviz Sinyal Performansı (Takip Listem)"
+          subtitle="Takibe aldığınız altın, gümüş veya döviz sinyallerinin zaman içindeki başarı ve getiri performansı."
+        />
+      </section>
+
+      {/* Main Watchlist Table */}
+      <section id="watchlist-section" className="w-full scroll-mt-20">
+        <WatchlistTable
+          defaultCategory="commodity_forex"
+          title="Emtia & Döviz İzleme Listesi"
+          subtitle="Takipteki altın, gümüş ve döviz kurlarında AL/SAT sinyali değiştiğinde anında e-posta tetiklenir."
+        />
       </section>
     </div>
   );

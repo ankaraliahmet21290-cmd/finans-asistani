@@ -167,7 +167,17 @@ function StockRankingCard({
   );
 }
 
-export default function TopSignals() {
+export interface TopSignalsProps {
+  market?: "bist" | "crypto" | "us_stocks" | "commodity_forex";
+  title?: string;
+  subtitle?: string;
+}
+
+export default function TopSignals({
+  market = "bist",
+  title,
+  subtitle,
+}: TopSignalsProps = {}) {
   const [data, setData] = useState<TopSignalsResponse | null>(null);
   const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
   const [indexType, setIndexType] = useState<IndexTypeKey>("bist30");
@@ -182,10 +192,12 @@ export default function TopSignals() {
         if (force) setRefreshing(true);
         else setLoading(true);
 
-        const res = await fetch(
-          `/api/signals/top?timeframe=${tf}&indexType=${idx}${force ? "&force=true" : ""}`,
-          { cache: "no-store" }
-        );
+        const url =
+          market === "bist"
+            ? `/api/signals/top?timeframe=${tf}&indexType=${idx}${force ? "&force=true" : ""}`
+            : `/api/signals/top?market=${market}&timeframe=${tf}${force ? "&force=true" : ""}`;
+
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: TopSignalsResponse = await res.json();
         setData(json);
@@ -197,7 +209,7 @@ export default function TopSignals() {
         setRefreshing(false);
       }
     },
-    [indexType, timeframe]
+    [indexType, market, timeframe]
   );
 
   // Load saved timeframe & indexType on mount
@@ -210,7 +222,7 @@ export default function TopSignals() {
       try {
         const [tfRes, idxRes] = await Promise.all([
           fetch("/api/timeframe/settings", { cache: "no-store" }),
-          fetch("/api/index-type/settings", { cache: "no-store" }),
+          market === "bist" ? fetch("/api/index-type/settings", { cache: "no-store" }) : Promise.resolve({ ok: false } as Response),
         ]);
 
         if (tfRes.ok) {
@@ -290,14 +302,29 @@ export default function TopSignals() {
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <h2 className="text-xl font-bold tracking-tight text-zinc-100">
-              Lider Sinyaller
+              {title ??
+                (market === "crypto"
+                  ? "Kripto Para Lider Sinyaller"
+                  : market === "us_stocks"
+                  ? "Amerikan Borsası Lider Sinyaller"
+                  : market === "commodity_forex"
+                  ? "Emtia & Döviz Lider Sinyaller"
+                  : "Lider Sinyaller")}
             </h2>
             <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-300">
               {data?.timeframeLabel ?? timeframe}
             </span>
           </div>
           <p className="mt-1 text-xs text-zinc-400">
-            {INDEX_TYPES[indexType].label} hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları ({data?.timeframeLabel ?? "Günlük"})
+            {subtitle ??
+              (market === "crypto"
+                ? "Kripto paralar arasında teknik ve momentum puanına göre en yüksek AL ve SAT adayları"
+                : market === "us_stocks"
+                ? "Amerikan hisseleri arasında analist ve teknik puana göre en yüksek AL ve SAT adayları"
+                : market === "commodity_forex"
+                ? "Emtia, altın ve döviz pariteleri arasında en yüksek AL ve SAT adayları"
+                : `${INDEX_TYPES[indexType].label} hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları`)}{" "}
+            ({data?.timeframeLabel ?? "Günlük"})
             {data?.updatedAt && (
               <span> · Güncellenme: {new Date(data.updatedAt).toLocaleTimeString("tr-TR")}</span>
             )}
@@ -305,12 +332,14 @@ export default function TopSignals() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <IndexTypeSelector
-            id="top-signals-index-type"
-            value={indexType}
-            onChange={handleIndexTypeChange}
-            disabled={loading || refreshing}
-          />
+          {market === "bist" && (
+            <IndexTypeSelector
+              id="top-signals-index-type"
+              value={indexType}
+              onChange={handleIndexTypeChange}
+              disabled={loading || refreshing}
+            />
+          )}
           <TimeframeSelector
             value={timeframe}
             onChange={handleTimeframeChange}

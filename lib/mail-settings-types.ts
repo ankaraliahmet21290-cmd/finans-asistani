@@ -93,6 +93,20 @@ export const MAIL_INTERVAL_OPTIONS: MailIntervalOption[] = [
   },
 ];
 
+export interface MarketMailIntervals {
+  bist: MailIntervalKey;
+  crypto: MailIntervalKey;
+  commodity_forex: MailIntervalKey;
+  us_stocks: MailIntervalKey;
+}
+
+export const DEFAULT_MARKET_MAIL_INTERVALS: MarketMailIntervals = {
+  bist: "15m",
+  crypto: "5m",
+  commodity_forex: "15m",
+  us_stocks: "30m",
+};
+
 export interface MailScheduleConfig {
   intervalKey: MailIntervalKey;
   intervalMinutes: number;
@@ -102,6 +116,7 @@ export interface MailScheduleConfig {
   enabled: boolean;
   onlyTradingHours: boolean;
   updatedAt: string;
+  markets: MarketMailIntervals;
 }
 
 export const DEFAULT_MAIL_SETTINGS: MailScheduleConfig = {
@@ -113,4 +128,5 @@ export const DEFAULT_MAIL_SETTINGS: MailScheduleConfig = {
   enabled: true,
   onlyTradingHours: true,
   updatedAt: new Date().toISOString(),
+  markets: { ...DEFAULT_MARKET_MAIL_INTERVALS },
 };

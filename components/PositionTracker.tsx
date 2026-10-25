@@ -7,6 +7,7 @@ import MailRecipientsControl from "./MailRecipientsControl";
 import { formatPrice, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { BistCompany } from "@/lib/bist";
+import { detectAssetCategory } from "@/lib/markets";
 import type {
   PositionCheckInterval,
   PositionEntry,
@@ -22,7 +23,20 @@ const INTERVAL_OPTIONS: Array<{ key: PositionCheckInterval; label: string }> = [
   { key: "off", label: "Kapalı" },
 ];
 
-export default function PositionTracker() {
+export interface PositionTrackerProps {
+  defaultMarket?: "all" | "bist" | "commodity_forex" | "crypto" | "us_stocks";
+  title?: string;
+  subtitle?: string;
+}
+
+export default function PositionTracker({
+  defaultMarket = "all",
+  title = "Portföy Pozisyon Takibi & Canlı Alarm Masası",
+  subtitle = "Hangi periyotta hangi varlığı aldığınızı kaydedin. Fiyat Stop-Loss (🛑) veya Kâr Al (🎯) seviyelerine ulaştığında sistem otomatik e-posta alarmı gönderir.",
+}: PositionTrackerProps) {
+  const [marketFilter, setMarketFilter] = useState<"all" | "bist" | "commodity_forex" | "crypto" | "us_stocks">(
+    defaultMarket
+  );
   const [positions, setPositions] = useState<PositionEntry[]>([]);
   const [settings, setSettings] = useState<PositionSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -200,17 +214,72 @@ export default function PositionTracker() {
                 💼
               </span>
               <h2 className="text-base sm:text-lg font-bold text-zinc-100">
-                Portföy Pozisyon Takibi & Canlı Alarm Masası
+                {title}
               </h2>
               <span className="rounded-md border border-zinc-700/60 bg-zinc-800/80 px-2 py-0.5 font-mono text-[10px] text-zinc-400 hidden sm:inline-flex">
                 portfoy-takip.md
               </span>
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed max-w-2xl">
-              Hangi periyotta hangi hisseyi aldığınızı işaretleyin. Fiyat belirlediğiniz{" "}
-              <strong className="text-red-400">Stop-Loss (🛑)</strong> veya{" "}
-              <strong className="text-emerald-400">Kâr Al (🎯)</strong> seviyelerine ulaştığında sistem otomatik e-posta alarmı gönderir.
+              {subtitle}
             </p>
+
+            {/* Market Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-3">
+              {[
+                { id: "all", label: "Tümü", icon: "🌐", count: positions.length },
+                {
+                  id: "bist",
+                  label: "BIST",
+                  icon: "🇹🇷",
+                  count: positions.filter((p) => detectAssetCategory(p.ticker) === "stock").length,
+                },
+                {
+                  id: "commodity_forex",
+                  label: "Emtia & FX",
+                  icon: "🥇",
+                  count: positions.filter((p) =>
+                    ["forex", "commodity", "gold"].includes(detectAssetCategory(p.ticker))
+                  ).length,
+                },
+                {
+                  id: "crypto",
+                  label: "Kripto",
+                  icon: "🪙",
+                  count: positions.filter((p) => detectAssetCategory(p.ticker) === "crypto").length,
+                },
+                {
+                  id: "us_stocks",
+                  label: "ABD",
+                  icon: "🇺🇸",
+                  count: positions.filter((p) => detectAssetCategory(p.ticker) === "us_stock").length,
+                },
+              ].map((tab) => {
+                const isActive = marketFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setMarketFilter(tab.id as typeof marketFilter)}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                      isActive
+                        ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm shadow-sky-500/10"
+                        : "bg-zinc-900/60 text-zinc-400 border border-zinc-800 hover:text-zinc-200 hover:bg-zinc-800"
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    <span
+                      className={`ml-0.5 rounded px-1 text-[10px] ${
+                        isActive ? "bg-sky-500/30 text-white font-mono" : "bg-zinc-800 text-zinc-500 font-mono"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Controls: Check Interval Dropdown & Action Buttons */}
@@ -418,152 +487,173 @@ export default function PositionTracker() {
             <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-4 text-xs text-red-400">
               {error}
             </div>
-          ) : positions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-800/80 p-8 text-center">
-              <span className="text-2xl block mb-2">📥</span>
-              <p className="text-sm font-semibold text-zinc-300">Henüz kayıtlı pozisyonunuz bulunmuyor.</p>
-              <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
-                Yukarıdaki <strong>&quot;+ Yeni Pozisyon Ekle&quot;</strong> butonuna basarak aldığınız hisseleri ve grafik periyotlarını kaydedebilirsiniz.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {positions.map((pos) => {
-                const currentPrice = pos.currentPrice ?? pos.entryPrice;
-                const isProfit = (pos.profitLossPercent ?? 0) >= 0;
-                const profitTl = currentPrice - pos.entryPrice;
-                const tfConfig = TIMEFRAMES[pos.timeframe] ?? TIMEFRAMES["1d"];
+          ) : (() => {
+            const filteredPositions = positions.filter((pos) => {
+              if (marketFilter === "all") return true;
+              const cat = detectAssetCategory(pos.ticker);
+              if (marketFilter === "bist") return cat === "stock";
+              if (marketFilter === "crypto") return cat === "crypto";
+              if (marketFilter === "us_stocks") return cat === "us_stock";
+              if (marketFilter === "commodity_forex") return ["forex", "commodity", "gold"].includes(cat);
+              return true;
+            });
 
-                return (
-                  <div
-                    key={pos.id}
-                    className="flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-lg backdrop-blur-md transition hover:border-zinc-750"
-                  >
-                    {/* Top Row: Symbol, Timeframe, Status & Delete */}
-                    <div>
-                      <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/symbol/${encodeURIComponent(pos.ticker)}`}
-                            className="font-mono text-sm font-bold text-sky-400 hover:text-sky-300"
-                          >
-                            {pos.code}
-                          </Link>
-                          <span className="rounded-md border border-zinc-700 bg-zinc-800/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-zinc-300">
-                            {pos.timeframe.toUpperCase()}
-                          </span>
+            if (filteredPositions.length === 0) {
+              return (
+                <div className="rounded-2xl border border-dashed border-zinc-800/80 p-8 text-center">
+                  <span className="text-2xl block mb-2">📥</span>
+                  <p className="text-sm font-semibold text-zinc-300">
+                    {marketFilter === "all"
+                      ? "Henüz kayıtlı pozisyonunuz bulunmuyor."
+                      : "Bu piyasa kategorisinde kayıtlı pozisyon bulunmuyor."}
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
+                    Yukarıdaki <strong>&quot;+ Yeni Pozisyon Ekle&quot;</strong> butonuna basarak aldığınız varlıkları ve grafik periyotlarını kaydedebilirsiniz.
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredPositions.map((pos) => {
+                  const currentPrice = pos.currentPrice ?? pos.entryPrice;
+                  const isProfit = (pos.profitLossPercent ?? 0) >= 0;
+                  const profitDiff = currentPrice - pos.entryPrice;
+                  const curr = pos.ticker.endsWith(".IS") || pos.ticker.includes("TRY") ? "TRY" : "USD";
+                  const currSymbol = curr === "TRY" ? "₺" : "$";
+
+                  return (
+                    <div
+                      key={pos.id}
+                      className="flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-lg backdrop-blur-md transition hover:border-zinc-750"
+                    >
+                      {/* Top Row: Symbol, Timeframe, Status & Delete */}
+                      <div>
+                        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/symbol/${encodeURIComponent(pos.ticker)}`}
+                              className="font-mono text-sm font-bold text-sky-400 hover:text-sky-300"
+                            >
+                              {pos.code}
+                            </Link>
+                            <span className="rounded-md border border-zinc-700 bg-zinc-800/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-zinc-300">
+                              {pos.timeframe.toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {pos.status === "take_profit_hit" ? (
+                              <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                                🎯 Kâr Alındı
+                              </span>
+                            ) : pos.status === "stop_loss_hit" ? (
+                              <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400">
+                                🛑 Stop Oldu
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">
+                                🟢 Takipte
+                              </span>
+                            )}
+
+                            <button
+                              onClick={() => handleRemovePosition(pos.id, pos.code)}
+                              title="Pozisyonu Sil"
+                              className="text-zinc-500 hover:text-red-400 transition text-xs p-1"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          {pos.status === "take_profit_hit" ? (
-                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                              🎯 Kâr Alındı
-                            </span>
-                          ) : pos.status === "stop_loss_hit" ? (
-                            <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400">
-                              🛑 Stop Oldu
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">
-                              🟢 Takipte
-                            </span>
-                          )}
-
-                          <button
-                            onClick={() => handleRemovePosition(pos.id, pos.code)}
-                            title="Pozisyonu Sil"
-                            className="text-zinc-500 hover:text-red-400 transition text-xs p-1"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Name & Date */}
-                      <div className="mt-1.5 flex items-center justify-between text-[11px] text-zinc-400">
-                        <span className="truncate max-w-[150px]">{pos.name}</span>
-                        <span className="font-mono text-[10px] text-zinc-500">{pos.entryDate}</span>
-                      </div>
-
-                      {/* Price & PnL Box */}
-                      <div className="mt-2.5 rounded-xl border border-zinc-800 bg-zinc-950/60 p-2.5 flex items-center justify-between">
-                        <div>
-                          <span className="block text-[10px] uppercase font-semibold text-zinc-500">
-                            Alış: {formatPrice(pos.entryPrice, "TRY")}
-                          </span>
-                          <span className="font-mono font-bold text-sm text-zinc-100">
-                            {formatPrice(currentPrice, "TRY")}
-                          </span>
+                        {/* Name & Date */}
+                        <div className="mt-1.5 flex items-center justify-between text-[11px] text-zinc-400">
+                          <span className="truncate max-w-[150px]">{pos.name}</span>
+                          <span className="font-mono text-[10px] text-zinc-500">{pos.entryDate}</span>
                         </div>
 
-                        <div className="text-right">
-                          <span className="block text-[10px] uppercase font-semibold text-zinc-500">
-                            Net Getiri
-                          </span>
-                          <div className={`font-mono font-bold text-sm ${isProfit ? "text-emerald-400" : "text-red-400"}`}>
-                            {formatSigned(pos.profitLossPercent ?? 0)}%
-                            <span className="text-[10px] ml-1 font-normal text-zinc-400">
-                              ({profitTl >= 0 ? "+" : ""}{profitTl.toFixed(2)}₺)
+                        {/* Price & PnL Box */}
+                        <div className="mt-2.5 rounded-xl border border-zinc-800 bg-zinc-950/60 p-2.5 flex items-center justify-between">
+                          <div>
+                            <span className="block text-[10px] uppercase font-semibold text-zinc-500">
+                              Alış: {formatPrice(pos.entryPrice, curr)}
+                            </span>
+                            <span className="font-mono font-bold text-sm text-zinc-100">
+                              {formatPrice(currentPrice, curr)}
+                            </span>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="block text-[10px] uppercase font-semibold text-zinc-500">
+                              Net Getiri
+                            </span>
+                            <div className={`font-mono font-bold text-sm ${isProfit ? "text-emerald-400" : "text-red-400"}`}>
+                              {formatSigned(pos.profitLossPercent ?? 0)}%
+                              <span className="text-[10px] ml-1 font-normal text-zinc-400">
+                                ({profitDiff >= 0 ? "+" : ""}{profitDiff.toFixed(2)}{currSymbol})
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stop-Loss & Take-Profit Targets Grid */}
+                        <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
+                          {/* Stop Loss box */}
+                          <div className="rounded-xl border border-red-950/40 bg-red-950/15 p-2">
+                            <span className="block text-[10px] uppercase font-semibold text-red-400/80">
+                              🛑 Stop-Loss
+                            </span>
+                            <span className="font-mono font-bold text-xs text-red-300">
+                              {formatPrice(pos.stopLoss, curr)}
+                            </span>
+                            <span className="block text-[10px] font-mono text-zinc-500 mt-0.5">
+                              {(pos.distanceToStopPercent ?? 0) > 0 ? `%${pos.distanceToStopPercent} mesafe` : "Seviye aşıldı"}
+                            </span>
+                          </div>
+
+                          {/* Take Profit box */}
+                          <div className="rounded-xl border border-emerald-950/40 bg-emerald-950/15 p-2">
+                            <span className="block text-[10px] uppercase font-semibold text-emerald-400/80">
+                              🎯 Kâr Al Hedefi
+                            </span>
+                            <span className="font-mono font-bold text-xs text-emerald-300">
+                              {formatPrice(pos.takeProfit, curr)}
+                            </span>
+                            <span className="block text-[10px] font-mono text-zinc-500 mt-0.5">
+                              {(pos.distanceToTargetPercent ?? 0) > 0 ? `%${pos.distanceToTargetPercent} kaldı` : "Hedefe ulaşıldı"}
                             </span>
                           </div>
                         </div>
+
+                        {/* Notes / Reason Preview */}
+                        {pos.notes && (
+                          <p className="mt-2 text-[11px] text-zinc-400 italic bg-zinc-950/40 px-2 py-1 rounded-lg border border-zinc-850 truncate">
+                            &quot;{pos.notes}&quot;
+                          </p>
+                        )}
                       </div>
 
-                      {/* Stop-Loss & Take-Profit Targets Grid */}
-                      <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
-                        {/* Stop Loss box */}
-                        <div className="rounded-xl border border-red-950/40 bg-red-950/15 p-2">
-                          <span className="block text-[10px] uppercase font-semibold text-red-400/80">
-                            🛑 Stop-Loss
-                          </span>
-                          <span className="font-mono font-bold text-xs text-red-300">
-                            {formatPrice(pos.stopLoss, "TRY")}
-                          </span>
-                          <span className="block text-[10px] font-mono text-zinc-500 mt-0.5">
-                            {(pos.distanceToStopPercent ?? 0) > 0 ? `%${pos.distanceToStopPercent} mesafe` : "Seviye aşıldı"}
-                          </span>
-                        </div>
-
-                        {/* Take Profit box */}
-                        <div className="rounded-xl border border-emerald-950/40 bg-emerald-950/15 p-2">
-                          <span className="block text-[10px] uppercase font-semibold text-emerald-400/80">
-                            🎯 Kâr Al Hedefi
-                          </span>
-                          <span className="font-mono font-bold text-xs text-emerald-300">
-                            {formatPrice(pos.takeProfit, "TRY")}
-                          </span>
-                          <span className="block text-[10px] font-mono text-zinc-500 mt-0.5">
-                            {(pos.distanceToTargetPercent ?? 0) > 0 ? `%${pos.distanceToTargetPercent} kaldı` : "Hedefe ulaşıldı"}
-                          </span>
-                        </div>
+                      {/* Bottom Link Button */}
+                      <div className="mt-3 pt-2.5 border-t border-zinc-800/60 flex items-center justify-between text-xs">
+                        <span className="text-[10px] text-zinc-500">
+                          {TIMEFRAMES[pos.timeframe as TimeframeKey]?.label ?? pos.timeframe} vade
+                        </span>
+                        <Link
+                          href={`/symbol/${encodeURIComponent(pos.ticker)}`}
+                          className="font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1"
+                        >
+                          <span>Grafiği Aç</span>
+                          <span>→</span>
+                        </Link>
                       </div>
-
-                      {/* Notes / Reason Preview */}
-                      {pos.notes && (
-                        <p className="mt-2 text-[11px] text-zinc-400 italic bg-zinc-950/40 px-2 py-1 rounded-lg border border-zinc-850 truncate">
-                          &quot;{pos.notes}&quot;
-                        </p>
-                      )}
                     </div>
-
-                    {/* Bottom Link Button */}
-                    <div className="mt-3 pt-2.5 border-t border-zinc-800/60 flex items-center justify-between text-xs">
-                      <span className="text-[10px] text-zinc-500">
-                        {tfConfig.label} vade
-                      </span>
-                      <Link
-                        href={`/symbol/${encodeURIComponent(pos.ticker)}`}
-                        className="font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1"
-                      >
-                        <span>Grafiği Aç</span>
-                        <span>→</span>
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </section>

@@ -18,6 +18,7 @@ interface AutoRefreshControlProps {
   storageKey?: string;
   size?: "sm" | "md";
   align?: "left" | "right";
+  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks";
 }
 
 export default function AutoRefreshControl({
@@ -26,10 +27,12 @@ export default function AutoRefreshControl({
   onRefresh,
   isRefreshing,
   lastUpdated,
-  storageKey = "app_refresh_interval",
+  storageKey,
   size = "md",
   align = "right",
+  market,
 }: AutoRefreshControlProps) {
+  const effectiveStorageKey = storageKey ?? (market ? `app_refresh_interval_${market}` : "app_refresh_interval");
   const [isOpen, setIsOpen] = useState(false);
   const [remaining, setRemaining] = useState<number>(intervalSeconds);
   const [isSaving, setIsSaving] = useState(false);
@@ -76,12 +79,13 @@ export default function AutoRefreshControl({
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/settings/refresh", { cache: "no-store" });
+        const url = market ? `/api/settings/refresh?market=${market}` : "/api/settings/refresh";
+        const res = await fetch(url, { cache: "no-store" });
         if (!active || !res.ok) return;
         const json = await res.json();
-        if (json.ok && json.config?.seconds !== undefined) {
-          const fileSeconds = json.config.seconds as RefreshInterval;
-          onIntervalChangeRef.current(fileSeconds);
+        const targetSeconds = (market && json.config?.markets?.[market]) ?? json.effectiveSeconds ?? json.config?.seconds;
+        if (targetSeconds !== undefined) {
+          onIntervalChangeRef.current(targetSeconds as RefreshInterval);
         }
       } catch {
         // Keep current or fallback
@@ -91,7 +95,7 @@ export default function AutoRefreshControl({
     return () => {
       active = false;
     };
-  }, []);
+  }, [market]);
 
   // Listen to cross-component sync event
   useEffect(() => {
@@ -101,9 +105,10 @@ export default function AutoRefreshControl({
         onIntervalChangeRef.current(customEvent.detail);
       }
     }
-    window.addEventListener("app-refresh-interval-changed", handleCrossSync);
-    return () => window.removeEventListener("app-refresh-interval-changed", handleCrossSync);
-  }, []);
+    const eventName = market ? `app-refresh-interval-changed-${market}` : "app-refresh-interval-changed";
+    window.addEventListener(eventName, handleCrossSync);
+    return () => window.removeEventListener(eventName, handleCrossSync);
+  }, [market]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -133,12 +138,12 @@ export default function AutoRefreshControl({
 
       // Notify other instances on the screen
       if (typeof window !== "undefined") {
+        const eventName = market ? `app-refresh-interval-changed-${market}` : "app-refresh-interval-changed";
         window.dispatchEvent(
-          new CustomEvent<RefreshInterval>("app-refresh-interval-changed", { detail: val })
+          new CustomEvent<RefreshInterval>(eventName, { detail: val })
         );
         try {
-          if (storageKey) localStorage.setItem(storageKey, String(val));
-          localStorage.setItem("app_refresh_interval", String(val));
+          localStorage.setItem(effectiveStorageKey, String(val));
         } catch {
           // ignore
         }
@@ -149,11 +154,13 @@ export default function AutoRefreshControl({
         const res = await fetch("/api/settings/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ seconds: val }),
+          body: JSON.stringify({ seconds: val, market }),
         });
         const json = await res.json();
         if (res.ok && json.ok) {
-          setSaveSuccessMsg(`✓ refresh-settings.md: "${json.config.label}" kaydedildi`);
+          const opt = REFRESH_INTERVAL_OPTIONS.find((o) => o.value === val);
+          const mLabel = market ? `[${market.toUpperCase()}] ` : "";
+          setSaveSuccessMsg(`✓ ${mLabel}refresh-settings.md: "${opt?.label ?? val}" kaydedildi`);
           setTimeout(() => setSaveSuccessMsg(null), 3500);
         }
       } catch (err) {
@@ -162,7 +169,7 @@ export default function AutoRefreshControl({
         setIsSaving(false);
       }
     },
-    [onIntervalChange, storageKey]
+    [onIntervalChange, effectiveStorageKey, market]
   );
 
   const currentOption =

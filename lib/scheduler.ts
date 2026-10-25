@@ -20,6 +20,9 @@ import {
 } from "./watchlist-storage";
 import { analyzeSymbol } from "./analyze";
 import { getPendingMail, getSignal, setPendingMail, setSignal } from "./store";
+import { detectAssetCategory, getMarketSessionStatus } from "./markets";
+import { getTimeframeSettingsFromFile } from "./timeframe-settings-storage";
+import { TIMEFRAMES, type TimeframeKey } from "./timeframes";
 import type { SignalMailItem } from "./types";
 
 export interface SchedulerState {
@@ -107,7 +110,8 @@ export async function syncSchedulerWithConfig(): Promise<MailScheduleConfig> {
 
 export async function runScheduledScan(
   force = false,
-  specificRecipients?: MailRecipient[]
+  specificRecipients?: MailRecipient[],
+  targetMarket?: string
 ): Promise<{
   ok: boolean;
   withinHours: boolean;
@@ -115,10 +119,15 @@ export async function runScheduledScan(
   message: string;
   signalsCount: number;
 }> {
+  const isKnownMarket = (m?: string): m is "crypto" | "bist" | "commodity_forex" | "us_stocks" =>
+    m === "crypto" || m === "us_stocks" || m === "commodity_forex" || m === "bist";
+  const session = isKnownMarket(targetMarket) && targetMarket !== "bist" ? getMarketSessionStatus(targetMarket) : null;
+  const withinHours = session ? session.isOpen : isWithinTradingHours();
+
   if (isRunningTask) {
     return {
       ok: false,
-      withinHours: isWithinTradingHours(),
+      withinHours,
       mailed: false,
       message: "Önceki tarama hala devam ediyor.",
       signalsCount: 0,
@@ -126,7 +135,6 @@ export async function runScheduledScan(
   }
 
   const config = await syncSchedulerWithConfig();
-  const withinHours = isWithinTradingHours();
 
   // If auto-mail is turned off or disabled in mail-settings.md and not forced
   if (!force && (!config.enabled || config.intervalKey === "off" || config.intervalMinutes === 0)) {
@@ -141,12 +149,13 @@ export async function runScheduledScan(
   }
 
   if (config.onlyTradingHours && !withinHours && !force) {
-    state.lastStatus = "Seans dışı (09:50-18:00 arası çalışır), atlandı.";
+    const desc = session ? session.statusText : "09:50-18:00 arası çalışır";
+    state.lastStatus = `Seans dışı (${desc}), atlandı.`;
     return {
       ok: true,
       withinHours: false,
       mailed: false,
-      message: "Seans saatleri dışında (09:50 - 18:00). Tarama atlandı.",
+      message: `Seans saatleri dışında (${desc}). Tarama atlandı.`,
       signalsCount: 0,
     };
   }
@@ -156,7 +165,7 @@ export async function runScheduledScan(
   state.totalRuns++;
 
   try {
-    const data = await scanCategorizedSignals();
+    const data = await scanCategorizedSignals(targetMarket || "all", force);
     state.lastSignalCount = data.totalSignalsCount;
 
     let mailed = false;
@@ -227,49 +236,86 @@ export async function runScheduledScan(
   }
 }
 
+const marketLastScannedMap = new Map<string, number>();
+
 /**
- * Checks if interval elapsed according to mail-recipients.md and mail-settings.md
+ * Checks if interval elapsed per market according to mail-recipients.md and mail-settings.md
  */
 async function checkSchedulerTick() {
   try {
     const config = await syncSchedulerWithConfig();
-
-    if (config.onlyTradingHours && !isWithinTradingHours()) {
-      return;
-    }
-
     const recipients = await getRecipientsFromFile();
-    const activeRecipients = recipients.filter((r) => r.enabled && r.intervalKey !== "off");
+    const activeRecipients = recipients.filter(
+      (r) => r.enabled && r.intervalKey !== "off" && r.notifyReports !== false
+    );
     if (activeRecipients.length === 0) {
       return;
     }
 
     const now = Date.now();
     const todayIstanbul = getIstanbulDateString();
-    const dueRecipients: MailRecipient[] = [];
 
-    for (const r of activeRecipients) {
-      const intKey = r.intervalKey || config.intervalKey || "15m";
-      if (intKey === "off") continue;
+    const MARKETS_LIST: Array<"bist" | "crypto" | "commodity_forex" | "us_stocks"> = [
+      "bist",
+      "crypto",
+      "commodity_forex",
+      "us_stocks",
+    ];
 
-      const lastTime = recipientLastMailedMap.get(r.email.toLowerCase()) ?? 0;
+    for (const m of MARKETS_LIST) {
+      // 1. Session check: Kripto is 24/7; others follow session hours if onlyTradingHours is true
+      if (m !== "crypto" && config.onlyTradingHours) {
+        const session = getMarketSessionStatus(m);
+        if (!session.isOpen) continue;
+      }
 
-      if (intKey === "daily") {
-        const lastDateStr = lastTime > 0 ? getIstanbulDateString(new Date(lastTime)) : null;
-        if (lastDateStr !== todayIstanbul) {
-          dueRecipients.push(r);
+      // 2. Market interval
+      const marketIntervalKey = config.markets?.[m] || config.intervalKey || "15m";
+      if (marketIntervalKey === "off") continue;
+
+      const marketMinutes = getMinutesForInterval(marketIntervalKey);
+      const marketIntervalMs = marketMinutes * 60 * 1000;
+      const lastMarketScan = marketLastScannedMap.get(m) ?? 0;
+
+      if (now - lastMarketScan < marketIntervalMs) {
+        continue;
+      }
+
+      // 3. Find recipients interested in this market
+      const dueRecipients: MailRecipient[] = [];
+      for (const r of activeRecipients) {
+        // If recipient specified markets, check inclusion
+        if (r.markets && r.markets.length > 0 && !r.markets.includes(m)) {
+          continue;
         }
-      } else {
-        const minutes = getMinutesForInterval(intKey);
-        const intervalMs = minutes * 60 * 1000;
-        if (now - lastTime >= intervalMs) {
-          dueRecipients.push(r);
+
+        const intKey = r.intervalKey || marketIntervalKey;
+        if (intKey === "off") continue;
+
+        const recipientKey = `${m}:${r.email.toLowerCase()}`;
+        const lastTime = recipientLastMailedMap.get(recipientKey) ?? 0;
+
+        if (intKey === "daily") {
+          const lastDateStr = lastTime > 0 ? getIstanbulDateString(new Date(lastTime)) : null;
+          if (lastDateStr !== todayIstanbul) {
+            dueRecipients.push(r);
+          }
+        } else {
+          const rMinutes = getMinutesForInterval(intKey);
+          const rIntervalMs = rMinutes * 60 * 1000;
+          if (now - lastTime >= rIntervalMs) {
+            dueRecipients.push(r);
+          }
         }
       }
-    }
 
-    if (dueRecipients.length > 0) {
-      void runScheduledScan(false, dueRecipients);
+      if (dueRecipients.length > 0) {
+        marketLastScannedMap.set(m, now);
+        for (const r of dueRecipients) {
+          recipientLastMailedMap.set(`${m}:${r.email.toLowerCase()}`, now);
+        }
+        void runScheduledScan(false, dueRecipients, m);
+      }
     }
   } catch (err) {
     console.error("[scheduler] checkSchedulerTick hatası:", err);
@@ -279,7 +325,6 @@ async function checkPositionTrackerTick() {
   try {
     const { settings, positions } = await loadPositionsFile();
     if (settings.checkInterval === "off" || settings.intervalMinutes === 0) return;
-    if (settings.onlyTradingHours && !isWithinTradingHours()) return;
 
     const now = Date.now();
     const lastCheck = settings.lastCheckAt ? new Date(settings.lastCheckAt).getTime() : 0;
@@ -300,6 +345,21 @@ async function checkPositionTrackerTick() {
     const updated = await Promise.all(
       positions.map(async (pos) => {
         if (pos.status !== "active") return pos;
+
+        // Seans saati kontrolü: Kripto 7/24, ABD 16:30-23:00, FX/Emtia Hafta İçi, BIST 09:50-18:00
+        if (settings.onlyTradingHours) {
+          const cat = detectAssetCategory(pos.ticker);
+          const marketId =
+            cat === "crypto"
+              ? "crypto"
+              : cat === "us_stock"
+              ? "us_stocks"
+              : cat === "forex" || cat === "commodity" || cat === "gold"
+              ? "commodity_forex"
+              : "bist";
+          const session = getMarketSessionStatus(marketId);
+          if (!session.isOpen) return pos;
+        }
 
         try {
           const candleRes = await getCandles(pos.ticker, pos.timeframe);
@@ -390,7 +450,6 @@ async function checkWatchlistTrackerTick() {
   try {
     const { settings, entries } = await getWatchlistWithSettingsFromFile();
     if (settings.checkInterval === "off" || settings.intervalMinutes === 0) return;
-    if (settings.onlyTradingHours && !isWithinTradingHours()) return;
     if (entries.length === 0) return;
 
     const now = Date.now();
@@ -411,17 +470,39 @@ async function checkWatchlistTrackerTick() {
     const nowIso = new Date().toISOString();
     const changed: SignalMailItem[] = [];
 
+    const tfConfig = await getTimeframeSettingsFromFile();
+    const watchlistTf = tfConfig.watchlist || "1d";
+    const tfLabel = TIMEFRAMES[watchlistTf]?.label ?? watchlistTf;
+
     for (const w of entries) {
+      // Seans saati kontrolü: Kripto 7/24 taranır, ABD seansında ABD hisseleri taranır
+      if (settings.onlyTradingHours) {
+        const cat = detectAssetCategory(w.ticker);
+        const marketId =
+          cat === "crypto"
+            ? "crypto"
+            : cat === "us_stock"
+            ? "us_stocks"
+            : cat === "forex" || cat === "commodity" || cat === "gold"
+            ? "commodity_forex"
+            : "bist";
+        const session = getMarketSessionStatus(marketId);
+        if (!session.isOpen) continue;
+      }
+
+      const itemTf = (w.timeframe || watchlistTf) as TimeframeKey;
+      const itemTfLabel = TIMEFRAMES[itemTf]?.label ?? itemTf;
+
       try {
-        const res = await analyzeSymbol(w.ticker, w.type);
+        const res = await analyzeSymbol(w.ticker, w.type, itemTf);
         const fundReasons =
           res.fund?.metrics
             .filter((m) => m.point !== 0)
             .map((m) => m.detail) ?? [];
 
-        const prev = await getSignal(w.ticker);
+        const prev = await getSignal(w.ticker, itemTf);
         if (prev !== res.signal) {
-          await setSignal(w.ticker, res.signal);
+          await setSignal(w.ticker, res.signal, itemTf);
           if (prev) {
             changed.push({
               ticker: w.ticker,
@@ -429,6 +510,7 @@ async function checkWatchlistTrackerTick() {
               score: res.score,
               reasons: [...res.tech.reasons, ...fundReasons],
               price: res.price,
+              timeframe: itemTfLabel,
             });
           }
         }
@@ -444,7 +526,7 @@ async function checkWatchlistTrackerTick() {
 
     if (items.length > 0 && isMailConfigured()) {
       try {
-        await sendSignalMail(items);
+        await sendSignalMail(items, undefined, tfLabel);
         await setPendingMail([]);
         settings.lastChangedAt = nowIso;
       } catch (e) {

@@ -1,9 +1,11 @@
 import type { AssetType } from "./types";
+import type { TimeframeKey } from "./timeframes";
 
 export interface WatchEntry {
   ticker: string;
   type: AssetType;
   name?: string;
+  timeframe?: TimeframeKey;
 }
 
 export const DEFAULT_WATCHLIST: readonly WatchEntry[] = [

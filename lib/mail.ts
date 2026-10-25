@@ -16,7 +16,8 @@ export function getMailProvider(): "gmail" | "resend" | null {
   return null;
 }
 
-import { getActiveRecipientEmails } from "./mail-recipients-storage";
+import { getActiveRecipientEmails, type RecipientFilterOptions } from "./mail-recipients-storage";
+import { detectAssetCategory } from "./markets";
 
 export function isMailConfigured(): boolean {
   const provider = getMailProvider();
@@ -30,11 +31,14 @@ function escapeHtml(value: string): string {
   );
 }
 
-export async function resolveRecipients(customRecipients?: string[]): Promise<string[]> {
+export async function resolveRecipients(
+  customRecipients?: string[],
+  context?: RecipientFilterOptions
+): Promise<string[]> {
   if (customRecipients && customRecipients.length > 0) {
     return customRecipients;
   }
-  const fromFile = await getActiveRecipientEmails();
+  const fromFile = await getActiveRecipientEmails(context);
   if (fromFile.length > 0) {
     return fromFile;
   }
@@ -50,11 +54,13 @@ async function sendMailPayload({
   text,
   html,
   recipients,
+  context,
 }: {
   subject: string;
   text: string;
   html: string;
   recipients?: string[];
+  context?: RecipientFilterOptions;
 }): Promise<boolean> {
   const provider = getMailProvider();
   if (!provider) {
@@ -62,10 +68,10 @@ async function sendMailPayload({
     return false;
   }
 
-  const toList = await resolveRecipients(recipients);
+  const toList = await resolveRecipients(recipients, context);
   if (toList.length === 0) {
     console.warn(
-      "[mail] Gönderilecek aktif alıcı e-posta adresi bulunamadı (mail-recipients.md dosyasında aktif alıcı yok ve MAIL_TO tanımlı değil)."
+      `[mail] "${subject.slice(0, 30)}..." için uygun aktif alıcı e-posta adresi bulunamadı (tercih veya filtreye uyan aktif alıcı yok).`
     );
     return false;
   }
@@ -110,29 +116,40 @@ async function sendMailPayload({
   return false;
 }
 
+function normalizeMarketScope(scopeOrCategory?: string): "bist" | "crypto" | "commodity_forex" | "us_stocks" | undefined {
+  if (!scopeOrCategory) return undefined;
+  if (scopeOrCategory === "crypto") return "crypto";
+  if (scopeOrCategory === "us_stock" || scopeOrCategory === "us_stocks") return "us_stocks";
+  if (scopeOrCategory === "gold" || scopeOrCategory === "commodity" || scopeOrCategory === "forex" || scopeOrCategory === "commodity_forex") return "commodity_forex";
+  return "bist";
+}
+
 export async function sendSignalMail(
   items: SignalMailItem[],
-  recipients?: string[]
+  recipients?: string[],
+  timeframeLabel?: string
 ): Promise<boolean> {
   const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
-  const subject = `Sinyal Değişimi: ${items.map((i) => `${i.ticker} ${i.signal}`).join(", ")}`;
+  const tfSuffix = timeframeLabel ? ` [${timeframeLabel}]` : "";
+  const subject = `Sinyal Değişimi${tfSuffix}: ${items.map((i) => `${i.ticker} ${i.signal}`).join(", ")}`;
 
   const text =
     items
       .map((i) => {
         const link = `${baseUrl}/symbol/${encodeURIComponent(i.ticker)}`;
-        return `${i.ticker}: ${i.signal} (Skor: ${i.score > 0 ? "+" : ""}${i.score.toFixed(2)})\nFiyat: ${i.price.toFixed(2)}\nTetikleyen: ${i.reasons.join(", ")}\nDetay: ${link}`;
+        const tfText = i.timeframe ? ` (${i.timeframe} Mum)` : "";
+        return `${i.ticker}: ${i.signal}${tfText} (Skor: ${i.score > 0 ? "+" : ""}${i.score.toFixed(2)})\nFiyat: ${i.price.toFixed(2)}\nTetikleyen: ${i.reasons.join(", ")}\nDetay: ${link}`;
       })
       .join("\n\n") + `\n\n${RISK_NOTE}`;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <h2>Finans Asistanı · Sinyal Değişimi</h2>
+      <h2>Finans Asistanı · Sinyal Değişimi${timeframeLabel ? ` (${escapeHtml(timeframeLabel)} Mum Periyodu)` : ""}</h2>
       ${items
         .map(
           (i) => `
         <div style="border: 1px solid #e4e4e7; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-          <h3>${escapeHtml(i.ticker)} - ${i.signal} (Skor: ${i.score > 0 ? "+" : ""}${i.score.toFixed(2)})</h3>
+          <h3>${escapeHtml(i.ticker)} - ${i.signal}${i.timeframe ? ` <span style="font-size: 12px; font-weight: normal; color: #71717a;">(${escapeHtml(i.timeframe)})</span>` : ""} (Skor: ${i.score > 0 ? "+" : ""}${i.score.toFixed(2)})</h3>
           <p>Fiyat: ${i.price.toFixed(2)}</p>
           <ul>${i.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul>
           <a href="${baseUrl}/symbol/${encodeURIComponent(i.ticker)}">Grafiği Gör</a>
@@ -142,7 +159,16 @@ export async function sendSignalMail(
       <p style="font-size: 11px; color: #71717a;">${RISK_NOTE}</p>
     </div>`;
 
-  return sendMailPayload({ subject, text, html, recipients });
+  const firstTicker = items[0]?.ticker;
+  const marketScope = normalizeMarketScope(firstTicker ? detectAssetCategory(firstTicker) : undefined);
+
+  return sendMailPayload({
+    subject,
+    text,
+    html,
+    recipients,
+    context: { type: "watchlist", market: marketScope },
+  });
 }
 
 // Multi-timeframe categorized email sender (1h, 2h, 4h, 1wk, 1mo)
@@ -158,7 +184,20 @@ export async function sendCategorizedTimeframeMail(
   });
   const scanDate = new Date(data.scannedAt).toLocaleDateString("tr-TR");
 
-  const subject = `BIST Çoklu Zaman Dilimi AL/SAT Raporu (${scanTime}) [5dk, 15dk, 1S, 4S, Günlük, Haftalık]`;
+  const market = data.market;
+  const isCrypto = market === "crypto";
+  const isUs = market === "us_stocks";
+  const isCommodity = market === "commodity_forex";
+
+  const marketTitle = isCrypto
+    ? "Kripto Para"
+    : isUs
+    ? "Amerikan Borsası (ABD)"
+    : isCommodity
+    ? "Emtia & Döviz"
+    : "BIST";
+
+  const subject = `${marketTitle} Çoklu Zaman Dilimi AL/SAT Raporu (${scanTime}) [5dk, 15dk, 1S, 4S, Günlük, Haftalık]`;
 
   const tfList: Array<{ key: keyof typeof data.categories; title: string; badge: string }> = [
     { key: "5m", title: "5 Dakikalık Sinyaller (Çok Hızlı)", badge: "5 DAKİKA" },
@@ -173,7 +212,22 @@ export async function sendCategorizedTimeframeMail(
     { key: "1mo", title: "Aylık Sinyaller (Uzun Vade)", badge: "AYLIK" },
   ];
 
-  let text = `FİNANS ASİSTANI · BIST ÇOKLU ZAMAN DİLİMİ AL/SAT RAPORU\nTarih & Saat: ${scanDate} ${scanTime}\nSeans Durumu: ${data.isWithinHours ? "Açık (09:50 - 18:00)" : "Kapalı / Seans Dışı"}\n\n`;
+  const sessionStatusText = isCrypto
+    ? "7/24 Kesintisiz Piyasa"
+    : isUs
+    ? (data.isWithinHours ? "Açık (16:30 - 23:00 TSİ)" : "Kapalı / Seans Dışı")
+    : isCommodity
+    ? (data.isWithinHours ? "Açık (Hafta İçi Kesintisiz)" : "Hafta Sonu Kapalı")
+    : (data.isWithinHours ? "Açık (09:50 - 18:00)" : "Kapalı / Seans Dışı");
+
+  const formatPriceStr = (ticker: string, price: number) => {
+    if (ticker.endsWith(".IS") || ticker.includes("TRY")) {
+      return `₺${price.toFixed(2)}`;
+    }
+    return `$${price >= 10 ? price.toFixed(2) : price.toFixed(4)}`;
+  };
+
+  let text = `FİNANS ASİSTANI · ${marketTitle.toUpperCase()} ÇOKLU ZAMAN DİLİMİ AL/SAT RAPORU\nTarih & Saat: ${scanDate} ${scanTime}\nSeans Durumu: ${sessionStatusText}\n\n`;
 
   let categoryHtml = "";
 
@@ -192,14 +246,14 @@ export async function sendCategorizedTimeframeMail(
     if (buys.length > 0) {
       text += `AL Verenler (${buys.length}):\n`;
       for (const b of buys) {
-        text += `  * ${b.code} (Fiyat: ${b.price.toFixed(2)}, Skor: +${b.score}, RSI: ${b.rsi ?? "—"})\n`;
+        text += `  * ${b.code} (Fiyat: ${formatPriceStr(b.ticker, b.price)}, Skor: +${b.score}, RSI: ${b.rsi ?? "—"})\n`;
       }
     }
 
     if (sells.length > 0) {
       text += `SAT Verenler (${sells.length}):\n`;
       for (const s of sells) {
-        text += `  * ${s.code} (Fiyat: ${s.price.toFixed(2)}, Skor: ${s.score}, RSI: ${s.rsi ?? "—"})\n`;
+        text += `  * ${s.code} (Fiyat: ${formatPriceStr(s.ticker, s.price)}, Skor: ${s.score}, RSI: ${s.rsi ?? "—"})\n`;
       }
     }
 
@@ -213,20 +267,20 @@ export async function sendCategorizedTimeframeMail(
         <div style="padding: 14px 16px;">
           ${
             buys.length === 0 && sells.length === 0
-              ? `<p style="margin: 0; font-size: 12px; color: #71717a; font-style: italic;">Bu zaman diliminde aktif AL veya SAT eşiğinde hisse bulunmuyor.</p>`
+              ? `<p style="margin: 0; font-size: 12px; color: #71717a; font-style: italic;">Bu zaman diliminde aktif AL veya SAT eşiğinde varlık bulunmuyor.</p>`
               : `
               <div style="margin-bottom: ${sells.length > 0 ? "12px" : "0"};">
                 <div style="font-size: 12px; font-weight: 700; color: #16a34a; margin-bottom: 6px;">🟢 AL SİNYALLERİ (${buys.length})</div>
                 ${
                   buys.length === 0
-                    ? `<span style="font-size: 11px; color: #a1a1aa;">AL veren hisse yok.</span>`
+                    ? `<span style="font-size: 11px; color: #a1a1aa;">AL veren varlık yok.</span>`
                     : buys
                         .map(
                           (b) => `
                         <div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 6px 6px 0;">
                           <div style="display: flex; justify-content: space-between; align-items: baseline;">
                             <a href="${baseUrl}/symbol/${encodeURIComponent(b.ticker)}" style="font-weight: 700; font-size: 13px; color: #15803d; text-decoration: none;">${escapeHtml(b.code)}</a>
-                            <span style="font-size: 12px; font-weight: 600; color: #18181b;">₺${b.price.toFixed(2)}</span>
+                            <span style="font-size: 12px; font-weight: 600; color: #18181b;">${formatPriceStr(b.ticker, b.price)}</span>
                           </div>
                           <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">
                             Skor: <strong style="color: #16a34a;">+${b.score.toFixed(2)}</strong> ${b.rsi != null ? `· RSI: ${b.rsi}` : ""} · ${escapeHtml(b.reasons[0] ?? "")}
@@ -241,14 +295,14 @@ export async function sendCategorizedTimeframeMail(
                 <div style="font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">🔴 SAT SİNYALLERİ (${sells.length})</div>
                 ${
                   sells.length === 0
-                    ? `<span style="font-size: 11px; color: #a1a1aa;">SAT veren hisse yok.</span>`
+                    ? `<span style="font-size: 11px; color: #a1a1aa;">SAT veren varlık yok.</span>`
                     : sells
                         .map(
                           (s) => `
                         <div style="background: #fef2f2; border-left: 3px solid #ef4444; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 6px 6px 0;">
                           <div style="display: flex; justify-content: space-between; align-items: baseline;">
                             <a href="${baseUrl}/symbol/${encodeURIComponent(s.ticker)}" style="font-weight: 700; font-size: 13px; color: #b91c1c; text-decoration: none;">${escapeHtml(s.code)}</a>
-                            <span style="font-size: 12px; font-weight: 600; color: #18181b;">₺${s.price.toFixed(2)}</span>
+                            <span style="font-size: 12px; font-weight: 600; color: #18181b;">${formatPriceStr(s.ticker, s.price)}</span>
                           </div>
                           <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">
                             Skor: <strong style="color: #dc2626;">${s.score.toFixed(2)}</strong> ${s.rsi != null ? `· RSI: ${s.rsi}` : ""} · ${escapeHtml(s.reasons[0] ?? "")}
@@ -257,8 +311,7 @@ export async function sendCategorizedTimeframeMail(
                         )
                         .join("")
                 }
-              </div>
-            `
+              </div>`
           }
         </div>
       </div>
@@ -283,12 +336,12 @@ export async function sendCategorizedTimeframeMail(
 <body>
   <div class="container">
     <div class="header">
-      <h2>Finans Asistanı · Seans İçi Çoklu Zaman Dilimi Raporu</h2>
-      <p>${frequencyLabel} Otomatik Tarama (09:50 - 18:00) · <strong>${scanDate} ${scanTime}</strong></p>
+      <h2>Finans Asistanı · ${marketTitle} Çoklu Zaman Dilimi Raporu</h2>
+      <p>${frequencyLabel} Otomatik Tarama (${sessionStatusText}) · <strong>${scanDate} ${scanTime}</strong></p>
     </div>
     <div class="content">
       <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 12px; color: #0369a1;">
-        ℹ️ BIST hisseleri için <strong>5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, Haftalık ve Aylık</strong> (toplam 10 zaman dilimi) taranarak teknik ve temel göstergelere göre kategorize edilmiştir.
+        ℹ️ ${marketTitle} varlıkları için <strong>5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, Haftalık ve Aylık</strong> (toplam 10 zaman dilimi) taranarak teknik ve karar destek göstergelerine göre kategorize edilmiştir.
       </div>
 
       ${categoryHtml}
@@ -300,7 +353,13 @@ export async function sendCategorizedTimeframeMail(
 </body>
 </html>`;
 
-  return sendMailPayload({ subject, text, html, recipients });
+  return sendMailPayload({
+    subject,
+    text,
+    html,
+    recipients,
+    context: { type: "reports", market: normalizeMarketScope(data.market) },
+  });
 }
 
 export interface PositionAlarmNotification {
@@ -328,20 +387,23 @@ export async function sendPositionAlarmMail(
   const isStop = type === "stop_loss";
   const nowTime = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
   const nowDate = new Date().toLocaleDateString("tr-TR");
+  const isTry = position.ticker.endsWith(".IS") || position.ticker.includes("TRY");
+  const currSymbol = isTry ? "₺" : "$";
+  const currSuffix = isTry ? "TL" : "USD";
 
   const subject = isStop
-    ? `🛑 STOP-LOSS ALARMI: ${position.code} Zarar Durdur Seviyesine Ulaştı (${position.currentPrice.toFixed(2)} TL)`
+    ? `🛑 STOP-LOSS ALARMI: ${position.code} Zarar Durdur Seviyesine Ulaştı (${currSymbol}${position.currentPrice.toFixed(2)} ${currSuffix})`
     : `🎯 KÂR AL HEDEFİ ALARMI: ${position.code} Hedefe Ulaştı! (+%${position.profitLossPercent.toFixed(1)})`;
 
   const text = `FİNANS ASİSTANI · POZİSYON ALARMI (${nowDate} ${nowTime})\n\n` +
     `Sembol: ${position.code} (${position.name})\n` +
     `Durum: ${isStop ? "ZARAR DURDUR (STOP-LOSS) SEVİYESİNE ULAŞILDI" : "KÂR AL (TAKE-PROFIT) HEDEFİNE ULAŞILDI"}\n` +
     `Alınan Periyot: ${position.timeframe.toUpperCase()}\n` +
-    `Alış Fiyatı: ₺${position.entryPrice.toFixed(2)}\n` +
-    `Güncel Fiyat: ₺${position.currentPrice.toFixed(2)}\n` +
+    `Alış Fiyatı: ${currSymbol}${position.entryPrice.toFixed(2)}\n` +
+    `Güncel Fiyat: ${currSymbol}${position.currentPrice.toFixed(2)}\n` +
     `Kâr/Zarar: %${position.profitLossPercent > 0 ? "+" : ""}${position.profitLossPercent.toFixed(2)}\n` +
-    `Belirlenen Stop-Loss: ₺${position.stopLoss.toFixed(2)}\n` +
-    `Belirlenen Kâr Al Hedefi: ₺${position.takeProfit.toFixed(2)}\n\n` +
+    `Belirlenen Stop-Loss: ${currSymbol}${position.stopLoss.toFixed(2)}\n` +
+    `Belirlenen Kâr Al Hedefi: ${currSymbol}${position.takeProfit.toFixed(2)}\n\n` +
     `Grafik & Detay: ${baseUrl}/symbol/${encodeURIComponent(position.ticker)}\n\n` +
     `${RISK_NOTE}`;
 
@@ -384,7 +446,7 @@ export async function sendPositionAlarmMail(
       <div style="background: ${themeBg}; border: 1px solid ${themeBorder}; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; color: #18181b;">
         <div style="font-size: 12px; font-weight: 600; color: #52525b;">${isStop ? "ZARAR DURDURMA ALARMI" : "KÂR REALİZASYONU ALARMI"}</div>
         <div style="font-size: 22px; font-weight: 800; color: ${themeColor}; margin: 4px 0;">
-          ₺${position.currentPrice.toFixed(2)} 
+          ${currSymbol}${position.currentPrice.toFixed(2)} 
           <span style="font-size: 14px; font-weight: 700; margin-left: 8px;">
             (${position.profitLossPercent > 0 ? "+" : ""}${position.profitLossPercent.toFixed(2)}%)
           </span>
@@ -392,8 +454,8 @@ export async function sendPositionAlarmMail(
         <div style="font-size: 12px; color: #3f3f46;">
           ${
             isStop
-              ? `Hisse belirlenen <strong>₺${position.stopLoss.toFixed(2)}</strong> stop-loss seviyesinin altına indi. Sermaye güvenliği için pozisyonu gözden geçirmeniz önerilir.`
-              : `Hisse hedeflenen <strong>₺${position.takeProfit.toFixed(2)}</strong> seviyesine ulaştı. Kârınızı realize etme aşamasına geldiniz.`
+              ? `Varlık belirlenen <strong>${currSymbol}${position.stopLoss.toFixed(2)}</strong> stop-loss seviyesinin altına indi. Sermaye güvenliği için pozisyonu gözden geçirmeniz önerilir.`
+              : `Varlık hedeflenen <strong>${currSymbol}${position.takeProfit.toFixed(2)}</strong> seviyesine ulaştı. Kârınızı realize etme aşamasına geldiniz.`
           }
         </div>
       </div>
@@ -401,11 +463,11 @@ export async function sendPositionAlarmMail(
       <div style="background: #09090b; border: 1px solid #27272a; border-radius: 12px; padding: 14px 18px;">
         <div class="metric-row">
           <span class="metric-label">Alış Fiyatı</span>
-          <span class="metric-val">₺${position.entryPrice.toFixed(2)}</span>
+          <span class="metric-val">${currSymbol}${position.entryPrice.toFixed(2)}</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">Güncel Fiyat</span>
-          <span class="metric-val" style="color: ${themeColor}; font-size: 14px;">₺${position.currentPrice.toFixed(2)}</span>
+          <span class="metric-val" style="color: ${themeColor}; font-size: 14px;">${currSymbol}${position.currentPrice.toFixed(2)}</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">Net Kâr / Zarar</span>
@@ -415,11 +477,11 @@ export async function sendPositionAlarmMail(
         </div>
         <div class="metric-row">
           <span class="metric-label">Belirlenen Stop-Loss</span>
-          <span class="metric-val" style="color: #ef4444;">₺${position.stopLoss.toFixed(2)}</span>
+          <span class="metric-val" style="color: #ef4444;">${currSymbol}${position.stopLoss.toFixed(2)}</span>
         </div>
         <div class="metric-row" style="border-bottom: none;">
           <span class="metric-label">Belirlenen Kâr Al Hedefi</span>
-          <span class="metric-val" style="color: #22c55e;">₺${position.takeProfit.toFixed(2)}</span>
+          <span class="metric-val" style="color: #22c55e;">${currSymbol}${position.takeProfit.toFixed(2)}</span>
         </div>
       </div>
 
@@ -437,6 +499,13 @@ export async function sendPositionAlarmMail(
 </body>
 </html>`;
 
-  return sendMailPayload({ subject, text, html, recipients });
+  const assetScope = normalizeMarketScope(detectAssetCategory(position.ticker));
+  return sendMailPayload({
+    subject,
+    text,
+    html,
+    recipients,
+    context: { type: "positions", market: assetScope },
+  });
 }
 

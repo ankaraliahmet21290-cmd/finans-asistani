@@ -8,24 +8,31 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const force = searchParams.get("force") === "true";
+  const market = searchParams.get("market"); // "crypto" | "us_stocks" | "commodity_forex"
 
   ensureSchedulerStarted();
 
-  const { multiTimeframe: indexType } = await getIndexTypeSettingsFromFile();
+  let targetKey: string = "";
+  if (market === "crypto" || market === "us_stocks" || market === "commodity_forex") {
+    targetKey = market;
+  } else {
+    const { multiTimeframe: indexType } = await getIndexTypeSettingsFromFile();
+    targetKey = indexType;
+  }
 
   if (!force) {
-    const cached = await getCachedScanAsync(indexType);
+    const cached = await getCachedScanAsync(targetKey);
     if (cached) {
       return NextResponse.json(cached);
     }
   }
 
   try {
-    const data = await scanCategorizedSignals(indexType);
+    const data = await scanCategorizedSignals(targetKey);
     return NextResponse.json(data);
   } catch (e) {
     // Tarama başarısız olsa bile diskteki eski önbellek varsa onu kurtarma olarak dön
-    const fallback = await readDiskCache(indexType);
+    const fallback = await readDiskCache(targetKey);
     if (fallback) {
       return NextResponse.json(fallback);
     }

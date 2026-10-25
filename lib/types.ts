@@ -241,4 +241,5 @@ export interface SignalMailItem {
   score: number;
   reasons: string[];
   price: number;
+  timeframe?: string;
 }

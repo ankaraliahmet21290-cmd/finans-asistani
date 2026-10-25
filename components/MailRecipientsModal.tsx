@@ -337,6 +337,18 @@ export default function MailRecipientsModal({
           </div>
         )}
 
+        {/* Link to General Settings for detailed notification routing */}
+        <div className="mt-3 flex items-center justify-between rounded-xl bg-sky-950/40 border border-sky-500/20 px-3 py-2 text-[11px] text-sky-300">
+          <span>💡 Bildirim türlerini (Raporlar, Stop-Loss / Kâr Al, Takip Listesi) ve piyasaları alıcı bazında özelleştirmek için:</span>
+          <a
+            href="/ayarlar"
+            onClick={onClose}
+            className="font-bold underline hover:text-white shrink-0 ml-2"
+          >
+            Genel Ayarlar →
+          </a>
+        </div>
+
         {/* Add New Recipient Form */}
         <form onSubmit={handleAddRecipient} className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300 mb-2.5 flex items-center justify-between">
