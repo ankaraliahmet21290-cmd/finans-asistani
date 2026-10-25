@@ -1,10 +1,24 @@
 import { isWithinTradingHours, scanCategorizedSignals } from "./multitimeframe";
-import { sendCategorizedTimeframeMail, isMailConfigured } from "./mail";
+import {
+  sendCategorizedTimeframeMail,
+  isMailConfigured,
+  sendPositionAlarmMail,
+  sendSignalMail,
+} from "./mail";
 import {
   getMailSettingsFromFile,
   type MailIntervalKey,
   type MailScheduleConfig,
 } from "./mail-settings-storage";
+import { loadPositionsFile, savePositionsFile } from "./position-storage";
+import { getCandles } from "./data";
+import {
+  getWatchlistWithSettingsFromFile,
+  saveWatchlistSettingsToFile,
+} from "./watchlist-storage";
+import { analyzeSymbol } from "./analyze";
+import { getPendingMail, getSignal, setPendingMail, setSignal } from "./store";
+import type { SignalMailItem } from "./types";
 
 export interface SchedulerState {
   initialized: boolean;
@@ -196,11 +210,6 @@ async function checkSchedulerTick() {
     console.error("[scheduler] checkSchedulerTick hatası:", err);
   }
 }
-
-import { loadPositionsFile, savePositionsFile } from "./position-storage";
-import { getCandles } from "./data";
-import { sendPositionAlarmMail } from "./mail";
-
 async function checkPositionTrackerTick() {
   try {
     const { settings, positions } = await loadPositionsFile();
@@ -308,6 +317,86 @@ async function checkPositionTrackerTick() {
   }
 }
 
+let isRunningWatchlistCheck = false;
+
+async function checkWatchlistTrackerTick() {
+  if (isRunningWatchlistCheck) return;
+
+  try {
+    const { settings, entries } = await getWatchlistWithSettingsFromFile();
+    if (settings.checkInterval === "off" || settings.intervalMinutes === 0) return;
+    if (settings.onlyTradingHours && !isWithinTradingHours()) return;
+    if (entries.length === 0) return;
+
+    const now = Date.now();
+    const lastCheck = settings.lastCheckAt ? new Date(settings.lastCheckAt).getTime() : 0;
+    const intervalMs = settings.intervalMinutes * 60 * 1000;
+
+    if (settings.checkInterval === "daily") {
+      const todayIstanbul = getIstanbulDateString();
+      const lastCheckDay = settings.lastCheckAt
+        ? getIstanbulDateString(new Date(settings.lastCheckAt))
+        : null;
+      if (lastCheckDay === todayIstanbul) return;
+    } else {
+      if (now - lastCheck < intervalMs) return;
+    }
+
+    isRunningWatchlistCheck = true;
+    const nowIso = new Date().toISOString();
+    const changed: SignalMailItem[] = [];
+
+    for (const w of entries) {
+      try {
+        const res = await analyzeSymbol(w.ticker, w.type);
+        const fundReasons =
+          res.fund?.metrics
+            .filter((m) => m.point !== 0)
+            .map((m) => m.detail) ?? [];
+
+        const prev = await getSignal(w.ticker);
+        if (prev !== res.signal) {
+          await setSignal(w.ticker, res.signal);
+          if (prev) {
+            changed.push({
+              ticker: w.ticker,
+              signal: res.signal,
+              score: res.score,
+              reasons: [...res.tech.reasons, ...fundReasons],
+              price: res.price,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[scheduler] watchlist sembol kontrol hatası:", w.ticker, err);
+      }
+    }
+
+    const queue = new Map<string, SignalMailItem>();
+    for (const item of await getPendingMail()) queue.set(item.ticker, item);
+    for (const item of changed) queue.set(item.ticker, item);
+    const items = [...queue.values()];
+
+    if (items.length > 0 && isMailConfigured()) {
+      try {
+        await sendSignalMail(items);
+        await setPendingMail([]);
+        settings.lastChangedAt = nowIso;
+      } catch (e) {
+        console.error("[scheduler] watchlist e-posta gönderilemedi, saklanıyor:", e);
+        await setPendingMail(items);
+      }
+    }
+
+    settings.lastCheckAt = nowIso;
+    await saveWatchlistSettingsToFile(settings);
+  } catch (err) {
+    console.error("[scheduler] checkWatchlistTrackerTick hatası:", err);
+  } finally {
+    isRunningWatchlistCheck = false;
+  }
+}
+
 export function ensureSchedulerStarted(): SchedulerState {
   if (state.initialized) {
     return getSchedulerState();
@@ -322,6 +411,7 @@ export function ensureSchedulerStarted(): SchedulerState {
   timerId = setInterval(() => {
     void checkSchedulerTick();
     void checkPositionTrackerTick();
+    void checkWatchlistTrackerTick();
   }, 30 * 1000);
 
   // Unref timer so it doesn't block process exit

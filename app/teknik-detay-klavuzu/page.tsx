@@ -22,9 +22,6 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-function SubTitle({ children }: { children: ReactNode }) {
-  return <h3 className="mt-3 text-base font-semibold text-zinc-100 flex items-center gap-2">{children}</h3>;
-}
 
 function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
@@ -285,10 +282,10 @@ export default function TeknikDetayKilavuzuPage() {
           head={["Bilanço Kategorisi", "Sanayi Ağırlığı", "Banka Ağırlığı", "Kriter & Eşik Değerler"]}
           rows={[
             [
-              <strong>Kârlılık & Verimlilik</strong>,
+              <strong key="cat1">Kârlılık & Verimlilik</strong>,
               "%35",
               "%45 (En Yüksek)",
-              <span>
+              <span key="desc1">
                 • <strong>Net Marj:</strong> &gt;%10 (+1), ≤0 (-1)<br />
                 • <strong>Faaliyet Marjı:</strong> &gt;%15 (+1), ≤0 (-1)<br />
                 • <strong>ROE:</strong> Sanayide &gt;%15 (+1), Bankada &gt;%20 (+1 Warren Buffett kriteri)<br />
@@ -296,30 +293,30 @@ export default function TeknikDetayKilavuzuPage() {
               </span>,
             ],
             [
-              <strong>Değerleme & Çarpanlar</strong>,
+              <strong key="cat2">Değerleme & Çarpanlar</strong>,
               "%30",
               "%40",
-              <span>
+              <span key="desc2">
                 • <strong>PEG Oranı (Peter Lynch):</strong> 0 &lt; PEG ≤ 1.0 cazip (+1), &gt; 2.0 pahalı (-1)<br />
                 • <strong>F/K (Fiyat/Kazanç):</strong> Sanayide &lt; 15 (+1), Bankalarda &lt; 7 (+1 ucuz çarpan)<br />
                 • <strong>PD/DD (Piyasa/Defter):</strong> Sanayide &lt; 1.5 (+1), Bankalarda &lt; 0.9 (+1 iskontolu)
               </span>,
             ],
             [
-              <strong>Mali Sağlamlık & Borç</strong>,
+              <strong key="cat3">Mali Sağlamlık & Borç</strong>,
               "%25",
               "%0 (Devre Dışı)",
-              <span>
+              <span key="desc3">
                 • <strong>Cari Oran (Likidite):</strong> ≥ 1.2 (+1 borç ödeme güçlü), &lt; 1.0 (-1 risk)<br />
                 • <strong>Borç / Özkaynak:</strong> &lt; %100 (+1 düşük risk), &gt; %200 (-1 yüksek borçlanma)<br />
                 <em>(Bankacılık sektöründe mevduat kaldıracı nedeniyle 0 ağırlıktadır.)</em>
               </span>,
             ],
             [
-              <strong>Büyüme & Temettü</strong>,
+              <strong key="cat4">Büyüme & Temettü</strong>,
               "%10",
               "%15",
-              <span>
+              <span key="desc4">
                 • <strong>Gelir Büyümesi:</strong> Yıllık ciro artışı &gt; %10 (+1), negatif ise (-1)<br />
                 • <strong>Temettü Verimi:</strong> Nakit kâr payı verimi &gt; %2 (+1 ilave getiri)
               </span>,

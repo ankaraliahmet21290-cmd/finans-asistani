@@ -5,12 +5,12 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 
 | Parametre | Değer | Açıklama |
 | --- | --- | --- |
-| Sıklık | 60s | Geçerli yenileme aralığı: 15s, 30s, 60s, 120s, 300s, off |
-| Görünen Ad | 1 dk | Standart Akış |
-| Saniye | 60 | Sayısal saniye karşılığı (0 = kapalı) |
+| Sıklık | 300s | Geçerli yenileme aralığı: 15s, 30s, 60s, 120s, 300s, off |
+| Görünen Ad | 5 dk | Tasarruflu |
+| Saniye | 300 | Sayısal saniye karşılığı (0 = kapalı) |
 | Aktif | Evet | Otomatik veri yenileme açık/kapalı |
-| Önbellek Süresi | 60 sn | Sunucu veri TTL süresi |
-| Son Güncelleme | 2026-10-06T18:13:27.661Z | Son güncelleme zamanı |
+| Önbellek Süresi | 300 sn | Sunucu veri TTL süresi |
+| Son Güncelleme | 2026-10-25T09:19:21.733Z | Son güncelleme zamanı |
 
 ---
 

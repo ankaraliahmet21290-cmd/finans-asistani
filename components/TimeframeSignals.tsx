@@ -47,6 +47,19 @@ export default function TimeframeSignals() {
   const [signalMode, setSignalMode] = useState<SignalMode>("hybrid");
   const [loading, setLoading] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
+
+  // Client-side only initial load from localStorage to prevent SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("scanner_refresh_interval");
+      if (saved != null) {
+        const parsed = Number(saved) as RefreshInterval;
+        if ([0, 15, 30, 60, 120, 300].includes(parsed)) setRefreshInterval(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,24 +85,9 @@ export default function TimeframeSignals() {
     };
   }, []);
 
-  // Load saved interval preference from localStorage on mount
-  useEffect(() => {
+  const fetchData = useCallback(async (force = false, showLoading = false) => {
     try {
-      const saved = localStorage.getItem("scanner_refresh_interval");
-      if (saved != null) {
-        const parsed = Number(saved) as RefreshInterval;
-        if ([0, 15, 30, 60, 120, 300].includes(parsed)) {
-          setRefreshInterval(parsed);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const fetchData = useCallback(async (force = false) => {
-    try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await fetch(`/api/signals/timeframes${force ? "?force=true" : ""}`, {
         cache: "no-store",
       });

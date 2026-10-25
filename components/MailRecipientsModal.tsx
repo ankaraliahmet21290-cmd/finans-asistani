@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import type { MailRecipient } from "@/lib/mail-recipients-types";
 
 interface MailRecipientsModalProps {
@@ -29,7 +29,7 @@ export default function MailRecipientsModal({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load recipients
-  const loadRecipients = async () => {
+  const loadRecipients = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/mail/recipients", { cache: "no-store" });
@@ -47,7 +47,7 @@ export default function MailRecipientsModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onCountChange]);
 
   useEffect(() => {
     if (isOpen) {
@@ -58,7 +58,7 @@ export default function MailRecipientsModal({
     } else {
       setMessage(null);
     }
-  }, [isOpen]);
+  }, [isOpen, loadRecipients]);
 
   // Handle ESC key
   useEffect(() => {

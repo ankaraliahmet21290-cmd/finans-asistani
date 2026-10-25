@@ -1,6 +1,4 @@
-"use client";
-
-import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import type { TimeframeKey } from "@/lib/timeframes";
 
 export interface TimeframeOption {
   key: TimeframeKey;

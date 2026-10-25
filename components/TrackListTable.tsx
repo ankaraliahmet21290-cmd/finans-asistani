@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatPercent, formatPrice } from "@/lib/format";
 import type { AnalysisResult } from "@/lib/types";
@@ -18,8 +18,8 @@ export default function TrackListTable() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const loadTracklist = async () => {
-    setLoading(true);
+  const loadTracklist = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await fetch("/api/tracklist", { cache: "no-store" });
       if (!res.ok) throw new Error("Takip listesi alınamadı");
@@ -43,7 +43,7 @@ export default function TrackListTable() {
                 : row
             ));
           })
-          .catch(err => {
+          .catch(() => {
             setRows(prev => prev.map(row => 
               row.entry.ticker === e.ticker && row.entry.date === e.date
                 ? { ...row, error: "Veri alınamadı", loading: false }
@@ -56,14 +56,14 @@ export default function TrackListTable() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadTracklist();
   }, []);
 
+  useEffect(() => {
+    void loadTracklist();
+  }, [loadTracklist]);
+
   const handleRefresh = () => {
-    loadTracklist();
+    void loadTracklist(true);
   };
 
   const handleRemove = async (ticker: string, date: string) => {
@@ -75,7 +75,7 @@ export default function TrackListTable() {
       
       setRows(prev => prev.filter(r => !(r.entry.ticker === ticker && r.entry.date === date)));
       setNotice({ type: "success", text: `${ticker} takipten çıkarıldı.` });
-    } catch (err) {
+    } catch {
       setNotice({ type: "error", text: "Silinirken hata oluştu." });
     }
   };
@@ -92,7 +92,7 @@ export default function TrackListTable() {
             Takip Listem (Sinyal Performansı)
           </h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Bu ekranda geçmişte "Takibe Al" dediğiniz sembollerin kayıt anındaki fiyatları ile şu anki gün sonu fiyatları karşılaştırılır.
+            Bu ekranda geçmişte &quot;Takibe Al&quot; dediğiniz sembollerin kayıt anındaki fiyatları ile şu anki gün sonu fiyatları karşılaştırılır.
           </p>
         </div>
         <button
@@ -130,7 +130,7 @@ export default function TrackListTable() {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={8} className="py-12 text-center text-zinc-500">
-                  Henüz takip edilen kayıt yok. Ana ekrandan analizleri görüntülerken "Takibe Al" diyerek buraya ekleyebilirsiniz.
+                  Henüz takip edilen kayıt yok. Ana ekrandan analizleri görüntülerken &quot;Takibe Al&quot; diyerek buraya ekleyebilirsiniz.
                 </td>
               </tr>
             ) : (

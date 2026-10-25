@@ -4,12 +4,17 @@ import { finalSignal, fundamentalScore, getHybridAssessment, technicalScore } fr
 import { findBistCompany, isFinancialOrBank } from "./bist";
 import type { AnalysisResult, AssetType, FundamentalResult, Fundamentals, TimeframeKey } from "./types";
 
+export interface AnalyzeSymbolOptions {
+  preferDirect?: boolean;
+}
+
 export async function analyzeSymbol(
   ticker: string,
   type: AssetType,
-  timeframe: TimeframeKey = "1d"
+  timeframe: TimeframeKey = "1d",
+  options?: AnalyzeSymbolOptions
 ): Promise<AnalysisResult> {
-  const candleResult = await getCandles(ticker, timeframe);
+  const candleResult = await getCandles(ticker, timeframe, { preferDirect: options?.preferDirect });
   const { name: rawName, currency, candles, closes } = candleResult;
   const bist = findBistCompany(ticker);
   const name = bist ? bist.name : rawName;

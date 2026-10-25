@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import BistCombobox from "./BistCombobox";
 import MailRecipientsControl from "./MailRecipientsControl";
-import { formatPrice, formatPercent, formatSigned } from "@/lib/format";
+import { formatPrice, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { BistCompany } from "@/lib/bist";
 import type {
@@ -41,9 +41,9 @@ export default function PositionTracker() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch positions and settings
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await fetch("/api/positions", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -142,7 +142,7 @@ export default function PositionTracker() {
       if (res.ok) {
         setPositions((prev) => prev.filter((p) => p.id !== id));
       }
-    } catch (e) {
+    } catch {
       alert("Pozisyon silinirken hata oluştu");
     }
   };
@@ -422,7 +422,7 @@ export default function PositionTracker() {
               <span className="text-2xl block mb-2">📥</span>
               <p className="text-sm font-semibold text-zinc-300">Henüz kayıtlı pozisyonunuz bulunmuyor.</p>
               <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
-                Yukarıdaki <strong>"+ Yeni Pozisyon Ekle"</strong> butonuna basarak aldığınız hisseleri ve grafik periyotlarını kaydedebilirsiniz.
+                Yukarıdaki <strong>&quot;+ Yeni Pozisyon Ekle&quot;</strong> butonuna basarak aldığınız hisseleri ve grafik periyotlarını kaydedebilirsiniz.
               </p>
             </div>
           ) : (
@@ -540,7 +540,7 @@ export default function PositionTracker() {
                       {/* Notes / Reason Preview */}
                       {pos.notes && (
                         <p className="mt-2 text-[11px] text-zinc-400 italic bg-zinc-950/40 px-2 py-1 rounded-lg border border-zinc-850 truncate">
-                          "{pos.notes}"
+                          &quot;{pos.notes}&quot;
                         </p>
                       )}
                     </div>

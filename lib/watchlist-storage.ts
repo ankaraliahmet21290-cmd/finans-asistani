@@ -9,6 +9,26 @@ export interface WatchlistFileEntry {
   name?: string;
 }
 
+import {
+  type WatchlistCheckInterval,
+  type WatchlistSettings,
+  type WatchlistIntervalOption,
+  DEFAULT_WATCHLIST_SETTINGS,
+  WATCHLIST_INTERVAL_TO_MINUTES,
+  WATCHLIST_INTERVAL_OPTIONS,
+  normalizeWatchlistCheckInterval,
+} from "./watchlist-settings-types";
+
+export {
+  type WatchlistCheckInterval,
+  type WatchlistSettings,
+  type WatchlistIntervalOption,
+  DEFAULT_WATCHLIST_SETTINGS,
+  WATCHLIST_INTERVAL_TO_MINUTES,
+  WATCHLIST_INTERVAL_OPTIONS,
+  normalizeWatchlistCheckInterval,
+};
+
 export const WATCHLIST_FILE_PATH = path.join(process.cwd(), "watchlist.md");
 
 export const DEFAULT_ENTRIES: WatchlistFileEntry[] = [
@@ -100,10 +120,57 @@ export function parseWatchlistMarkdown(content: string): WatchlistFileEntry[] {
   return entries.length > 0 ? entries : DEFAULT_ENTRIES;
 }
 
+export function parseWatchlistWithSettings(content: string): {
+  settings: WatchlistSettings;
+  entries: WatchlistFileEntry[];
+} {
+  const settings: WatchlistSettings = { ...DEFAULT_WATCHLIST_SETTINGS };
+  const lines = content.split(/\r?\n/);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    if (line.startsWith("- **Tarama Sıklığı:**") || line.startsWith("- **Tarama:**")) {
+      const val = line.split(":")[1]?.trim() || "";
+      settings.checkInterval = normalizeWatchlistCheckInterval(val);
+      settings.intervalMinutes = WATCHLIST_INTERVAL_TO_MINUTES[settings.checkInterval];
+      continue;
+    }
+    if (line.startsWith("- **Yalnızca Seans İçi:**") || line.startsWith("- **Sadece Seans İçi:**")) {
+      const val = line.split(":")[1]?.trim().toLowerCase() || "";
+      settings.onlyTradingHours = val.includes("evet") || val.includes("true");
+      continue;
+    }
+    if (line.startsWith("- **Son Kontrol:**")) {
+      const parts = line.split(":");
+      const val = parts.slice(1).join(":").trim();
+      if (val && val !== "—" && val !== "-") {
+        settings.lastCheckAt = val;
+      }
+      continue;
+    }
+    if (line.startsWith("- **Son Sinyal Değişimi:**") || line.startsWith("- **Son Değişim:**")) {
+      const parts = line.split(":");
+      const val = parts.slice(1).join(":").trim();
+      if (val && val !== "—" && val !== "-") {
+        settings.lastChangedAt = val;
+      }
+      continue;
+    }
+  }
+
+  const entries = parseWatchlistMarkdown(content);
+  return { settings, entries };
+}
+
 /**
  * Serializes WatchlistFileEntry array into clean Markdown table format.
  */
-export function formatWatchlistMarkdown(entries: WatchlistFileEntry[]): string {
+export function formatWatchlistMarkdown(
+  entries: WatchlistFileEntry[],
+  settings: WatchlistSettings = DEFAULT_WATCHLIST_SETTINGS
+): string {
   const rows = entries.map((e) => {
     const bist = findBistCompany(e.ticker);
     const displayName = e.name || bist?.name || (e.type === "gold" ? "Ons Altın Vadeli" : "");
@@ -115,6 +182,12 @@ export function formatWatchlistMarkdown(entries: WatchlistFileEntry[]): string {
 Bu dosya Finans Asistanı takip listesindeki varlıkları içerir.
 Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkarılabilir.
 
+## Sinyal Değişim Kontrol Ayarları
+- **Tarama Sıklığı:** ${settings.checkInterval}
+- **Yalnızca Seans İçi:** ${settings.onlyTradingHours ? "Evet" : "Hayır"}
+- **Son Kontrol:** ${settings.lastCheckAt ?? "—"}
+- **Son Sinyal Değişimi:** ${settings.lastChangedAt ?? "—"}
+
 | Sembol | Tür | Ad |
 | --- | --- | --- |
 ${rows.join("\n")}
@@ -122,36 +195,92 @@ ${rows.join("\n")}
 }
 
 /**
- * Reads watchlist from watchlist.md. Creates default file if not found.
+ * Reads watchlist and settings from watchlist.md.
  */
-export async function getWatchlistFromFile(): Promise<WatchlistFileEntry[]> {
+export async function getWatchlistWithSettingsFromFile(): Promise<{
+  settings: WatchlistSettings;
+  entries: WatchlistFileEntry[];
+}> {
   try {
     const content = await fs.readFile(WATCHLIST_FILE_PATH, "utf-8");
-    return parseWatchlistMarkdown(content);
+    return parseWatchlistWithSettings(content);
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
     if (code === "ENOENT") {
-      await saveWatchlistToFile(DEFAULT_ENTRIES);
-      return DEFAULT_ENTRIES;
+      await saveWatchlistWithSettingsToFile(DEFAULT_ENTRIES, DEFAULT_WATCHLIST_SETTINGS);
+      return { settings: DEFAULT_WATCHLIST_SETTINGS, entries: DEFAULT_ENTRIES };
     }
     console.error("[watchlist-storage] Okuma hatası:", err);
-    return DEFAULT_ENTRIES;
+    return { settings: DEFAULT_WATCHLIST_SETTINGS, entries: DEFAULT_ENTRIES };
   }
 }
 
 /**
- * Saves given list to watchlist.md.
+ * Reads watchlist from watchlist.md. Creates default file if not found.
+ */
+export async function getWatchlistFromFile(): Promise<WatchlistFileEntry[]> {
+  const { entries } = await getWatchlistWithSettingsFromFile();
+  return entries;
+}
+
+/**
+ * Gets watchlist settings from watchlist.md.
+ */
+export async function getWatchlistSettingsFromFile(): Promise<WatchlistSettings> {
+  const { settings } = await getWatchlistWithSettingsFromFile();
+  return settings;
+}
+
+/**
+ * Saves both entries and settings to watchlist.md.
+ */
+export async function saveWatchlistWithSettingsToFile(
+  entries: WatchlistFileEntry[],
+  settings: WatchlistSettings
+): Promise<void> {
+  const content = formatWatchlistMarkdown(entries, settings);
+  await fs.writeFile(WATCHLIST_FILE_PATH, content, "utf-8");
+}
+
+/**
+ * Saves given list to watchlist.md while preserving settings.
  */
 export async function saveWatchlistToFile(entries: WatchlistFileEntry[]): Promise<void> {
-  const content = formatWatchlistMarkdown(entries);
-  await fs.writeFile(WATCHLIST_FILE_PATH, content, "utf-8");
+  const { settings } = await getWatchlistWithSettingsFromFile().catch(() => ({
+    settings: DEFAULT_WATCHLIST_SETTINGS,
+    entries: [],
+  }));
+  await saveWatchlistWithSettingsToFile(entries, settings);
+}
+
+/**
+ * Updates watchlist settings in watchlist.md.
+ */
+export async function saveWatchlistSettingsToFile(
+  partial: Partial<WatchlistSettings>
+): Promise<WatchlistSettings> {
+  const { settings, entries } = await getWatchlistWithSettingsFromFile();
+  const checkInterval = partial.checkInterval
+    ? normalizeWatchlistCheckInterval(partial.checkInterval)
+    : settings.checkInterval;
+  const intervalMinutes = WATCHLIST_INTERVAL_TO_MINUTES[checkInterval];
+
+  const updatedSettings: WatchlistSettings = {
+    ...settings,
+    ...partial,
+    checkInterval,
+    intervalMinutes,
+  };
+
+  await saveWatchlistWithSettingsToFile(entries, updatedSettings);
+  return updatedSettings;
 }
 
 /**
  * Adds an entry to watchlist.md if not already present.
  */
 export async function addWatchEntryToFile(entry: WatchlistFileEntry): Promise<WatchlistFileEntry[]> {
-  const current = await getWatchlistFromFile();
+  const { settings, entries: current } = await getWatchlistWithSettingsFromFile();
   const normalizedTicker = entry.ticker.trim().toUpperCase();
 
   const existingIndex = current.findIndex((e) => e.ticker.toUpperCase() === normalizedTicker);
@@ -160,7 +289,7 @@ export async function addWatchEntryToFile(entry: WatchlistFileEntry): Promise<Wa
   }
 
   const updated = [...current, { ...entry, ticker: normalizedTicker }];
-  await saveWatchlistToFile(updated);
+  await saveWatchlistWithSettingsToFile(updated, settings);
   return updated;
 }
 
@@ -168,9 +297,9 @@ export async function addWatchEntryToFile(entry: WatchlistFileEntry): Promise<Wa
  * Removes an entry from watchlist.md by ticker.
  */
 export async function removeWatchEntryFromFile(ticker: string): Promise<WatchlistFileEntry[]> {
-  const current = await getWatchlistFromFile();
+  const { settings, entries: current } = await getWatchlistWithSettingsFromFile();
   const normalizedTicker = ticker.trim().toUpperCase();
   const updated = current.filter((e) => e.ticker.toUpperCase() !== normalizedTicker);
-  await saveWatchlistToFile(updated);
+  await saveWatchlistWithSettingsToFile(updated, settings);
   return updated;
 }

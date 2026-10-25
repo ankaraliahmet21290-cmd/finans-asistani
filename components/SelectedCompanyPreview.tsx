@@ -27,9 +27,11 @@ export default function SelectedCompanyPreview({
   const [addingTrack, setAddingTrack] = useState(false);
   const [trackNotice, setTrackNotice] = useState<{type: "success" | "error", text: string} | null>(null);
 
-  useEffect(() => {
+  const [prevTimeframe, setPrevTimeframe] = useState(timeframe);
+  if (timeframe !== prevTimeframe) {
+    setPrevTimeframe(timeframe);
     setActiveTimeframe(timeframe);
-  }, [timeframe]);
+  }
 
   const handleTimeframeChange = (newTf: TimeframeKey) => {
     setActiveTimeframe(newTf);
@@ -87,7 +89,7 @@ export default function SelectedCompanyPreview({
       if (!res.ok) throw new Error("Eklenemedi");
       setTrackNotice({ type: "success", text: "Takip Listem'e eklendi!" });
       setTimeout(() => setTrackNotice(null), 3000);
-    } catch (err) {
+    } catch {
       setTrackNotice({ type: "error", text: "Eklenirken hata oluştu" });
     } finally {
       setAddingTrack(false);

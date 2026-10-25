@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const list = await readTracklist();
     return NextResponse.json({ ok: true, tracklist: list });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ ok: false, error: "Liste okunamadı" }, { status: 500 });
   }
 }
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
     const updated = await readTracklist();
     return NextResponse.json({ ok: true, tracklist: updated });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ ok: false, error: "Eklenemedi" }, { status: 500 });
   }
 }
@@ -43,7 +43,7 @@ export async function DELETE(req: Request) {
 
     const updated = await readTracklist();
     return NextResponse.json({ ok: true, tracklist: updated });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ ok: false, error: "Silinemedi" }, { status: 500 });
   }
 }

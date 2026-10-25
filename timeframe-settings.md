@@ -5,7 +5,7 @@ Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya do
 
 | Panel | Periyot Kodu | Görünen Ad | Açıklama |
 | --- | --- | --- | --- |
-| Takip Listesi | 1h | 1 Saatlik | Kısa vadeli gün içi sinyaller |
+| Takip Listesi | 30m | 30 Dakikalık | Dengeli gün içi yön ve destek/direnç |
 | Lider Sinyaller | 1d | Günlük | Ana günlük trend ve kapanışlar |
 | Tüm BIST Şirketleri | 30m | 30 Dakikalık | Dengeli gün içi yön ve destek/direnç |
 
@@ -23,4 +23,4 @@ Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya do
 - **Haftalık** (`1wk`): Orta-uzun vadeli trend
 - **Aylık** (`1mo`): Makro ve uzun vadeli yatırım trendi
 
-*Son Güncelleme: 2026-10-07T06:37:58.269Z*
+*Son Güncelleme: 2026-10-25T10:12:18.604Z*

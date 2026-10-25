@@ -7,6 +7,7 @@ import WatchlistCombobox from "./WatchlistCombobox";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import TimeframeSelector from "./TimeframeSelector";
 import MailRecipientsControl from "./MailRecipientsControl";
+import WatchlistScheduleControl from "./WatchlistScheduleControl";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import type { AnalysisResult, AssetType } from "@/lib/types";
 import { DEFAULT_WATCHLIST, type WatchEntry } from "@/lib/watchlist";
@@ -72,15 +73,13 @@ export default function WatchlistTable() {
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
 
-  // Load saved interval preference from localStorage on mount
+  // Client-side only initial load from localStorage to prevent SSR hydration mismatch
   useEffect(() => {
     try {
       const saved = localStorage.getItem("watchlist_refresh_interval");
       if (saved != null) {
         const parsed = Number(saved) as RefreshInterval;
-        if ([0, 15, 30, 60, 120, 300].includes(parsed)) {
-          setRefreshInterval(parsed);
-        }
+        if ([0, 15, 30, 60, 120, 300].includes(parsed)) setRefreshInterval(parsed);
       }
     } catch {
       // ignore
@@ -334,6 +333,7 @@ export default function WatchlistTable() {
             disabled={refreshing}
             size="sm"
           />
+          <WatchlistScheduleControl size="sm" />
           <MailRecipientsControl size="sm" />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}

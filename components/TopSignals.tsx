@@ -176,79 +176,86 @@ export default function TopSignals() {
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSignals = useCallback(async (tf?: TimeframeKey, force = false) => {
-    const activeTf = tf ?? timeframe;
-    try {
-      if (force) setRefreshing(true);
-      else setLoading(true);
+  const fetchSignals = useCallback(
+    async (tf: TimeframeKey = timeframe, idx: IndexTypeKey = indexType, force = false) => {
+      try {
+        if (force) setRefreshing(true);
+        else setLoading(true);
 
-      const res = await fetch(`/api/signals/top?timeframe=${activeTf}${force ? "&force=true" : ""}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: TopSignalsResponse = await res.json();
-      setData(json);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sinyaller yüklenemedi");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [timeframe]);
+        const res = await fetch(
+          `/api/signals/top?timeframe=${tf}&indexType=${idx}${force ? "&force=true" : ""}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: TopSignalsResponse = await res.json();
+        setData(json);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Sinyaller yüklenemedi");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [indexType, timeframe]
+  );
 
-  // Load saved timeframe from timeframe-settings.md on mount
+  // Load saved timeframe & indexType on mount
   useEffect(() => {
     let active = true;
     (async () => {
+      let savedTf: TimeframeKey = "1d";
+      let savedIdx: IndexTypeKey = "bist30";
+
       try {
-        const res = await fetch("/api/timeframe/settings", { cache: "no-store" });
-        if (res.ok && active) {
-          const json = await res.json();
+        const [tfRes, idxRes] = await Promise.all([
+          fetch("/api/timeframe/settings", { cache: "no-store" }),
+          fetch("/api/index-type/settings", { cache: "no-store" }),
+        ]);
+
+        if (tfRes.ok) {
+          const json = await tfRes.json();
           if (json.settings?.topSignals) {
-            const savedTf = json.settings.topSignals as TimeframeKey;
-            setTimeframe(savedTf);
-            void fetchSignals(savedTf);
-            return;
+            savedTf = json.settings.topSignals as TimeframeKey;
+          }
+        }
+
+        if (idxRes.ok) {
+          const json = await idxRes.json();
+          if (json.settings?.topSignals) {
+            savedIdx = json.settings.topSignals as IndexTypeKey;
           }
         }
       } catch {
-        // fallback
+        // fallback to defaults
       }
-      if (active) void fetchSignals("1d");
-    })();
 
-    (async () => {
-      try {
-        const res = await fetch("/api/index-type/settings", { cache: "no-store" });
-        if (res.ok && active) {
-          const json = await res.json();
-          if (json.settings?.topSignals) setIndexType(json.settings.topSignals as IndexTypeKey);
-        }
-      } catch {
-        // varsayılan endeks kullanılır
+      if (active) {
+        setTimeframe(savedTf);
+        setIndexType(savedIdx);
+        void fetchSignals(savedTf, savedIdx, false);
       }
     })();
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [fetchSignals]);
 
   // Periodic auto-refresh
   useEffect(() => {
     if (refreshInterval <= 0) return;
 
     const interval = setInterval(() => {
-      void fetchSignals(timeframe, true);
+      void fetchSignals(timeframe, indexType, true);
     }, refreshInterval * 1000);
 
     return () => clearInterval(interval);
-  }, [fetchSignals, refreshInterval, timeframe]);
+  }, [fetchSignals, indexType, refreshInterval, timeframe]);
 
   const handleTimeframeChange = async (newTf: TimeframeKey) => {
     setTimeframe(newTf);
-    void fetchSignals(newTf, true);
+    void fetchSignals(newTf, indexType, true);
 
     try {
       await fetch("/api/timeframe/settings", {
@@ -263,6 +270,8 @@ export default function TopSignals() {
 
   const handleIndexTypeChange = async (newKey: IndexTypeKey) => {
     setIndexType(newKey);
+    void fetchSignals(timeframe, newKey, true);
+
     try {
       await fetch("/api/index-type/settings", {
         method: "POST",
@@ -272,7 +281,6 @@ export default function TopSignals() {
     } catch (e) {
       console.error("[TopSignals] Endeks tipi kaydedilemedi:", e);
     }
-    void fetchSignals(timeframe, true);
   };
 
   return (
@@ -312,7 +320,7 @@ export default function TopSignals() {
           <AutoRefreshControl
             intervalSeconds={refreshInterval}
             onIntervalChange={(sec) => setRefreshInterval(sec)}
-            onRefresh={() => void fetchSignals(timeframe, true)}
+            onRefresh={() => void fetchSignals(timeframe, indexType, true)}
             isRefreshing={loading || refreshing}
             lastUpdated={data?.updatedAt}
             storageKey="top_signals_refresh_interval"

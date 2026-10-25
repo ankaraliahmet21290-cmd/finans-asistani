@@ -12,18 +12,35 @@ const yf = new YahooFinance({
 });
 
 const cache = new Map<string, { at: number; value: unknown }>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
 
 async function cached<T>(key: string, fn: () => Promise<T>, customTtl?: number): Promise<T> {
   const ttl = customTtl ?? getActiveRefreshConfig().cacheTtlMs;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttl) return hit.value as T;
-  const value = await fn();
-  cache.set(key, { at: Date.now(), value });
-  return value;
+
+  const inFlight = inFlightRequests.get(key);
+  if (inFlight) {
+    return inFlight as Promise<T>;
+  }
+
+  const promise = (async () => {
+    try {
+      const value = await fn();
+      cache.set(key, { at: Date.now(), value });
+      return value;
+    } finally {
+      inFlightRequests.delete(key);
+    }
+  })();
+
+  inFlightRequests.set(key, promise);
+  return promise;
 }
 
 export function clearDataCache(): void {
   cache.clear();
+  inFlightRequests.clear();
 }
 
 /**
@@ -60,13 +77,27 @@ export interface CandleResult {
   closes: number[];
 }
 
-function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
+function aggregateCandlesByMinutes(candles: Candle[], intervalMinutes: number): Candle[] {
+  if (candles.length === 0) return [];
+  const bucketMs = intervalMinutes * 60 * 1000;
+  const groups = new Map<number, Candle[]>();
+
+  for (const c of candles) {
+    const t = new Date(c.date).getTime();
+    if (isNaN(t)) continue;
+    // Saat/dakika sınırına (09:00, 09:15, 09:30 vb.) tam hizalama
+    const key = Math.floor(t / bucketMs) * bucketMs;
+    const arr = groups.get(key);
+    if (arr) {
+      arr.push(c);
+    } else {
+      groups.set(key, [c]);
+    }
+  }
+
   const result: Candle[] = [];
-  for (let i = 0; i < candles.length; i += groupSize) {
-    const chunk = candles.slice(i, i + groupSize);
+  for (const chunk of groups.values()) {
     if (chunk.length === 0) continue;
-    const open = chunk[0].open;
-    const close = chunk[chunk.length - 1].close;
     let high = -Infinity;
     let low = Infinity;
     let volume = 0;
@@ -77,13 +108,14 @@ function aggregateCandles(candles: Candle[], groupSize: number): Candle[] {
     }
     result.push({
       date: chunk[0].date,
-      open,
+      open: chunk[0].open,
       high,
       low,
-      close,
+      close: chunk[chunk.length - 1].close,
       volume,
     });
   }
+
   return result;
 }
 
@@ -153,7 +185,8 @@ interface RawChartData {
  */
 async function fetchBaseChart(ticker: string, base: "5m" | "1h" | "1d"): Promise<RawChartData> {
   return cached(`base_chart:${ticker}:${base}`, async () => {
-    const days = base === "5m" ? 14 : base === "1h" ? 60 : 400;
+    // 5m: 30 gün (yeterli bar derinliği), 1h: 180 gün (SMA200 için >200 bar), 1d: 1500 gün (haftalık SMA200 için >200 hafta)
+    const days = base === "5m" ? 30 : base === "1h" ? 180 : 1500;
     const period1 = new Date(Date.now() - days * 24 * 3600 * 1000);
 
     const res = await fetchWithRetry(() => yf.chart(ticker, { period1, interval: base }));
@@ -356,8 +389,8 @@ export async function getCandles(
       }
       // Yahoo'nun doğrudan sağlamadığı 10m, 2h, 4h periyotları için en yakın temel periyottan aggregate et
       if (tf === "10m") {
-        const raw = await fetchDirectChart(ticker, "5m", 14);
-        const aggregated = aggregateCandles(raw.candles, 2);
+        const raw = await fetchDirectChart(ticker, "5m", 30);
+        const aggregated = aggregateCandlesByMinutes(raw.candles, 10);
         return {
           ticker,
           name: raw.meta.longName || raw.meta.shortName || ticker,
@@ -370,8 +403,8 @@ export async function getCandles(
         };
       }
       if (tf === "2h") {
-        const raw = await fetchDirectChart(ticker, "1h", 90);
-        const aggregated = aggregateCandles(raw.candles, 2);
+        const raw = await fetchDirectChart(ticker, "1h", 120);
+        const aggregated = aggregateCandlesByMinutes(raw.candles, 120);
         return {
           ticker,
           name: raw.meta.longName || raw.meta.shortName || ticker,
@@ -384,8 +417,8 @@ export async function getCandles(
         };
       }
       if (tf === "4h") {
-        const raw = await fetchDirectChart(ticker, "1h", 120);
-        const aggregated = aggregateCandles(raw.candles, 4);
+        const raw = await fetchDirectChart(ticker, "1h", 180);
+        const aggregated = aggregateCandlesByMinutes(raw.candles, 240);
         return {
           ticker,
           name: raw.meta.longName || raw.meta.shortName || ticker,
@@ -399,7 +432,7 @@ export async function getCandles(
       }
     }
 
-    // 2. Türetilmiş mod (BIST 100 / BIST TÜM toplu tarama: rate-limit korumalı ve hızlı)
+    // 2. Türetilmiş mod (BIST 30 / BIST 100 / BIST TÜM toplu tarama: rate-limit korumalı ve yüksek hızlı)
     let base: "5m" | "1h" | "1d" = "1d";
     if (tf === "5m" || tf === "10m" || tf === "15m" || tf === "30m") {
       base = "5m";
@@ -414,15 +447,15 @@ export async function getCandles(
 
     let candles = rawCandles;
     if (tf === "10m") {
-      candles = aggregateCandles(rawCandles, 2);
+      candles = aggregateCandlesByMinutes(rawCandles, 10);
     } else if (tf === "15m") {
-      candles = aggregateCandles(rawCandles, 3);
+      candles = aggregateCandlesByMinutes(rawCandles, 15);
     } else if (tf === "30m") {
-      candles = aggregateCandles(rawCandles, 6);
+      candles = aggregateCandlesByMinutes(rawCandles, 30);
     } else if (tf === "2h") {
-      candles = aggregateCandles(rawCandles, 2);
+      candles = aggregateCandlesByMinutes(rawCandles, 120);
     } else if (tf === "4h") {
-      candles = aggregateCandles(rawCandles, 4);
+      candles = aggregateCandlesByMinutes(rawCandles, 240);
     } else if (tf === "1wk") {
       candles = aggregateCandlesByPeriod(rawCandles, "week");
     } else if (tf === "1mo") {

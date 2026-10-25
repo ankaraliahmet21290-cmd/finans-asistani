@@ -60,6 +60,12 @@ export default function AutoRefreshControl({
     }
   }, [isOpen]);
 
+  const [prevInterval, setPrevInterval] = useState(intervalSeconds);
+  if (intervalSeconds !== prevInterval) {
+    setPrevInterval(intervalSeconds);
+    setRemaining(intervalSeconds);
+  }
+
   // Sync initial setting from refresh-settings.md via API
   useEffect(() => {
     let active = true;
@@ -82,7 +88,7 @@ export default function AutoRefreshControl({
     return () => {
       active = false;
     };
-  }, []); // Run on mount
+  }, [intervalSeconds, onIntervalChange]);
 
   // Listen to cross-component sync event
   useEffect(() => {
@@ -99,11 +105,9 @@ export default function AutoRefreshControl({
   // Countdown timer effect
   useEffect(() => {
     if (intervalSeconds === 0) {
-      setRemaining(0);
       return;
     }
 
-    setRemaining(intervalSeconds);
     const timer = setInterval(() => {
       setRemaining((prev) => {
         if (prev <= 1) {

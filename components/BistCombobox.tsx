@@ -118,10 +118,6 @@ export default function BistCombobox({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Keep active index in bounds
-  useEffect(() => {
-    setActiveIndex(-1);
-  }, [query]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -206,15 +202,18 @@ export default function BistCombobox({
         <input
           ref={inputRef}
           type="text"
+          role="combobox"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActiveIndex(-1);
             if (!isOpen) setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-expanded={isOpen}
+          aria-controls="bist-combobox-list"
           aria-autocomplete="list"
           className={`w-full rounded-xl border border-zinc-800 bg-zinc-900/90 text-zinc-100 placeholder-zinc-500 shadow-inner backdrop-blur transition focus:border-sky-500/80 focus:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 ${
             compact
@@ -272,7 +271,7 @@ export default function BistCombobox({
               </p>
             </div>
           ) : (
-            <ul ref={listRef} className="space-y-1">
+            <ul id="bist-combobox-list" role="listbox" ref={listRef} className="space-y-1">
               {filtered.map((company, index) => {
                 const isSelected =
                   initialCompany?.code === company.code ||

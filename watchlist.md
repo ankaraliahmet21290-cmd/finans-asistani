@@ -3,6 +3,12 @@
 Bu dosya Finans Asistanı takip listesindeki varlıkları içerir.
 Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkarılabilir.
 
+## Sinyal Değişim Kontrol Ayarları
+- **Tarama Sıklığı:** 15m
+- **Yalnızca Seans İçi:** Evet
+- **Son Kontrol:** —
+- **Son Sinyal Değişimi:** —
+
 | Sembol | Tür | Ad |
 | --- | --- | --- |
 | THYAO.IS | stock | Türk Hava Yolları |

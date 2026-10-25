@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  getMailSettingsFromFile,
   saveMailSettingsToFile,
   MAIL_INTERVAL_OPTIONS,
   type MailIntervalKey,

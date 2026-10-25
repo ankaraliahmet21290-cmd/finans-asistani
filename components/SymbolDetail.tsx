@@ -62,20 +62,20 @@ type TabType = "hybrid" | "tech" | "fund";
 export default function SymbolDetail({ ticker, type }: { ticker: string; type: AssetType }) {
   const [selectedTf, setSelectedTf] = useState<TimeframeKey>("1d");
   const [activeTab, setActiveTab] = useState<TabType>("hybrid");
-  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(() => {
+  const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
+
+  // Client-side only initial load from localStorage to prevent SSR hydration mismatch
+  useEffect(() => {
     try {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("symbol_refresh_interval");
-        if (saved != null) {
-          const parsed = Number(saved) as RefreshInterval;
-          if ([0, 15, 30, 60, 120, 300].includes(parsed)) return parsed;
-        }
+      const saved = localStorage.getItem("symbol_refresh_interval");
+      if (saved != null) {
+        const parsed = Number(saved) as RefreshInterval;
+        if ([0, 15, 30, 60, 120, 300].includes(parsed)) setRefreshInterval(parsed);
       }
     } catch {
       // ignore
     }
-    return 30;
-  });
+  }, []);
   const [cache, setCache] = useState<Partial<Record<TimeframeKey, AnalysisResult>>>({});
   const [loadingTf, setLoadingTf] = useState(false);
   const [error, setError] = useState<string | null>(null);

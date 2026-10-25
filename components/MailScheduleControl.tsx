@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   MAIL_INTERVAL_OPTIONS,
   type MailIntervalKey,
@@ -73,7 +73,7 @@ export default function MailScheduleControl({
   }, [isOpen]);
 
   // Fetch current mail settings from API
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch("/api/mail/settings", { cache: "no-store" });
       if (res.ok) {
@@ -85,11 +85,11 @@ export default function MailScheduleControl({
     } catch (e) {
       console.error("[MailScheduleControl] Yükleme hatası:", e);
     }
-  };
+  }, [onScheduleChange]);
 
   useEffect(() => {
     void fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
   // Update selection
   const handleSelect = async (optKey: MailIntervalKey) => {

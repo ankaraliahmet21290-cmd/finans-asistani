@@ -6,7 +6,7 @@ Arayüzdeki endeks tipi menüsünden seçim yapıldığında bu dosya otomatik g
 | Panel | Endeks Kodu | Görünen Ad |
 | --- | --- | --- |
 | Çoklu Zaman Dilimi Taraması | bist30 | BIST 30 |
-| Lider Sinyaller | bistall | BIST TÜM |
+| Lider Sinyaller | bist100 | BIST 100 |
 
 ---
 
@@ -15,4 +15,4 @@ Arayüzdeki endeks tipi menüsünden seçim yapıldığında bu dosya otomatik g
 - **BIST 100** (`bist100`): BIST 100 endeksindeki şirketler (canlı XU100)
 - **BIST TÜM** (`bistall`): Borsa İstanbul'daki tüm şirketler (yavaş tarama)
 
-*Son Güncelleme: 2026-10-22T17:52:56.510Z*
+*Son Güncelleme: 2026-10-25T09:54:51.648Z*

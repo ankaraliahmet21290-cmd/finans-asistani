@@ -70,7 +70,6 @@ async function generateBist100Md() {
     const symbol = parts[0].replace(/\.E$/i, '').trim();
     const bultenAdi = parts[1].trim();
     const indexCode = parts[2].trim();
-    const indexName = parts[3].trim();
     if (!borsaDate && parts[5]) borsaDate = parts[5].trim();
 
     if (!stockAllIndices.has(symbol)) {
