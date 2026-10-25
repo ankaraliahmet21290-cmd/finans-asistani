@@ -66,7 +66,12 @@ export default function AutoRefreshControl({
     setRemaining(intervalSeconds);
   }
 
-  // Sync initial setting from refresh-settings.md via API
+  const onIntervalChangeRef = useRef(onIntervalChange);
+  useEffect(() => {
+    onIntervalChangeRef.current = onIntervalChange;
+  }, [onIntervalChange]);
+
+  // Sync initial setting from refresh-settings.md via API once on mount
   useEffect(() => {
     let active = true;
     (async () => {
@@ -76,9 +81,7 @@ export default function AutoRefreshControl({
         const json = await res.json();
         if (json.ok && json.config?.seconds !== undefined) {
           const fileSeconds = json.config.seconds as RefreshInterval;
-          if (fileSeconds !== intervalSeconds) {
-            onIntervalChange(fileSeconds);
-          }
+          onIntervalChangeRef.current(fileSeconds);
         }
       } catch {
         // Keep current or fallback
@@ -88,19 +91,19 @@ export default function AutoRefreshControl({
     return () => {
       active = false;
     };
-  }, [intervalSeconds, onIntervalChange]);
+  }, []);
 
   // Listen to cross-component sync event
   useEffect(() => {
     function handleCrossSync(e: Event) {
       const customEvent = e as CustomEvent<RefreshInterval>;
-      if (typeof customEvent.detail === "number" && customEvent.detail !== intervalSeconds) {
-        onIntervalChange(customEvent.detail);
+      if (typeof customEvent.detail === "number") {
+        onIntervalChangeRef.current(customEvent.detail);
       }
     }
     window.addEventListener("app-refresh-interval-changed", handleCrossSync);
     return () => window.removeEventListener("app-refresh-interval-changed", handleCrossSync);
-  }, [intervalSeconds, onIntervalChange]);
+  }, []);
 
   // Countdown timer effect
   useEffect(() => {

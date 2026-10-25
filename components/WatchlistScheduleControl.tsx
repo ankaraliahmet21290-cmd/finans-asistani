@@ -48,7 +48,12 @@ export default function WatchlistScheduleControl({
     }
   }, [isOpen]);
 
-  // Fetch settings from API
+  const onScheduleChangeRef = useRef(onScheduleChange);
+  useEffect(() => {
+    onScheduleChangeRef.current = onScheduleChange;
+  }, [onScheduleChange]);
+
+  // Fetch settings from API once on mount
   const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch("/api/watchlist/settings", { cache: "no-store" });
@@ -56,13 +61,13 @@ export default function WatchlistScheduleControl({
         const json = await res.json();
         if (json.settings) {
           setSettings(json.settings);
-          if (onScheduleChange) onScheduleChange(json.settings);
+          if (onScheduleChangeRef.current) onScheduleChangeRef.current(json.settings);
         }
       }
     } catch (e) {
       console.error("[WatchlistScheduleControl] Ayarlar yüklenemedi:", e);
     }
-  }, [onScheduleChange]);
+  }, []);
 
   useEffect(() => {
     void fetchSettings();

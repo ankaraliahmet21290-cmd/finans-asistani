@@ -72,7 +72,12 @@ export default function MailScheduleControl({
     }
   }, [isOpen]);
 
-  // Fetch current mail settings from API
+  const onScheduleChangeRef = useRef(onScheduleChange);
+  useEffect(() => {
+    onScheduleChangeRef.current = onScheduleChange;
+  }, [onScheduleChange]);
+
+  // Fetch current mail settings from API once on mount
   const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch("/api/mail/settings", { cache: "no-store" });
@@ -80,12 +85,12 @@ export default function MailScheduleControl({
         const json: MailSettingsResponse = await res.json();
         setData(json);
         setActiveKey(json.config.intervalKey);
-        if (onScheduleChange) onScheduleChange(json.config);
+        if (onScheduleChangeRef.current) onScheduleChangeRef.current(json.config);
       }
     } catch (e) {
       console.error("[MailScheduleControl] Yükleme hatası:", e);
     }
-  }, [onScheduleChange]);
+  }, []);
 
   useEffect(() => {
     void fetchSettings();
