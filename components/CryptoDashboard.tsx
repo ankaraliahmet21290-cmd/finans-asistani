@@ -743,8 +743,8 @@ export default function CryptoDashboard() {
             Arama kriterine uygun kripto varlık bulunamadı.
           </div>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="mt-4 overflow-x-auto touch-scroll scrollbar-none">
+            <table className="w-full min-w-[850px] text-left text-xs">
               <thead className="border-b border-zinc-800 bg-zinc-950/60 font-medium text-zinc-400">
                 <tr>
                   <th className="px-3 py-3">Kripto Varlık</th>

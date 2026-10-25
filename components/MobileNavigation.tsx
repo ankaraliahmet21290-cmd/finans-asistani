@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import BistCombobox from "./BistCombobox";
 import Logo from "./Logo";
 
 export default function MobileNavigation() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -16,8 +19,21 @@ export default function MobileNavigation() {
     setMounted(true);
   }, []);
 
-  // Track scroll position to highlight bottom nav tab
+  // Set activeSection based on route or scroll position
   useEffect(() => {
+    if (pathname === "/takip") {
+      setActiveSection("watchlist");
+      return;
+    }
+    if (pathname === "/pozisyonlar") {
+      setActiveSection("portfolio");
+      return;
+    }
+    if (pathname !== "/") {
+      setActiveSection("");
+      return;
+    }
+
     const handleScroll = () => {
       const scrollPos = window.scrollY + 250;
 
@@ -42,7 +58,7 @@ export default function MobileNavigation() {
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [pathname]);
 
   // Close overlays on Escape key
   useEffect(() => {
@@ -68,7 +84,7 @@ export default function MobileNavigation() {
     };
   }, [isSearchOpen, isMenuOpen]);
 
-  const scrollTo = (id: string, key: string) => {
+  const handleNavClick = (id: string, key: string, targetFallback: string = "/") => {
     setActiveSection(key);
     setIsMenuOpen(false);
     const element = document.getElementById(id);
@@ -80,6 +96,8 @@ export default function MobileNavigation() {
         top: offsetPosition,
         behavior: "smooth",
       });
+    } else {
+      router.push(targetFallback);
     }
   };
 
@@ -263,42 +281,42 @@ export default function MobileNavigation() {
                       </p>
                       <div className="space-y-1">
                         <button
-                          onClick={() => scrollTo("search-section", "home")}
+                          onClick={() => handleNavClick("search-section", "home", "/")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
                         >
                           <span className="text-base">🏠</span>
                           <span>Ana Panel & Arama</span>
                         </button>
                         <button
-                          onClick={() => scrollTo("portfolio-section", "portfolio")}
+                          onClick={() => handleNavClick("portfolio-section", "portfolio", "/#portfolio-section")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
                         >
                           <span className="text-base">💼</span>
                           <span>Portföy Pozisyon Takibi</span>
                         </button>
                         <button
-                          onClick={() => scrollTo("signals-section", "signals")}
+                          onClick={() => handleNavClick("signals-section", "signals", "/#signals-section")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
                         >
                           <span className="text-base">⚡</span>
                           <span>Çoklu Periyot Sinyalleri</span>
                         </button>
                         <button
-                          onClick={() => scrollTo("top-signals-section", "signals")}
+                          onClick={() => handleNavClick("top-signals-section", "signals", "/#top-signals-section")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
                         >
                           <span className="text-base">🏆</span>
                           <span>Lider AL / SAT Sinyalleri</span>
                         </button>
                         <button
-                          onClick={() => scrollTo("tracklist-section", "tracklist")}
+                          onClick={() => handleNavClick("tracklist-section", "tracklist", "/#tracklist-section")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
                         >
                           <span className="text-base">📊</span>
                           <span>Sinyal Performansı</span>
                         </button>
                         <button
-                          onClick={() => scrollTo("watchlist-section", "watchlist")}
+                          onClick={() => handleNavClick("watchlist-section", "watchlist", "/takip")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-medium text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
                         >
                           <span className="text-base">⭐</span>
@@ -375,8 +393,8 @@ export default function MobileNavigation() {
             >
               {/* Tab 1: Ana Sayfa / Arama */}
               <button
-                onClick={() => scrollTo("search-section", "home")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                onClick={() => handleNavClick("search-section", "home", "/")}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
                   activeSection === "home"
                     ? "text-sky-400 font-bold"
                     : "text-zinc-400 hover:text-zinc-200"
@@ -388,8 +406,8 @@ export default function MobileNavigation() {
 
               {/* Tab 2: Portföy */}
               <button
-                onClick={() => scrollTo("portfolio-section", "portfolio")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                onClick={() => handleNavClick("portfolio-section", "portfolio", "/pozisyonlar")}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
                   activeSection === "portfolio"
                     ? "text-emerald-400 font-bold"
                     : "text-zinc-400 hover:text-zinc-200"
@@ -420,8 +438,8 @@ export default function MobileNavigation() {
 
               {/* Tab 4: Sinyaller */}
               <button
-                onClick={() => scrollTo("signals-section", "signals")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                onClick={() => handleNavClick("signals-section", "signals", "/#signals-section")}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
                   activeSection === "signals"
                     ? "text-sky-400 font-bold"
                     : "text-zinc-400 hover:text-zinc-200"
@@ -433,8 +451,8 @@ export default function MobileNavigation() {
 
               {/* Tab 5: Takip Listesi */}
               <button
-                onClick={() => scrollTo("watchlist-section", "watchlist")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                onClick={() => handleNavClick("watchlist-section", "watchlist", "/takip")}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
                   activeSection === "watchlist"
                     ? "text-amber-400 font-bold"
                     : "text-zinc-400 hover:text-zinc-200"

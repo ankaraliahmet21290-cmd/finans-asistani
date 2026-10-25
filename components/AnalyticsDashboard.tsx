@@ -418,7 +418,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Card 5: Most visited screen */}
-        <div className="relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-950/40 via-zinc-900/80 to-zinc-950 p-4 shadow-lg backdrop-blur-md">
+        <div className="col-span-2 sm:col-span-1 lg:col-span-1 relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-950/40 via-zinc-900/80 to-zinc-950 p-4 shadow-lg backdrop-blur-md">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-violet-400">🏆 En Çok Tıklanan Ekran</span>
             <span className="text-base">⭐</span>
@@ -484,7 +484,7 @@ export default function AnalyticsDashboard() {
           </div>
 
           {/* Histogram Bars */}
-          <div className="flex h-36 items-end gap-1 sm:gap-2 pt-4 px-1 border-b border-zinc-800/80">
+          <div className="flex h-36 items-end gap-1 sm:gap-2 pt-4 px-1 border-b border-zinc-800/80 overflow-x-auto touch-scroll scrollbar-none">
             {summary.timeline.map((bucket, idx) => {
               const heightPercent = Math.max(8, Math.round((bucket.count / maxTimelineCount) * 100));
               return (

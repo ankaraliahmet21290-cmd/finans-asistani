@@ -165,9 +165,9 @@ export default function SelectedCompanyPreview({
         </div>
 
         {data && (
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="w-full sm:w-auto flex flex-col items-start sm:items-end gap-1.5">
             <SignalBadge signal={data.signal} size="md" />
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <span className="text-xs text-zinc-400">Nihai Skor: </span>
               <span
                 className={`text-sm font-bold tabular-nums ${

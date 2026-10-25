@@ -99,13 +99,13 @@ export default function SignalCard({ result, activeTab = "hybrid" }: SignalCardP
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-2.5">
+        <div className="w-full sm:w-auto flex flex-col items-start sm:items-end gap-2.5">
           <div className="flex items-center gap-2">
             <SignalBadge signal={displaySignal} size="lg" />
           </div>
 
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/80 p-2.5 text-right backdrop-blur-sm">
-            <div className="text-xs font-medium text-zinc-400 flex items-center justify-end gap-1.5">
+          <div className="w-full sm:w-auto rounded-xl border border-zinc-800/80 bg-zinc-900/80 p-2.5 text-left sm:text-right backdrop-blur-sm">
+            <div className="text-xs font-medium text-zinc-400 flex items-center justify-start sm:justify-end gap-1.5">
               <span>{scoreTitle}:</span>
               <span
                 className={`font-mono text-sm font-extrabold tabular-nums ${

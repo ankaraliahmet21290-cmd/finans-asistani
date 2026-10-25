@@ -15,6 +15,9 @@
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
 }
 
 body {
@@ -22,6 +25,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
 }
 
 button:not(:disabled),
@@ -33,8 +38,30 @@ select {
   touch-action: manipulation;
 }
 
-/* Touch friendly scrolling */
+/* Touch friendly scrolling and hidden scrollbars */
 .touch-scroll {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prevent unwanted iOS Safari auto-zoom on input focus */
+@media screen and (max-width: 639px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="search"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }

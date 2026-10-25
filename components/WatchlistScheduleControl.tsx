@@ -230,7 +230,7 @@ export default function WatchlistScheduleControl({
 
       {isOpen && (
         <div
-          className={`absolute z-50 mt-2 w-80 rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur-md transition ${
+          className={`absolute z-50 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-zinc-800 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur-md transition ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >

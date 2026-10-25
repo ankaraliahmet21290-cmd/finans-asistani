@@ -271,10 +271,10 @@ export default function MailRecipientsModal({
   });
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div
         ref={modalRef}
-        className="relative flex flex-col max-h-[92vh] w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl overflow-hidden"
+        className="relative flex flex-col max-h-[92vh] w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-6 shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-800/80">
@@ -518,7 +518,7 @@ export default function MailRecipientsModal({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 self-end sm:self-center flex-wrap">
                     {/* Sıklık Seçici (Sadece Çoklu Zaman Dilimi ekranından açıldığında gösterilir) */}
                     {isMultiTimeframe && (
                       <div className="flex items-center gap-1.5">

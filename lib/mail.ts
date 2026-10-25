@@ -227,7 +227,18 @@ export async function sendCategorizedTimeframeMail(
     return `$${price >= 10 ? price.toFixed(2) : price.toFixed(4)}`;
   };
 
-  let text = `FİNANS ASİSTANI · ${marketTitle.toUpperCase()} ÇOKLU ZAMAN DİLİMİ AL/SAT RAPORU\nTarih & Saat: ${scanDate} ${scanTime}\nSeans Durumu: ${sessionStatusText}\n\n`;
+  const marketPath = isCrypto
+    ? "/kripto#signals-section"
+    : isUs
+    ? "/abd-borsasi#signals-section"
+    : isCommodity
+    ? "/emtia-doviz#signals-section"
+    : "/#signals-section";
+  const marketUrl = `${baseUrl}${marketPath}`;
+
+  const MAX_DISPLAY_PER_SIDE = 5; // Gmail 102 KB kırpma (clipping) sınırını korumak için periyot başına en güçlü 5 AL / 5 SAT
+
+  let text = `FİNANS ASİSTANI · ${marketTitle.toUpperCase()} ÇOKLU ZAMAN DİLİMİ AL/SAT RAPORU\nTarih & Saat: ${scanDate} ${scanTime}\nSeans Durumu: ${sessionStatusText}\nCanlı Ekran: ${marketUrl}\n\n`;
 
   let categoryHtml = "";
 
@@ -237,79 +248,104 @@ export async function sendCategorizedTimeframeMail(
     const buys = cat.buys;
     const sells = cat.sells;
 
-    text += `\n=== ${tf.title} ===\n`;
+    const visibleBuys = buys.slice(0, MAX_DISPLAY_PER_SIDE);
+    const hiddenBuysCount = Math.max(0, buys.length - MAX_DISPLAY_PER_SIDE);
+
+    const visibleSells = sells.slice(0, MAX_DISPLAY_PER_SIDE);
+    const hiddenSellsCount = Math.max(0, sells.length - MAX_DISPLAY_PER_SIDE);
+
+    text += `\n=== ${tf.title} (AL: ${buys.length}, SAT: ${sells.length}) ===\n`;
 
     if (buys.length === 0 && sells.length === 0) {
       text += "Bu periyotta yeni AL/SAT sinyali bulunmuyor.\n";
     }
 
-    if (buys.length > 0) {
+    if (visibleBuys.length > 0) {
       text += `AL Verenler (${buys.length}):\n`;
-      for (const b of buys) {
+      for (const b of visibleBuys) {
         text += `  * ${b.code} (Fiyat: ${formatPriceStr(b.ticker, b.price)}, Skor: +${b.score}, RSI: ${b.rsi ?? "—"})\n`;
+      }
+      if (hiddenBuysCount > 0) {
+        text += `  ... ve ${hiddenBuysCount} varlık daha (canlı ekranda: ${marketUrl})\n`;
       }
     }
 
-    if (sells.length > 0) {
+    if (visibleSells.length > 0) {
       text += `SAT Verenler (${sells.length}):\n`;
-      for (const s of sells) {
+      for (const s of visibleSells) {
         text += `  * ${s.code} (Fiyat: ${formatPriceStr(s.ticker, s.price)}, Skor: ${s.score}, RSI: ${s.rsi ?? "—"})\n`;
+      }
+      if (hiddenSellsCount > 0) {
+        text += `  ... ve ${hiddenSellsCount} varlık daha (canlı ekranda: ${marketUrl})\n`;
       }
     }
 
     // HTML section
     categoryHtml += `
-      <div style="margin-bottom: 24px; border: 1px solid #e4e4e7; border-radius: 10px; overflow: hidden; background: #ffffff;">
-        <div style="background: #09090b; color: #fafafa; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;">
-          <strong style="font-size: 14px;">${tf.title}</strong>
-          <span style="background: #27272a; color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">${tf.badge}</span>
+      <div style="margin-bottom: 20px; border: 1px solid #e4e4e7; border-radius: 10px; overflow: hidden; background: #ffffff;">
+        <div style="background: #09090b; color: #fafafa; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+          <strong style="font-size: 13px;">${tf.title}</strong>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span style="background: #18181b; color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; border: 1px solid #27272a;">${tf.badge}</span>
+            <span style="font-size: 10px; color: #a1a1aa;">(${buys.length} AL · ${sells.length} SAT)</span>
+          </div>
         </div>
-        <div style="padding: 14px 16px;">
+        <div style="padding: 12px 14px;">
           ${
             buys.length === 0 && sells.length === 0
               ? `<p style="margin: 0; font-size: 12px; color: #71717a; font-style: italic;">Bu zaman diliminde aktif AL veya SAT eşiğinde varlık bulunmuyor.</p>`
               : `
               <div style="margin-bottom: ${sells.length > 0 ? "12px" : "0"};">
-                <div style="font-size: 12px; font-weight: 700; color: #16a34a; margin-bottom: 6px;">🟢 AL SİNYALLERİ (${buys.length})</div>
+                <div style="font-size: 11px; font-weight: 700; color: #16a34a; margin-bottom: 6px;">🟢 AL SİNYALLERİ (${buys.length}) ${hiddenBuysCount > 0 ? `<span style="font-weight: 400; color: #71717a;">· En güçlü ${MAX_DISPLAY_PER_SIDE} listelendi</span>` : ""}</div>
                 ${
                   buys.length === 0
                     ? `<span style="font-size: 11px; color: #a1a1aa;">AL veren varlık yok.</span>`
-                    : buys
+                    : visibleBuys
                         .map(
                           (b) => `
-                        <div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 6px 6px 0;">
+                        <div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 6px 10px; margin-bottom: 4px; border-radius: 0 4px 4px 0;">
                           <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                            <a href="${baseUrl}/symbol/${encodeURIComponent(b.ticker)}" style="font-weight: 700; font-size: 13px; color: #15803d; text-decoration: none;">${escapeHtml(b.code)}</a>
-                            <span style="font-size: 12px; font-weight: 600; color: #18181b;">${formatPriceStr(b.ticker, b.price)}</span>
+                            <a href="${baseUrl}/symbol/${encodeURIComponent(b.ticker)}" style="font-weight: 700; font-size: 12px; color: #15803d; text-decoration: none;">${escapeHtml(b.code)}</a>
+                            <span style="font-size: 11px; font-weight: 600; color: #18181b;">${formatPriceStr(b.ticker, b.price)}</span>
                           </div>
-                          <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">
+                          <div style="font-size: 10px; color: #4b5563; margin-top: 1px;">
                             Skor: <strong style="color: #16a34a;">+${b.score.toFixed(2)}</strong> ${b.rsi != null ? `· RSI: ${b.rsi}` : ""} · ${escapeHtml(b.reasons[0] ?? "")}
                           </div>
                         </div>`
                         )
                         .join("")
                 }
+                ${
+                  hiddenBuysCount > 0
+                    ? `<div style="text-align: right; margin-top: 4px;"><a href="${marketUrl}" style="font-size: 11px; color: #16a34a; font-weight: 600; text-decoration: none;">+ ${hiddenBuysCount} varlık daha AL bölgesinde (Ekranda Gör ↗)</a></div>`
+                    : ""
+                }
               </div>
 
               <div>
-                <div style="font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">🔴 SAT SİNYALLERİ (${sells.length})</div>
+                <div style="font-size: 11px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">🔴 SAT SİNYALLERİ (${sells.length}) ${hiddenSellsCount > 0 ? `<span style="font-weight: 400; color: #71717a;">· En belirgin ${MAX_DISPLAY_PER_SIDE} listelendi</span>` : ""}</div>
                 ${
                   sells.length === 0
                     ? `<span style="font-size: 11px; color: #a1a1aa;">SAT veren varlık yok.</span>`
-                    : sells
+                    : visibleSells
                         .map(
                           (s) => `
-                        <div style="background: #fef2f2; border-left: 3px solid #ef4444; padding: 8px 12px; margin-bottom: 6px; border-radius: 0 6px 6px 0;">
+                        <div style="background: #fef2f2; border-left: 3px solid #ef4444; padding: 6px 10px; margin-bottom: 4px; border-radius: 0 4px 4px 0;">
                           <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                            <a href="${baseUrl}/symbol/${encodeURIComponent(s.ticker)}" style="font-weight: 700; font-size: 13px; color: #b91c1c; text-decoration: none;">${escapeHtml(s.code)}</a>
-                            <span style="font-size: 12px; font-weight: 600; color: #18181b;">${formatPriceStr(s.ticker, s.price)}</span>
+                            <a href="${baseUrl}/symbol/${encodeURIComponent(s.ticker)}" style="font-weight: 700; font-size: 12px; color: #b91c1c; text-decoration: none;">${escapeHtml(s.code)}</a>
+                            <span style="font-size: 11px; font-weight: 600; color: #18181b;">${formatPriceStr(s.ticker, s.price)}</span>
                           </div>
-                          <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">
+                          <div style="font-size: 10px; color: #4b5563; margin-top: 1px;">
                             Skor: <strong style="color: #dc2626;">${s.score.toFixed(2)}</strong> ${s.rsi != null ? `· RSI: ${s.rsi}` : ""} · ${escapeHtml(s.reasons[0] ?? "")}
                           </div>
                         </div>`
                         )
                         .join("")
+                }
+                ${
+                  hiddenSellsCount > 0
+                    ? `<div style="text-align: right; margin-top: 4px;"><a href="${marketUrl}" style="font-size: 11px; color: #dc2626; font-weight: 600; text-decoration: none;">+ ${hiddenSellsCount} varlık daha SAT bölgesinde (Ekranda Gör ↗)</a></div>`
+                    : ""
                 }
               </div>`
           }
@@ -324,13 +360,14 @@ export async function sendCategorizedTimeframeMail(
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; color: #18181b; margin: 0; padding: 20px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; color: #18181b; margin: 0; padding: 16px; }
     .container { max-width: 640px; margin: 0 auto; background: #fafafa; border-radius: 12px; border: 1px solid #e4e4e7; overflow: hidden; }
-    .header { background: #09090b; color: #fafafa; padding: 20px 24px; }
-    .header h2 { margin: 0; font-size: 18px; font-weight: 700; color: #f4f4f5; }
+    .header { background: #09090b; color: #fafafa; padding: 18px 20px; }
+    .header h2 { margin: 0; font-size: 17px; font-weight: 700; color: #f4f4f5; }
     .header p { margin: 6px 0 0; font-size: 12px; color: #a1a1aa; }
-    .content { padding: 20px 24px; }
-    .footer { padding: 14px 24px; background: #f4f4f5; border-top: 1px solid #e4e4e7; font-size: 11px; color: #71717a; text-align: center; }
+    .content { padding: 16px 20px; }
+    .footer { padding: 14px 20px; background: #f4f4f5; border-top: 1px solid #e4e4e7; font-size: 11px; color: #71717a; text-align: center; }
+    .cta-btn { display: inline-block; background: #0284c7; color: #ffffff !important; padding: 9px 18px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; margin: 10px 0; }
   </style>
 </head>
 <body>
@@ -338,13 +375,20 @@ export async function sendCategorizedTimeframeMail(
     <div class="header">
       <h2>Finans Asistanı · ${marketTitle} Çoklu Zaman Dilimi Raporu</h2>
       <p>${frequencyLabel} Otomatik Tarama (${sessionStatusText}) · <strong>${scanDate} ${scanTime}</strong></p>
+      <div style="margin-top: 10px;">
+        <a href="${marketUrl}" class="cta-btn">Canlı Sinyal Masasını Aç ↗</a>
+      </div>
     </div>
     <div class="content">
-      <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; font-size: 12px; color: #0369a1;">
-        ℹ️ ${marketTitle} varlıkları için <strong>5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, Haftalık ve Aylık</strong> (toplam 10 zaman dilimi) taranarak teknik ve karar destek göstergelerine göre kategorize edilmiştir.
+      <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #0369a1;">
+        ℹ️ ${marketTitle} varlıkları için <strong>5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, Haftalık ve Aylık</strong> (toplam 10 zaman dilimi) taranmıştır. E-posta okunabilirliğini korumak için her periyotta en güçlü sinyaller öne çıkarılmıştır.
       </div>
 
       ${categoryHtml}
+
+      <div style="text-align: center; margin: 20px 0 10px;">
+        <a href="${marketUrl}" class="cta-btn">Tüm Sinyal Matrisini Canlı Ekranda Gör ↗</a>
+      </div>
     </div>
     <div class="footer">
       ${RISK_NOTE}

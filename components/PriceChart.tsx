@@ -158,7 +158,7 @@ export default function PriceChart({ candles, sma50, sma200, bb, timeframe }: Pr
 
   return (
     <div className="relative w-full overflow-hidden">
-      <div ref={ref} className="h-[420px] w-full" />
+      <div ref={ref} className="h-[300px] sm:h-[420px] w-full" />
     </div>
   );
 }

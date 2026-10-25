@@ -362,9 +362,9 @@ export default function TrackListTable({
       <div
         className={`${
           viewMode === "cards" ? "hidden" : viewMode === "table" ? "block" : "hidden md:block"
-        } overflow-x-auto rounded-xl border border-zinc-800`}
+        } overflow-x-auto touch-scroll scrollbar-none rounded-xl border border-zinc-800`}
       >
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/70 text-left text-xs uppercase tracking-wide text-zinc-500">
               <th className="px-4 py-3 font-medium">Sembol</th>
