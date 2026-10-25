@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { MailRecipient } from "@/lib/mail-recipients-types";
+import {
+  MAIL_INTERVAL_OPTIONS,
+  type MailIntervalKey,
+} from "@/lib/mail-settings-types";
 
 interface MailRecipientsModalProps {
   isOpen: boolean;
@@ -23,6 +27,7 @@ export default function MailRecipientsModal({
   // Form states
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
+  const [newFrequency, setNewFrequency] = useState<MailIntervalKey>("15m");
   const [searchQuery, setSearchQuery] = useState("");
 
   const modalRef = useRef<HTMLDivElement>(null);
@@ -102,6 +107,7 @@ export default function MailRecipientsModal({
         body: JSON.stringify({
           email: emailTrimmed,
           name: newName.trim() || undefined,
+          intervalKey: newFrequency,
           enabled: true,
         }),
       });
@@ -111,8 +117,9 @@ export default function MailRecipientsModal({
         setRecipients(data.recipients);
         setNewEmail("");
         setNewName("");
+        const freqOption = MAIL_INTERVAL_OPTIONS.find((o) => o.key === newFrequency);
         setMessage({
-          text: `✓ "${emailTrimmed}" eklendi ve mail-recipients.md dosyasına kaydedildi!`,
+          text: `✓ "${emailTrimmed}" (${freqOption?.label ?? newFrequency} sıklığında) eklendi ve mail-recipients.md dosyasına kaydedildi!`,
           type: "success",
         });
         if (onCountChange) onCountChange(data.activeCount ?? 0);
@@ -121,6 +128,37 @@ export default function MailRecipientsModal({
       }
     } catch {
       setMessage({ text: "İşlem sırasında sunucu hatası oluştu.", type: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Change recipient sending frequency
+  const handleFrequencyChange = async (email: string, newKey: MailIntervalKey) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/mail/recipients", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          intervalKey: newKey,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setRecipients(data.recipients);
+        const opt = MAIL_INTERVAL_OPTIONS.find((o) => o.key === newKey);
+        setMessage({
+          text: `✓ "${email}" gönderim sıklığı "${opt?.label ?? newKey}" olarak güncellendi ve kaydedildi.`,
+          type: "success",
+        });
+        if (onCountChange) onCountChange(data.activeCount ?? 0);
+      } else {
+        setMessage({ text: data.error || "Sıklık güncellenemedi.", type: "error" });
+      }
+    } catch {
+      setMessage({ text: "Sıklık güncellenirken hata oluştu.", type: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -228,7 +266,7 @@ export default function MailRecipientsModal({
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div
         ref={modalRef}
-        className="relative flex flex-col max-h-[90vh] w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl overflow-hidden"
+        className="relative flex flex-col max-h-[92vh] w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-zinc-800/80">
@@ -236,14 +274,14 @@ export default function MailRecipientsModal({
             <div className="flex items-center gap-2">
               <span className="text-xl">✉️</span>
               <h2 className="text-base sm:text-lg font-bold text-zinc-100">
-                E-Posta Alıcı Listesi
+                E-Posta Alıcı Listesi ve Kişiye Özel Gönderim Sıklığı
               </h2>
               <span className="rounded-md bg-indigo-950/80 border border-indigo-700/50 px-2 py-0.5 text-[10px] font-mono text-indigo-300">
                 mail-recipients.md
               </span>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Sinyal ve bülten raporları bu listedeki <strong className="text-emerald-400 font-semibold">Aktif</strong> adreslere eş zamanlı gönderilir.
+              Her bir alıcı için <strong className="text-indigo-300 font-semibold">özel mail sıklığı</strong> (5 dk, 10 dk, 15 dk, 30 dk, 1 saat, Günlük) belirleyebilirsiniz. Raporlar her kişinin kendi sıklık saatinde otomatik gönderilir.
             </p>
           </div>
           <button
@@ -284,13 +322,18 @@ export default function MailRecipientsModal({
         {/* Add New Recipient Form */}
         <form onSubmit={handleAddRecipient} className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300 mb-2.5 flex items-center justify-between">
-            <span>+ Yeni Alıcı Ekle</span>
+            <span className="flex items-center gap-1.5">
+              <span>+ Yeni Alıcı & Sıklık Ekle</span>
+            </span>
             <span className="text-[10px] font-normal text-zinc-500 font-mono">
-              Otomatik md senkronize
+              Otomatik mail-recipients.md senkronize
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-            <div className="sm:col-span-7">
+            <div className="sm:col-span-5">
+              <label className="block text-[10px] font-medium text-zinc-400 mb-1">
+                E-Posta Adresi <span className="text-red-400">*</span>
+              </label>
               <input
                 ref={inputRef}
                 type="email"
@@ -302,6 +345,9 @@ export default function MailRecipientsModal({
               />
             </div>
             <div className="sm:col-span-3">
+              <label className="block text-[10px] font-medium text-zinc-400 mb-1">
+                İsim / Not
+              </label>
               <input
                 type="text"
                 value={newName}
@@ -311,6 +357,22 @@ export default function MailRecipientsModal({
               />
             </div>
             <div className="sm:col-span-2">
+              <label className="block text-[10px] font-medium text-indigo-300 mb-1">
+                Mail Sıklığı
+              </label>
+              <select
+                value={newFrequency}
+                onChange={(e) => setNewFrequency(e.target.value as MailIntervalKey)}
+                className="w-full rounded-lg border border-indigo-700/60 bg-zinc-950 px-2.5 py-2 text-xs font-semibold text-indigo-200 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key} className="bg-zinc-950 text-zinc-200">
+                    {opt.label} ({opt.badge})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2 flex items-end">
               <button
                 type="submit"
                 disabled={actionLoading || !newEmail.trim()}
@@ -320,7 +382,7 @@ export default function MailRecipientsModal({
                   <span className="animate-spin text-xs">⌛</span>
                 ) : (
                   <>
-                    <span>Ekle</span>
+                    <span>+ Ekle</span>
                   </>
                 )}
               </button>
@@ -352,7 +414,7 @@ export default function MailRecipientsModal({
         </div>
 
         {/* Recipients List */}
-        <div className="mt-2.5 flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-[300px]">
+        <div className="mt-2.5 flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-[320px]">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-10 text-zinc-500 text-xs">
               <span className="animate-spin text-lg mb-2">⌛</span>
@@ -367,107 +429,143 @@ export default function MailRecipientsModal({
               </p>
             </div>
           ) : (
-            filteredRecipients.map((r) => (
-              <div
-                key={r.email}
-                className={`flex items-center justify-between rounded-xl border p-3 transition ${
-                  r.enabled
-                    ? "border-zinc-800 bg-zinc-900/50 hover:border-zinc-700"
-                    : "border-zinc-850 bg-zinc-950/40 opacity-60"
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold uppercase ${
-                      r.enabled
-                        ? "bg-indigo-950 text-indigo-300 border border-indigo-700/50"
-                        : "bg-zinc-800 text-zinc-500 border border-zinc-700"
-                    }`}
-                  >
-                    {r.name ? r.name.charAt(0) : r.email.charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-xs font-semibold text-zinc-200">
-                        {r.email}
-                      </span>
-                      {r.name && (
-                        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
-                          {r.name}
+            filteredRecipients.map((r) => {
+              const currentKey = r.intervalKey || "15m";
+              return (
+                <div
+                  key={r.email}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border p-3 transition ${
+                    r.enabled
+                      ? "border-zinc-800 bg-zinc-900/50 hover:border-zinc-700"
+                      : "border-zinc-850 bg-zinc-950/40 opacity-60"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold uppercase ${
+                        r.enabled
+                          ? "bg-indigo-950 text-indigo-300 border border-indigo-700/50"
+                          : "bg-zinc-800 text-zinc-500 border border-zinc-700"
+                      }`}
+                    >
+                      {r.name ? r.name.charAt(0) : r.email.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="truncate text-xs font-semibold text-zinc-200">
+                          {r.email}
                         </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-zinc-500">
-                      {r.addedAt
-                        ? `Eklenme: ${new Date(r.addedAt).toLocaleDateString("tr-TR")}`
-                        : "Kayıtlı"}
+                        {r.name && (
+                          <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                            {r.name}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-500">
+                        <span>
+                          {r.addedAt
+                            ? `Eklenme: ${new Date(r.addedAt).toLocaleDateString("tr-TR")}`
+                            : "Kayıtlı"}
+                        </span>
+                        <span className="text-zinc-600">·</span>
+                        <span className="text-indigo-400 font-medium">
+                          Sıklık: {r.intervalLabel || r.intervalKey || "15 dk"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Status Toggle Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggle(r.email, r.enabled)}
-                    title={r.enabled ? "Pasife al" : "Aktife al"}
-                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium transition border ${
-                      r.enabled
-                        ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60"
-                        : "bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:bg-zinc-700"
-                    }`}
-                  >
-                    <span>{r.enabled ? "🟢 Aktif" : "⚪ Pasif"}</span>
-                  </button>
-
-                  {/* Delete Button with inline confirmation */}
-                  {deleteConfirmEmail === r.email ? (
-                    <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(r.email)}
-                        className="rounded-lg bg-red-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-500 transition shadow-sm"
-                        title="Silmeyi Onayla"
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    {/* Sıklık Seçici (Per-recipient frequency dropdown) */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-zinc-400 hidden md:inline">Sıklık:</span>
+                      <select
+                        value={currentKey}
+                        disabled={actionLoading}
+                        onChange={(e) =>
+                          handleFrequencyChange(r.email, e.target.value as MailIntervalKey)
+                        }
+                        title={`${r.email} için e-posta gönderim sıklığını değiştir`}
+                        className="rounded-lg border border-indigo-900/60 bg-zinc-950 px-2 py-1 text-[11px] font-semibold text-indigo-200 focus:border-indigo-400 focus:outline-none hover:bg-zinc-900 transition"
                       >
-                        Sil ✓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirmEmail(null)}
-                        className="rounded-lg bg-zinc-800 px-1.5 py-1 text-[10px] text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition"
-                        title="İptal"
-                      >
-                        ×
-                      </button>
+                        {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                          <option
+                            key={opt.key}
+                            value={opt.key}
+                            className="bg-zinc-950 text-zinc-200"
+                          >
+                            {opt.label} ({opt.badge})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  ) : (
+
+                    {/* Status Toggle Button */}
                     <button
                       type="button"
-                      onClick={() => setDeleteConfirmEmail(r.email)}
-                      title="Alıcıyı Sil"
-                      className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-950/60 hover:text-red-300 hover:border-red-600/30 border border-transparent transition"
+                      disabled={actionLoading}
+                      onClick={() => handleToggle(r.email, r.enabled)}
+                      title={r.enabled ? "Pasife al" : "Aktife al"}
+                      className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium transition border ${
+                        r.enabled
+                          ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60"
+                          : "bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:bg-zinc-700"
+                      }`}
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
+                      <span>{r.enabled ? "🟢 Aktif" : "⚪ Pasif"}</span>
                     </button>
-                  )}
+
+                    {/* Delete Button with inline confirmation */}
+                    {deleteConfirmEmail === r.email ? (
+                      <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(r.email)}
+                          className="rounded-lg bg-red-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-500 transition shadow-sm"
+                          title="Silmeyi Onayla"
+                        >
+                          Sil ✓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmEmail(null)}
+                          className="rounded-lg bg-zinc-800 px-1.5 py-1 text-[10px] text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition"
+                          title="İptal"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirmEmail(r.email)}
+                        title="Alıcıyı Sil"
+                        className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-950/60 hover:text-red-300 hover:border-red-600/30 border border-transparent transition"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Footer Actions */}
         <div className="mt-4 pt-3 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2.5">
           <div className="text-[10px] text-zinc-500 flex items-center gap-1">
-            <span>💾 Dosya Konumu:</span>
+            <span>💾 Dosya:</span>
             <code className="text-indigo-400 font-mono">./mail-recipients.md</code>
+            <span className="text-zinc-600 hidden sm:inline">|</span>
+            <span className="text-zinc-400 hidden sm:inline">Her alıcı için bağımsız sıklık</span>
           </div>
 
           <div className="flex items-center gap-2">

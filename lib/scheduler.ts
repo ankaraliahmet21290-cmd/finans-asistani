@@ -10,6 +10,8 @@ import {
   type MailIntervalKey,
   type MailScheduleConfig,
 } from "./mail-settings-storage";
+import { MAIL_INTERVAL_OPTIONS } from "./mail-settings-types";
+import { getRecipientsFromFile, type MailRecipient } from "./mail-recipients-storage";
 import { loadPositionsFile, savePositionsFile } from "./position-storage";
 import { getCandles } from "./data";
 import {
@@ -52,6 +54,30 @@ const state: SchedulerState = {
 
 let timerId: NodeJS.Timeout | null = null;
 let isRunningTask = false;
+const recipientLastMailedMap = new Map<string, number>();
+
+function getMinutesForInterval(key: MailIntervalKey): number {
+  switch (key) {
+    case "5m":
+      return 5;
+    case "10m":
+      return 10;
+    case "15m":
+      return 15;
+    case "30m":
+      return 30;
+    case "1h":
+      return 60;
+    case "2h":
+      return 120;
+    case "4h":
+      return 240;
+    case "daily":
+      return 1440;
+    default:
+      return 15;
+  }
+}
 
 // Helper to format date in Istanbul timezone
 function getIstanbulDateString(d: Date = new Date()): string {
@@ -79,7 +105,10 @@ export async function syncSchedulerWithConfig(): Promise<MailScheduleConfig> {
   return config;
 }
 
-export async function runScheduledScan(force = false): Promise<{
+export async function runScheduledScan(
+  force = false,
+  specificRecipients?: MailRecipient[]
+): Promise<{
   ok: boolean;
   withinHours: boolean;
   mailed: boolean;
@@ -131,15 +160,48 @@ export async function runScheduledScan(force = false): Promise<{
     state.lastSignalCount = data.totalSignalsCount;
 
     let mailed = false;
+    let sentRecipientCount = 0;
+
     if (isMailConfigured()) {
-      mailed = await sendCategorizedTimeframeMail(data, config.emailLabel);
-      if (mailed) {
-        state.lastMailedAt = new Date().toISOString();
+      const allRecipients = await getRecipientsFromFile();
+      const recipientsToSend =
+        specificRecipients && specificRecipients.length > 0
+          ? specificRecipients
+          : allRecipients.filter((r) => r.enabled);
+
+      if (recipientsToSend.length > 0) {
+        // Group recipients by intervalKey to provide tailored frequency header
+        const groups = new Map<MailIntervalKey, string[]>();
+        for (const r of recipientsToSend) {
+          const k = r.intervalKey || config.intervalKey || "15m";
+          const list = groups.get(k) || [];
+          list.push(r.email);
+          groups.set(k, list);
+        }
+
+        const sendTime = Date.now();
+
+        for (const [intKey, emails] of groups.entries()) {
+          const opt = MAIL_INTERVAL_OPTIONS.find((o) => o.key === intKey);
+          const label = opt ? opt.emailLabel : config.emailLabel;
+          const sent = await sendCategorizedTimeframeMail(data, label, emails);
+          if (sent) {
+            sentRecipientCount += emails.length;
+            for (const email of emails) {
+              recipientLastMailedMap.set(email.toLowerCase(), sendTime);
+            }
+          }
+        }
+
+        if (sentRecipientCount > 0) {
+          mailed = true;
+          state.lastMailedAt = new Date().toISOString();
+        }
       }
     }
 
-    state.lastStatus = `Başarılı. ${data.totalSignalsCount} sinyal bulundu. Sıklık: ${config.label}. Mail: ${
-      mailed ? "Gönderildi" : "Atlandı"
+    state.lastStatus = `Başarılı. ${data.totalSignalsCount} sinyal bulundu. Mail: ${
+      mailed ? `${sentRecipientCount} alıcıya gönderildi` : "Atlandı"
     }`;
 
     return {
@@ -166,45 +228,48 @@ export async function runScheduledScan(force = false): Promise<{
 }
 
 /**
- * Checks if interval elapsed according to mail-settings.md
+ * Checks if interval elapsed according to mail-recipients.md and mail-settings.md
  */
 async function checkSchedulerTick() {
   try {
     const config = await syncSchedulerWithConfig();
 
-    if (!config.enabled || config.intervalKey === "off" || config.intervalMinutes === 0) {
-      return;
-    }
-
     if (config.onlyTradingHours && !isWithinTradingHours()) {
       return;
     }
 
-    const now = Date.now();
-
-    // DAILY check: run once per trading day
-    if (config.intervalKey === "daily") {
-      const todayIstanbul = getIstanbulDateString();
-      const lastMailedDay = state.lastMailedAt
-        ? getIstanbulDateString(new Date(state.lastMailedAt))
-        : null;
-
-      if (lastMailedDay !== todayIstanbul) {
-        void runScheduledScan(false);
-      }
+    const recipients = await getRecipientsFromFile();
+    const activeRecipients = recipients.filter((r) => r.enabled && r.intervalKey !== "off");
+    if (activeRecipients.length === 0) {
       return;
     }
 
-    // MINUTES-BASED check: 5m, 10m, 15m, 30m, 1h, 2h, 4h
-    const lastTrigger = state.lastMailedAt
-      ? new Date(state.lastMailedAt).getTime()
-      : state.lastRunAt
-      ? new Date(state.lastRunAt).getTime()
-      : 0;
+    const now = Date.now();
+    const todayIstanbul = getIstanbulDateString();
+    const dueRecipients: MailRecipient[] = [];
 
-    const intervalMs = config.intervalMinutes * 60 * 1000;
-    if (now - lastTrigger >= intervalMs) {
-      void runScheduledScan(false);
+    for (const r of activeRecipients) {
+      const intKey = r.intervalKey || config.intervalKey || "15m";
+      if (intKey === "off") continue;
+
+      const lastTime = recipientLastMailedMap.get(r.email.toLowerCase()) ?? 0;
+
+      if (intKey === "daily") {
+        const lastDateStr = lastTime > 0 ? getIstanbulDateString(new Date(lastTime)) : null;
+        if (lastDateStr !== todayIstanbul) {
+          dueRecipients.push(r);
+        }
+      } else {
+        const minutes = getMinutesForInterval(intKey);
+        const intervalMs = minutes * 60 * 1000;
+        if (now - lastTime >= intervalMs) {
+          dueRecipients.push(r);
+        }
+      }
+    }
+
+    if (dueRecipients.length > 0) {
+      void runScheduledScan(false, dueRecipients);
     }
   } catch (err) {
     console.error("[scheduler] checkSchedulerTick hatası:", err);

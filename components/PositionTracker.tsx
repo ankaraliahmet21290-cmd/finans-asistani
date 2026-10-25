@@ -147,6 +147,7 @@ export default function PositionTracker() {
     }
   };
 
+
   // Update check interval setting
   const handleIntervalChange = async (interval: PositionCheckInterval) => {
     try {
@@ -192,7 +193,7 @@ export default function PositionTracker() {
     <section className="w-full">
       <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/90 via-zinc-900/70 to-zinc-950 p-4 sm:p-6 shadow-xl backdrop-blur-md">
         {/* Header Bar */}
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-800/80 pb-4">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-zinc-800/80 pb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 text-xs font-bold text-emerald-400">
@@ -237,7 +238,7 @@ export default function PositionTracker() {
             <button
               onClick={handleTriggerCheck}
               disabled={checking}
-              className="flex items-center gap-1.5 rounded-xl border border-zinc-700/80 bg-zinc-800/80 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700 hover:text-white disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl border border-zinc-700/80 bg-zinc-800/80 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700 hover:text-white disabled:opacity-50 active:scale-95"
               title="Anlık fiyatları sorgula ve stop/hedef kontrolü yap"
             >
               <svg
@@ -255,7 +256,7 @@ export default function PositionTracker() {
             {/* Add Position Toggle Button */}
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition hover:from-emerald-500 hover:to-teal-500"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition hover:from-emerald-500 hover:to-teal-500 active:scale-95"
             >
               <span>{showAddForm ? "✕ Kapat" : "+ Yeni Pozisyon Ekle"}</span>
             </button>
@@ -275,12 +276,12 @@ export default function PositionTracker() {
             onSubmit={handleAddPosition}
             className="mt-4 rounded-2xl border border-emerald-900/40 bg-zinc-950/80 p-4 sm:p-5 shadow-inner backdrop-blur-md animate-in fade-in duration-200"
           >
-            <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-2">
+            <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-zinc-800 pb-2">
               <h3 className="text-xs sm:text-sm font-bold text-emerald-400 flex items-center gap-1.5">
                 <span>➕</span> Yeni Alınan Pozisyon Ekle
               </h3>
-              <span className="text-[11px] text-zinc-500">
-                Seçtiğiniz periyoda göre dinamik Stop-Loss ve Hedef otomatik doldurulur.
+              <span className="text-[10px] sm:text-[11px] text-zinc-500">
+                Seçtiğiniz periyoda göre Stop-Loss ve Hedef otomatik doldurulur.
               </span>
             </div>
 

@@ -385,11 +385,11 @@ export default function KullanimKilavuzuPage() {
               </span>,
             ],
             [
-              "Mail Alıcıları",
+              "Mail Alıcıları & Özel Sıklık",
               "Çoklu Zaman Dilimi başlığı",
-              "Adres ekle / sil / aktif-pasif",
+              "Adres ekle / sil / aktif-pasif / kişiye özel sıklık",
               <span key="a">
-                Raporların gideceği adresler. Varsayılan alıcı yoksa <C>MAIL_TO</C> kullanılır.{" "}
+                Raporların gideceği adresler ve her kişi için bağımsız sıklık (5dk, 15dk, 1S, Günlük).{" "}
                 <C>mail-recipients.md</C>
               </span>,
             ],
@@ -399,6 +399,14 @@ export default function KullanimKilavuzuPage() {
               "1dk, 5dk, 15dk, 30dk, 1S, Kapalı",
               <span key="pp">
                 Stop/hedef kontrolünün sıklığı ve yalnızca seans içi çalışma. <C>portfoy-takip.md</C>
+              </span>,
+            ],
+            [
+              "Takip Listesi Sinyal Kontrolü",
+              "Takip Listesi Masası",
+              "1dk, 5dk, 15dk, 30dk, 1S, Günlük, Kapalı",
+              <span key="ws">
+                Sinyal değişimi tarama sıklığı. <C>watchlist.md</C>
               </span>,
             ],
           ]}

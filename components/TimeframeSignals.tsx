@@ -207,9 +207,10 @@ export default function TimeframeSignals() {
                 {mailConfig?.intervalKey === "off"
                   ? "Otomatik e-posta gönderimi kapalıdır (mail-settings.md). İstediğiniz zaman sağdaki butondan anlık tarayıp gönderebilirsiniz."
                   : mailConfig?.intervalKey === "daily"
-                    ? "Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde günde 1 kez otomatik kategorize e-posta gönderir."
-                    : `Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde her ${mailConfig?.label ?? "15 dakikada bir"
-                    } otomatik kategorize e-posta gönderir.`}
+                    ? "Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde alıcıların özel sıklığına göre (veya günde 1 kez) otomatik rapor gönderir."
+                    : `Pazartesi - Cuma · 09:50 - 18:00 seans saatlerinde genel ${
+                        mailConfig?.label ?? "15 dk"
+                      } veya her alıcının kendi özel sıklığına göre otomatik e-posta gönderir.`}
               </p>
             </div>
           </div>
@@ -270,14 +271,14 @@ export default function TimeframeSignals() {
       {/* Filter Bars Container */}
       <div className="relative z-10 mb-4 flex flex-col gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3 backdrop-blur-md">
         {/* Signal Mode Tabs: Karma, Teknik, Temel */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
             Sinyal Tipi:
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll pb-1 sm:pb-0 scrollbar-none">
             <button
               onClick={() => setSignalMode("hybrid")}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${signalMode === "hybrid"
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${signalMode === "hybrid"
                   ? "border-violet-500 bg-violet-500/20 text-violet-200 shadow-sm"
                   : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
                 }`}
@@ -287,7 +288,7 @@ export default function TimeframeSignals() {
             </button>
             <button
               onClick={() => setSignalMode("tech")}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${signalMode === "tech"
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${signalMode === "tech"
                   ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-sm"
                   : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
                 }`}
@@ -297,7 +298,7 @@ export default function TimeframeSignals() {
             </button>
             <button
               onClick={() => setSignalMode("fund")}
-              className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${signalMode === "fund"
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${signalMode === "fund"
                   ? "border-amber-500 bg-amber-500/20 text-amber-200 shadow-sm"
                   : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
                 }`}
@@ -309,12 +310,12 @@ export default function TimeframeSignals() {
         </div>
 
         {/* Timeframe Tabs: Tümü, 5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, 1H, 1A */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
             Periyot:
           </span>
           <div
-            className="inline-flex max-w-full items-center overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/90 p-0.5 shadow-inner scrollbar-none gap-0.5"
+            className="inline-flex max-w-full items-center overflow-x-auto touch-scroll rounded-xl border border-zinc-800 bg-zinc-900/90 p-0.5 shadow-inner scrollbar-none gap-0.5"
             role="group"
             aria-label="Periyot filtreleri"
           >

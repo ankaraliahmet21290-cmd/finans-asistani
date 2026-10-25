@@ -197,7 +197,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll scrollbar-none pb-1 sm:pb-0">
             {TIMEFRAME_OPTIONS.map((tf) => {
               const active = selectedTf === tf.key;
               return (
@@ -205,7 +205,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   key={tf.key}
                   id={`tf-btn-${tf.key}`}
                   onClick={() => handleTfChange(tf.key)}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
                     active
                       ? "border-sky-500 bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-500/20"
                       : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"

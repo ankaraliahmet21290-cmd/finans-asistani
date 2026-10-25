@@ -67,19 +67,22 @@ export default function HomeDashboard() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 md:gap-8">
       {/* Hero & Search Section */}
-      <section className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/90 via-zinc-900/60 to-zinc-950 p-6 md:p-8">
+      <section
+        id="search-section"
+        className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/90 via-zinc-900/60 to-zinc-950 p-4 sm:p-6 md:p-8 scroll-mt-20"
+      >
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-400">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
             BIST Şirket Arama & Sinyal Analizi
           </div>
 
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">
+          <h1 className="mt-3 text-2xl font-bold tracking-tight text-zinc-100 sm:text-3xl md:text-4xl">
             Tüm BIST Şirketleri & AL/SAT Sinyalleri
           </h1>
-          <p className="mt-2 text-sm text-zinc-400 md:text-base">
+          <p className="mt-2 text-xs text-zinc-400 sm:text-sm md:text-base leading-relaxed">
             800+ Borsa İstanbul şirketini anında arayın, teknik indikatörler ve temel rasyolar ile hesaplanan karar destek skorlarını görüntüleyin.
           </p>
 
@@ -96,7 +99,7 @@ export default function HomeDashboard() {
           {/* Searchable Combobox */}
           <div className="mt-4 w-full">
             <BistCombobox
-              placeholder="BIST şirketi ara (kod veya ad: THYAO, Garanti, Ereğli, Aselsan...)"
+              placeholder="BIST şirketi ara (kod veya ad: THYAO, Garanti, Ereğli...)"
               autoNavigate={false}
               onSelect={(company) => setSelectedCompany(company)}
             />
@@ -112,7 +115,7 @@ export default function HomeDashboard() {
                   key={code}
                   type="button"
                   onClick={() => handleChipClick(code)}
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-mono font-medium transition ${
+                  className={`rounded-lg border px-2 py-1 text-xs font-mono font-medium transition active:scale-95 ${
                     isActive
                       ? "border-sky-500 bg-sky-500/20 text-sky-300"
                       : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
@@ -137,21 +140,27 @@ export default function HomeDashboard() {
       )}
 
       {/* Active Position Tracking & Live Stop-Loss / Take-Profit Desk */}
-      <PositionTracker />
+      <section id="portfolio-section" className="w-full scroll-mt-20">
+        <PositionTracker />
+      </section>
 
       {/* Multi-Timeframe Categorized Signals (1h, 2h, 4h, 1wk, 1mo) with 15 min mail trigger */}
-      <TimeframeSignals />
+      <section id="signals-section" className="w-full scroll-mt-20">
+        <TimeframeSignals />
+      </section>
 
       {/* Top AL and SAT Signals Ranking */}
-      <TopSignals />
+      <section id="top-signals-section" className="w-full scroll-mt-20">
+        <TopSignals />
+      </section>
 
       {/* TrackList Table (Sinyal Karsilastirma) */}
-      <section className="w-full">
+      <section id="tracklist-section" className="w-full scroll-mt-20">
         <TrackListTable />
       </section>
 
       {/* Main Watchlist Table */}
-      <section className="w-full">
+      <section id="watchlist-section" className="w-full scroll-mt-20">
         <WatchlistTable />
       </section>
     </div>

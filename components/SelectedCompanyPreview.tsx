@@ -256,23 +256,23 @@ export default function SelectedCompanyPreview({
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/80 pt-3">
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-zinc-800/80 pt-3">
         <span className="text-[11px] text-zinc-500">
           Mum grafiği, Bollinger bantları, RSI & MACD panelleri için detay sayfasına gidin.
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           {data && (
             <button
               onClick={handleTrack}
               disabled={addingTrack}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/50 bg-sky-500/10 px-3.5 py-1.5 text-xs font-semibold text-sky-400 shadow-sm transition hover:bg-sky-500/20 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/50 bg-sky-500/10 px-4 py-2 text-xs font-semibold text-sky-400 shadow-sm transition hover:bg-sky-500/20 active:scale-95 disabled:opacity-50"
             >
               {addingTrack ? "Ekleniyor..." : "Takibe Al"}
             </button>
           )}
           <Link
             href={`/symbol/${encodeURIComponent(company.ticker)}?tf=${activeTimeframe}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-500"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-sky-600/20 transition hover:from-sky-500 hover:to-indigo-500 active:scale-95"
           >
             Tüm Grafikleri ve Detayları Gör →
           </Link>
