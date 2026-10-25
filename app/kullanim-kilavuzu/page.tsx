@@ -5,28 +5,31 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Kullanım Kılavuzu · Finans Asistanı",
   description:
-    "Finans Asistanı ekran bölümleri, teknik ve temel analiz puanlama mantığı, ayarlar ve e-posta bildirimlerinin ayrıntılı kullanım kılavuzu.",
+    "Finans Asistanı ekran bölümleri, çoklu piyasalar (BIST, Kripto, Emtia, ABD Borsası), genel ayarlar, e-posta gönderim sıklığı, ekran yenileme ve analiz puanlama mantığının ayrıntılı kullanım kılavuzu.",
 };
 
 const TOC = [
-  { id: "genel", label: "1. Genel Bakış" },
-  { id: "bolumler", label: "2. Ekran Bölümleri" },
-  { id: "puanlama", label: "3. Hisseler Neye Göre Belirlenir?" },
-  { id: "teknik", label: "4. Teknik Analiz" },
-  { id: "temel", label: "5. Temel Analiz" },
-  { id: "karma", label: "6. Karma Karar & Periyot Ağırlığı" },
-  { id: "ayarlar", label: "7. Ayarlar" },
-  { id: "mail", label: "8. E-Posta Bildirimleri" },
-  { id: "ipuclari", label: "9. İpuçları & Uyarılar" },
+  { id: "genel", label: "1. Genel Bakış & Çoklu Piyasa Desteği" },
+  { id: "navigasyon", label: "2. Ekran Bölümleri & Navigasyon" },
+  { id: "genel-ayarlar", label: "3. Genel Ayarlar & Bildirim Masası (/ayarlar)" },
+  { id: "ekran-yenileme", label: "4. Ekran Yenileme & Önbellek (Cache) Sıklığı" },
+  { id: "mail-sistemi", label: "5. E-Posta Gönderim Sıklığı & Bildirim Dağıtımı" },
+  { id: "portfoy-tarama", label: "6. Portföy Takibi & Portföy Tarama Sıklığı" },
+  { id: "izleme-listesi", label: "7. İzleme Listesi & Sinyal Değişim Kontrolü" },
+  { id: "puanlama", label: "8. Hisseler ve Varlıklar Neye Göre Belirlenir?" },
+  { id: "teknik", label: "9. Teknik Analiz Metodolojisi (9 Gösterge)" },
+  { id: "temel", label: "10. Temel Analiz Metodolojisi (Sanayi & Banka)" },
+  { id: "karma", label: "11. Karma Karar & Periyot Stratejileri" },
+  { id: "ipuclari", label: "12. Seans Saatleri, İpuçları & Güvenlik Uyarıları" },
 ];
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section
       id={id}
-      className="scroll-mt-24 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 sm:p-7"
+      className="scroll-mt-24 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 sm:p-7 shadow-sm transition hover:border-zinc-700/80"
     >
-      <h2 className="mb-4 bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-xl font-bold text-transparent sm:text-2xl">
+      <h2 className="mb-4 bg-gradient-to-r from-sky-400 via-indigo-300 to-indigo-400 bg-clip-text text-xl font-bold text-transparent sm:text-2xl">
         {title}
       </h2>
       <div className="flex flex-col gap-4 text-sm leading-relaxed text-zinc-300">{children}</div>
@@ -35,17 +38,17 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 function H3({ children }: { children: ReactNode }) {
-  return <h3 className="mt-2 text-base font-semibold text-zinc-100">{children}</h3>;
+  return <h3 className="mt-3 text-base font-bold text-zinc-100 flex items-center gap-2">{children}</h3>;
 }
 
 function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-800">
-      <table className="w-full min-w-[520px] text-left text-xs sm:text-sm">
-        <thead className="bg-zinc-900 text-zinc-400">
+    <div className="overflow-x-auto rounded-xl border border-zinc-800 my-2">
+      <table className="w-full min-w-[560px] text-left text-xs sm:text-sm">
+        <thead className="bg-zinc-900 text-zinc-400 border-b border-zinc-800">
           <tr>
             {head.map((h) => (
-              <th key={h} className="px-3 py-2 font-medium">
+              <th key={h} className="px-3.5 py-2.5 font-semibold">
                 {h}
               </th>
             ))}
@@ -53,9 +56,9 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
         </thead>
         <tbody className="divide-y divide-zinc-800/80">
           {rows.map((r, i) => (
-            <tr key={i} className="hover:bg-zinc-800/30">
+            <tr key={i} className="hover:bg-zinc-800/30 transition-colors">
               {r.map((c, j) => (
-                <td key={j} className="px-3 py-2 align-top">
+                <td key={j} className="px-3.5 py-2.5 align-middle">
                   {c}
                 </td>
               ))}
@@ -67,414 +70,954 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   );
 }
 
-function Note({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "warn" }) {
-  const cls =
-    tone === "warn"
-      ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
-      : "border-sky-500/30 bg-sky-500/10 text-sky-200";
+function Note({
+  children,
+  tone = "info",
+}: {
+  children: ReactNode;
+  tone?: "info" | "warn" | "success" | "purple";
+}) {
+  const cls = {
+    info: "border-sky-500/30 bg-sky-500/10 text-sky-200",
+    warn: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+    success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+    purple: "border-indigo-500/30 bg-indigo-500/10 text-indigo-200",
+  }[tone];
+
   return <div className={`rounded-xl border px-4 py-3 text-xs sm:text-sm ${cls}`}>{children}</div>;
 }
 
 const C = ({ children }: { children: ReactNode }) => (
-  <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-sky-300">{children}</code>
+  <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-sky-300 font-semibold">
+    {children}
+  </code>
 );
 
 export default function KullanimKilavuzuPage() {
   return (
-    <div className="flex flex-col gap-6">
-      <header className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/90 to-zinc-950 p-6 sm:p-8">
-        <span className="inline-flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-400">
-          📖 Kullanım Kılavuzu
-        </span>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">
-          Finans Asistanı Kullanım Kılavuzu
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full px-2 sm:px-4 py-4">
+      {/* Top Header */}
+      <header className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/90 to-zinc-950 p-6 sm:p-8 relative overflow-hidden shadow-xl">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-400">
+            📖 Kapsamlı Kullanım Kılavuzu
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
+            Sürüm 2.4 · 2026 Güncellemesi
+          </span>
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-100 sm:text-4xl">
+          Finans Asistanı Kullanım ve Operasyon Kılavuzu
         </h1>
-        <p className="mt-2 max-w-3xl text-sm text-zinc-400 sm:text-base">
-          Ekrandaki her bölümün ne işe yaradığı, AL / SAT / TUT sinyallerinin teknik ve temel analize göre nasıl
-          üretildiği, ayarlar ve hangi bölümler için ne zaman e-posta geldiği bu sayfada anlatılır.
+        <p className="mt-2.5 max-w-4xl text-sm text-zinc-400 sm:text-base leading-relaxed">
+          Finans Asistanı; Borsa İstanbul (BIST), Kripto Paralar, Emtia &amp; Döviz ve ABD Borsası için
+          geliştirilmiş yapay zeka ve kural tabanlı bir <strong>Karar Destek Terminalidir</strong>.
+          Ekran bölümleri, <strong>Genel Ayarlar Masası</strong>, <strong>Mail Gönderim Sıklığı</strong>,{" "}
+          <strong>Ekran Yenileme &amp; Cache</strong> mimarisi, <strong>Portföy Tarama Sıklığı</strong> ve
+          sinyal algoritmaları bu dokümanda eksiksiz açıklanmıştır.
         </p>
-        <Link
-          href="/"
-          className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-sky-400 transition hover:text-sky-300"
-        >
-          ← Ana ekrana dön
-        </Link>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700 hover:text-white"
+          >
+            ← Ana Ekrana Dön
+          </Link>
+          <Link
+            href="/ayarlar"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-500/20 px-3.5 py-1.5 text-xs font-semibold text-sky-300 transition hover:bg-sky-500/30 hover:border-sky-400"
+          >
+            ⚙️ Genel Ayarlar Masasını Aç
+          </Link>
+          <Link
+            href="/teknik-detay-klavuzu"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-500/20 px-3.5 py-1.5 text-xs font-semibold text-indigo-300 transition hover:bg-indigo-500/30"
+          >
+            📊 Matematiksel Teknik Detaylar
+          </Link>
+        </div>
       </header>
 
+      {/* Table of Contents */}
       <nav
         aria-label="İçindekiler"
-        className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5"
+        className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5 backdrop-blur-md"
       >
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">İçindekiler</p>
-        <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex items-center justify-between mb-3 border-b border-zinc-800/60 pb-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+            <span>📑</span> İçindekiler Tablosu (Hızlı Atlama)
+          </p>
+          <span className="text-[11px] text-zinc-500">12 Bölüm</span>
+        </div>
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {TOC.map((t) => (
             <li key={t.id}>
               <a
                 href={`#${t.id}`}
-                className="block rounded-lg px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-sky-300"
+                className="group flex items-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-sky-500/40 hover:bg-zinc-800/80 hover:text-sky-300"
               >
-                {t.label}
+                <span className="text-sky-400/70 group-hover:text-sky-300 font-mono">›</span>
+                <span className="truncate">{t.label}</span>
               </a>
             </li>
           ))}
         </ul>
       </nav>
 
-      <Section id="genel" title="1. Genel Bakış">
+      {/* ========================================================================= */}
+      {/* 1. GENEL BAKIŞ & ÇOKLU PİYASA DESTEĞİ */}
+      {/* ========================================================================= */}
+      <Section id="genel" title="1. Genel Bakış & Çoklu Piyasa Desteği">
         <p>
-          Finans Asistanı, Borsa İstanbul (BIST) hisseleri için <strong>teknik</strong> ve <strong>temel</strong> analizi
-          birleştirerek her hisse için bir <strong>karar destek puanı</strong> ve <strong>AL / SAT / TUT</strong> sinyali
-          üretir. Veri kaynağı Yahoo Finance&apos;tir. Fiyat verisi gecikmeli olabilir.
+          Finans Asistanı, finansal piyasalardaki gürültüyü filtreleyerek yatırımcılara disiplinli ve matematiksel
+          bir karar destek zemini sunar. Uygulama dört ana piyasada analiz ve tarama desteği vermektedir:
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 my-2">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold text-zinc-100 mb-1">
+                <span className="text-lg">🇹🇷</span> Borsa İstanbul (BIST)
+              </div>
+              <p className="text-xs text-zinc-400">
+                BIST 30, BIST 100 ve 800+ BIST şirketinin teknik mum grafiği ve bilanço rasyoları analiz edilir.
+              </p>
+            </div>
+            <Link href="/" className="mt-3 text-[11px] font-semibold text-sky-400 hover:underline">
+              BIST Terminali →
+            </Link>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold text-zinc-100 mb-1">
+                <span className="text-lg">🪙</span> Kripto Para Piyasası
+              </div>
+              <p className="text-xs text-zinc-400">
+                BTC, ETH, SOL ve 9 farklı kategorideki 100+ popüler coin 7/24 kesintisiz taranır.
+              </p>
+            </div>
+            <Link href="/kripto" className="mt-3 text-[11px] font-semibold text-amber-400 hover:underline">
+              Kripto Terminali →
+            </Link>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold text-zinc-100 mb-1">
+                <span className="text-lg">🥇</span> Emtia &amp; Döviz
+              </div>
+              <p className="text-xs text-zinc-400">
+                Ons Altın, Gram Altın, Gümüş, Brent Petrol, Doğalgaz, Bakır, USD/TRY, EUR/TRY ve DXY endeksi.
+              </p>
+            </div>
+            <Link href="/emtia-doviz" className="mt-3 text-[11px] font-semibold text-emerald-400 hover:underline">
+              Emtia &amp; FX Terminali →
+            </Link>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold text-zinc-100 mb-1">
+                <span className="text-lg">🇺🇸</span> ABD Borsası
+              </div>
+              <p className="text-xs text-zinc-400">
+                Apple, Microsoft, NVIDIA, Tesla, Google, Amazon gibi Nasdaq ve S&amp;P 500 devleri.
+              </p>
+            </div>
+            <Link href="/abd-borsasi" className="mt-3 text-[11px] font-semibold text-indigo-400 hover:underline">
+              ABD Borsası Terminali →
+            </Link>
+          </div>
+        </div>
+
+        <H3>Karar Destek Sinyallerinin Anlamı</H3>
+        <p>
+          Her varlık için hesaplanan karma skor <strong>-1,00 ile +1,00</strong> aralığında normalize edilir:
         </p>
         <Table
-          head={["Sinyal", "Anlamı"]}
+          head={["Sinyal", "Karma Skor Eşiği", "Piyasa Anlamı & Aksiyon Önerisi"]}
           rows={[
-            [<span key="a" className="font-bold text-emerald-400">AL</span>, "Puan eşiğin üzerinde; pozitif görünüm."],
-            [<span key="t" className="font-bold text-amber-400">TUT</span>, "Belirgin yön yok; bekle-gör."],
-            [<span key="s" className="font-bold text-red-400">SAT</span>, "Puan eşiğin altında; negatif görünüm."],
+            [
+              <span key="a" className="inline-flex items-center gap-1 font-bold text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> AL (Güçlü Pozitif)
+              </span>,
+              <C key="ae">Karma Skor ≥ +0,28</C>,
+              "Göstergeler ve trend boğa bölgesindedir; alım koşulları teknik/temel olarak olgunlaşmıştır.",
+            ],
+            [
+              <span key="t" className="inline-flex items-center gap-1 font-bold text-amber-400">
+                <span className="h-2 w-2 rounded-full bg-amber-400" /> TUT (Nötr / Bekle-Gör)
+              </span>,
+              <C key="te">-0,28 &lt; Karma Skor &lt; +0,28</C>,
+              "Yön belirgin değildir, piyasa yatay bantta veya dinlenmededir. Mevcut pozisyon korunabilir, yeni giriş için teyit beklenir.",
+            ],
+            [
+              <span key="s" className="inline-flex items-center gap-1 font-bold text-red-400">
+                <span className="h-2 w-2 rounded-full bg-red-400" /> SAT (Güçlü Negatif)
+              </span>,
+              <C key="se">Karma Skor ≤ -0,28</C>,
+              "Ayı piyasası baskısı, trend kaybı veya zayıf rasyolar mevcuttur; kâr realizasyonu veya nakde geçiş düşünülmelidir.",
+            ],
           ]}
         />
+
         <Note tone="warn">
-          Bu uygulama bir karar destek aracıdır, <strong>yatırım tavsiyesi değildir</strong>. Nihai karar ve risk
-          size aittir.
+          <strong>Yasal Uyarı:</strong> Finans Asistanı algoritmik bir analiz ve karar destek platformudur;
+          <strong>yatırım tavsiyesi (YTD) niteliğinde değildir</strong>. Piyasa riskleri, ani haber akışları ve
+          gecikmeli borsa verileri nedeniyle yatırım kararlarınızı kendi araştırmanıza dayandırmalısınız.
         </Note>
       </Section>
 
-      <Section id="bolumler" title="2. Ekran Bölümleri (yukarıdan aşağıya)">
-        <H3>Üst çubuk</H3>
+      {/* ========================================================================= */}
+      {/* 2. EKRAN BÖLÜMLERİ & NAVİGASYON */}
+      {/* ========================================================================= */}
+      <Section id="navigasyon" title="2. Ekran Bölümleri & Navigasyon Mimarisi">
         <p>
-          Logo (ana sayfaya döner), her sayfada duran <strong>hızlı hisse arama</strong> kutusu (kod veya ad yazın,
-          seçince hisse detay sayfası açılır), <strong>Kullanım Kılavuzu</strong> bağlantısı ve seans bilgisi
-          (09:50 - 18:00 Pazartesi-Cuma).
+          Finans Asistanı, hem masaüstü hem de mobil cihazlarda en ergonomik deneyimi sunmak üzere modüler
+          bir mimari ile tasarlanmıştır. Sayfalar ve üst menü bölümleri aşağıda listelenmiştir:
         </p>
 
-        <H3>① Tüm BIST Şirketleri (Arama alanı)</H3>
-        <p>
-          800+ şirket arasında arama yapın. <strong>Analiz Periyodu</strong> düğmeleri ile (5dk - Aylık) analizin hangi
-          mum periyoduyla hesaplanacağını seçin. Seçtiğiniz hisse için altta bir önizleme kartı açılır (karma skor,
-          teknik/temel sinyal, ayrıntılı nedenler). <strong>Hızlı erişim</strong> düğmeleri (THYAO, ASELS, GARAN...)
-          tek tıkla aynı önizlemeyi getirir. Seçtiğiniz periyot hatırlanır.
-        </p>
+        <H3>Üst Navigasyon Çubuğu (AppHeader &amp; MobileNavigation)</H3>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <strong>Logo &amp; Ana Sayfa Linki:</strong> Hangi sayfada olursanız olun tek tıkla BIST ana ekranına döner.
+          </li>
+          <li>
+            <strong>Evrensel Varlık Arama Kutusu (⌘K):</strong> Tüm hisseler, kripto paralar ve emtialar arasında
+            kod veya isimle anında arama yapıp detay grafiğine gitmenizi sağlar.
+          </li>
+          <li>
+            <strong>Piyasa Sekmeleri Çubuğu:</strong> BIST (🇹🇷), Emtia &amp; Döviz (🥇), Kripto Para (🪙) ve ABD
+            Borsası (🇺🇸) arasında hızlı geçiş sağlar.
+          </li>
+          <li>
+            <strong>Canlı Seans Rozeti:</strong> BIST için 09:50 - 18:00 saatlerini, ABD için 16:30 - 23:00 saatlerini,
+            Kripto için 7/24 kesintisiz seans durumunu canlı gösterir.
+          </li>
+          <li>
+            <strong>Üst Menü Bağlantıları:</strong>
+            <ul className="list-circle space-y-1 pl-5 mt-1 text-xs text-zinc-300">
+              <li>
+                <Link href="/kullanim-kilavuzu" className="text-sky-400 hover:underline">
+                  📖 Kullanım Kılavuzu:
+                </Link>{" "}
+                Şu an okuduğunuz genel operasyon ve kullanım rehberi.
+              </li>
+              <li>
+                <Link href="/teknik-detay-klavuzu" className="text-indigo-400 hover:underline">
+                  📊 Teknik Detay Kılavuzu:
+                </Link>{" "}
+                RSI, MACD, ADX, SMA, F/K, PD/DD hesaplama formülleri ve ağırlık tabloları.
+              </li>
+              <li>
+                <Link href="/analitik" className="text-emerald-400 hover:underline">
+                  👥 Canlı Analitik &amp; IP Masası:
+                </Link>{" "}
+                Kullanıcı ziyaretleri, sayfa görüntülemeleri ve tıklama istatistikleri.
+              </li>
+              <li>
+                <Link href="/takip" className="text-violet-400 hover:underline">
+                  📌 İzleme Listesi Masası:
+                </Link>{" "}
+                Favori varlıklarınızın toplu listelendiği müstakil ekran.
+              </li>
+              <li>
+                <Link href="/pozisyonlar" className="text-rose-400 hover:underline">
+                  💼 Portföy Masası:
+                </Link>{" "}
+                Stop-Loss ve Kâr Al seviyeleriyle pozisyon yönetimi ekranı.
+              </li>
+              <li>
+                <Link href="/ayarlar" className="text-sky-300 font-bold hover:underline">
+                  ⚙️ Genel Ayarlar Masası:
+                </Link>{" "}
+                Tüm tarama sıklıkları, e-posta dağıtımı ve önbellek yönetimi.
+              </li>
+            </ul>
+          </li>
+        </ul>
 
-        <H3>② Aktif Pozisyon Takibi (Stop-Loss / Kâr Al Masası)</H3>
-        <p>
-          Aldığınız hisseyi giriş fiyatı, periyodu, <strong>Stop-Loss</strong> ve <strong>Kâr Al</strong> seviyeleriyle
-          kaydedersiniz. Sistem fiyatı belirli aralıklarla kontrol eder; stop&apos;a veya hedefe ulaşılırsa{" "}
-          <strong>e-posta alarmı</strong> gönderir ve pozisyonun durumunu günceller (Aktif → Stop-Loss / Kâr Al
-          gerçekleşti). Satırlarda anlık fiyat, kâr/zarar yüzdesi, stop ve hedefe uzaklık görünür. Elle kontrol için
-          “fiyatları sorgula” düğmesi vardır. Kayıtlar <C>portfoy-takip.md</C> dosyasında tutulur.
-        </p>
+        <H3>Ana Ekrandaki Temel Masalar (Bileşenler)</H3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-2">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <h4 className="font-bold text-zinc-200 text-sm mb-1">① Varlık Önizleme &amp; Hızlı Analiz</h4>
+            <p className="text-xs text-zinc-400">
+              Şirket arama kutusu ve hızlı erişim butonları (THYAO, ASELS, GARAN vb.). Seçilen varlığın anlık
+              fiyatı, karma skoru, periyot düğmeleri (5dk - Aylık) ve sinyal gerekçeleri kartta açılır.
+            </p>
+          </div>
 
-        <H3>③ Çoklu Zaman Dilimi Sinyalleri</H3>
-        <p>
-          Seçili endeksteki (BIST 30 veya BIST TÜM) tüm hisseler <strong>10 periyotta</strong> (5dk, 10dk, 15dk, 30dk, 1S,
-          2S, 4S, Günlük, Haftalık, Aylık) taranır. Sekmelerde her periyot için <strong>AL verenler</strong> ve{" "}
-          <strong>SAT verenler</strong> puan sırasıyla listelenir. Bu bölümün başlığında e-posta sıklığı ve alıcı
-          ayarları ile <strong>“Şimdi Tara &amp; Mail Gönder”</strong> düğmesi bulunur.
-        </p>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <h4 className="font-bold text-zinc-200 text-sm mb-1">② Çoklu Zaman Dilimi Taraması</h4>
+            <p className="text-xs text-zinc-400">
+              Seçilen endeksin tüm hisselerini 10 ayrı periyotta (5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, 1G, 1H, 1A)
+              aynı anda tarar; AL ve SAT verenleri puan sırasıyla sekmelerde sunar.
+            </p>
+          </div>
 
-        <H3>④ Lider Sinyaller (En Yüksek AL / SAT Puanı)</H3>
-        <p>
-          Seçili endeksteki hisseler seçili periyotta puanlanır; en yüksek 5 <strong>AL</strong> ve en düşük 5{" "}
-          <strong>SAT</strong> adayı iki kartta gösterilir. Her satırda fiyat, günlük değişim, teknik/temel skor ve
-          en önemli neden yer alır. Endeks tipi, periyot ve yenileme sıklığı bu bölümden değiştirilir.
-        </p>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <h4 className="font-bold text-zinc-200 text-sm mb-1">③ Lider Sinyaller (Top AL &amp; SAT)</h4>
+            <p className="text-xs text-zinc-400">
+              Piyasadaki en güçlü 5 AL ve en zayıf 5 SAT hissesini öne çıkarır. Her satırda güncel fiyat, günlük
+              değişim %, teknik/temel puan dağılımı ve en kritik sinyal sebebi gösterilir.
+            </p>
+          </div>
 
-        <H3>⑤ Sinyal Karşılaştırma (Takip Listem)</H3>
-        <p>
-          Hisse detayında <strong>“Takibe Al”</strong> dediğiniz kayıtların, kayıt anındaki sinyal ve fiyatı ile
-          güncel fiyatı karşılaştırılır; değişim yüzdesi görürsünüz. Böylece sinyalin sonradan ne kadar isabetli
-          olduğunu ölçersiniz. Kayıtlar <C>takiplistem.md</C> dosyasındadır.
-        </p>
-
-        <H3>⑥ Takip Listesi (İzleme Listesi)</H3>
-        <p>
-          Sürekli izlemek istediğiniz hisse (veya altın) listesidir. Arama kutusundan ekler, çöp kutusu ile
-          kaldırırsınız. Her satırda güncel fiyat, sinyal ve skor gösterilir; periyodu ve yenileme sıklığını
-          buradan seçersiniz. Liste <C>watchlist.md</C> dosyasına kaydedilir ve{" "}
-          <strong>sinyal değişimi e-postası</strong> için kullanılır (bkz. Bölüm 8).
-        </p>
-
-        <H3>Hisse Detay Sayfası</H3>
-        <p>
-          Bir hisseye tıklayınca: fiyat grafiği, RSI/MACD grafikleri, <strong>Karma / Teknik / Temel sinyal</strong>{" "}
-          kartları, kategori bazlı skor dökümü, ADX piyasa rejimi, ATR bazlı dinamik Stop-Loss/Kâr Al önerisi ve
-          temel rasyoların tek tek puan nedenleri görülür.
-        </p>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <h4 className="font-bold text-zinc-200 text-sm mb-1">④ Sinyal Karşılaştırma &amp; Doğruluk</h4>
+            <p className="text-xs text-zinc-400">
+              Hisse detayından “Takibe Al” dediğiniz kayıtların, o günkü sinyal ve fiyatıyla bugünkü fiyatını
+              kıyaslayarak sistemin geçmiş sinyal isabet oranını şeffaf biçimde ölçer.
+            </p>
+          </div>
+        </div>
       </Section>
 
-      <Section id="puanlama" title="3. Hisseler Neye Göre Belirlenir?">
-        <p>Her hisse için üç puan üretilir; hepsi <strong>-1 ile +1</strong> arasındadır:</p>
-        <ol className="list-decimal space-y-1 pl-5">
-          <li><strong>Teknik skor:</strong> Fiyat/hacim grafiğinden hesaplanan indikatörler.</li>
-          <li><strong>Temel skor:</strong> Şirketin bilanço ve değerleme rasyoları.</li>
-          <li><strong>Karma skor:</strong> İkisinin seçili periyoda göre ağırlıklı birleşimi (nihai sinyal budur).</li>
-        </ol>
+      {/* ========================================================================= */}
+      {/* 3. GENEL AYARLAR & BİLDİRİM MASASI (/ayarlar) */}
+      {/* ========================================================================= */}
+      <Section id="genel-ayarlar" title="3. Genel Ayarlar & Bildirim Dağıtımı Masası (/ayarlar)">
+        <p>
+          <Link href="/ayarlar" className="font-bold text-sky-400 underline">
+            Genel Ayarlar Masası (/ayarlar)
+          </Link>
+          , Finans Asistanı&apos;nın sinir merkezidir. Eskiden farklı panellere dağılmış olan tüm tarama aralıkları,
+          e-posta alıcıları, bildirim türleri, ekran yenileme sıklıkları ve önbellek tercihleri tek bir merkezi
+          ekranda toplanmıştır.
+        </p>
+
+        <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-sky-300 mb-1">
+            <span>⚙️</span> Bu Ekrana Nasıl Ulaşılır?
+          </div>
+          <p className="text-xs text-sky-200">
+            Üst bardaki <strong>⚙️ Ayarlar</strong> sekmesine tıklayabilir veya mobil cihazlarda sağ üstteki
+            menü butonunu açıp <strong>⚙️ Genel Ayarlar &amp; Bildirim Dağıtımı</strong> maddesini seçebilirsiniz.
+            Ayrıca tarayıcı adres satırına doğrudan <C>/ayarlar</C> yazarak da erişebilirsiniz.
+          </p>
+        </div>
+
+        <H3>Genel Ayarlar Masasında Bulunan 4 Ana Yönetim Bölümü</H3>
+
+        <div className="space-y-3 my-2">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
+            <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <span className="text-sky-400">A.</span> E-Posta Alıcıları ve Kişiye Özel Bildirim Dağıtımı
+            </h4>
+            <p className="text-xs text-zinc-400 mt-1">
+              Birden fazla alıcı e-posta adresi ekleyebilir, her bir alıcının alacağı bildirim türlerini,
+              piyasalarını ve mail sıklığını birbirinden bağımsız olarak özelleştirebilirsiniz:
+            </p>
+            <ul className="list-disc space-y-1 pl-5 mt-2 text-xs text-zinc-300">
+              <li>
+                <strong>Aktif / Pasif Anahtarı:</strong> Bir e-postayı silmeden geçici olarak bildirim dışı
+                bırakabilirsiniz.
+              </li>
+              <li>
+                <strong>Bildirim Türleri:</strong> 1. Çoklu Zaman Dilimi Raporları, 2. Portföy Stop-Loss/Kâr Al
+                Alarmları, 3. İzleme Listesi Sinyal Değişimleri (her biri bağımsız açılıp kapatılabilir).
+              </li>
+              <li>
+                <strong>Piyasa Kapsamı:</strong> Alıcının hangi piyasaları alacağı (BIST 🇹🇷, Kripto 🪙, Emtia &amp;
+                FX 🥇, ABD Borsası 🇺🇸).
+              </li>
+              <li>
+                <strong>Kişiye Özel Mail Sıklığı:</strong> Örneğin bir yönetici &quot;Günde 1 Kez&quot; özet alırken,
+                aktif bir trader &quot;15 Dakika&quot; veya &quot;5 Dakika&quot; sıklığında bülten alabilir.
+              </li>
+              <li>
+                <strong>Test E-Postası Gönderimi:</strong> Eklediğiniz adresin mail alıp almadığını &quot;Test Maili
+                Gönder&quot; butonuyla anında doğrulayabilirsiniz.
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
+            <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <span className="text-emerald-400">B.</span> Sistem Mail Motoru &amp; Zamanlayıcı (Scheduler)
+            </h4>
+            <p className="text-xs text-zinc-400 mt-1">
+              Sunucu arka planında çalışan zamanlayıcı motorun genel çalışma kurallarını belirler:
+            </p>
+            <ul className="list-disc space-y-1 pl-5 mt-2 text-xs text-zinc-300">
+              <li>
+                <strong>Genel Mail Gönderim Sıklığı:</strong> 5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günde 1 Kez veya
+                Kapalı.
+              </li>
+              <li>
+                <strong>Seans İçi Filtresi:</strong> BIST için saat 09:50 - 18:00 haricinde boş mail gönderilmesini
+                önler (istenirse 7/24 kesintisiz çalışacak şekilde ayarlanabilir).
+              </li>
+              <li>
+                <strong>Şimdi Tara &amp; Mail Gönder Butonu:</strong> Otomatik saati beklemeden tüm sistemi tarayıp
+                tüm aktif alıcılara taze raporu anında postalar.
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
+            <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <span className="text-amber-400">C.</span> Ekran Yenileme &amp; Canlı Piyasa Önbellek Sıklıkları
+            </h4>
+            <p className="text-xs text-zinc-400 mt-1">
+              Tarayıcı açıkken ekranın kaç saniyede bir otomatik güncelleneceğini ve piyasa bazlı veri tazelemeyi
+              yönetir:
+            </p>
+            <ul className="list-disc space-y-1 pl-5 mt-2 text-xs text-zinc-300">
+              <li>
+                <strong>Global Ekran Yenileme:</strong> 15sn, 30sn, 1dk, 2dk, 5dk veya Kapalı seçenekleri.
+              </li>
+              <li>
+                <strong>Piyasa Bazlı Ayrı Sıklıklar:</strong> BIST (30sn), Kripto (15sn - 7/24 hızlı piyasa), Emtia/FX
+                (60sn), ABD Borsası (30sn).
+              </li>
+              <li>
+                <strong>Önbelleği Temizle (Clear Cache) Butonu:</strong> Bellekteki tüm geçmiş verileri tek tıkla silip
+                tüm panellerin en son borsa kotasyonunu doğrudan kaynağından çekmesini sağlar.
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
+            <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <span className="text-rose-400">D.</span> Portföy &amp; İzleme Listesi Tarama Aralıkları
+            </h4>
+            <p className="text-xs text-zinc-400 mt-1">
+              Stop-Loss alarmlarının ve sinyal değişimlerinin sunucu tarafından arka planda kaç dakikada bir kontrol
+              edileceğini belirler (1dk, 5dk, 15dk, 30dk, 1S, Günlük, Kapalı).
+            </p>
+          </div>
+        </div>
+
+        <Note tone="purple">
+          <strong>Kalıcı Depolama Garantisi:</strong> Ayarlar ekranında yaptığınız her değişiklik anında proje
+          içerisindeki yapılandırma dosyalarına (<C>mail-settings.md</C>, <C>mail-recipients.md</C>,{" "}
+          <C>refresh-settings.md</C>, <C>portfoy-takip.md</C>, <C>watchlist.md</C>) yazılır. Sunucu yeniden başlasa
+          bile tercihleriniz asla kaybolmaz.
+        </Note>
+      </Section>
+
+      {/* ========================================================================= */}
+      {/* 4. EKRAN YENİLEME & ÖNBELLEK (CACHE) SIKLIĞI */}
+      {/* ========================================================================= */}
+      <Section id="ekran-yenileme" title="4. Ekran Yenileme & Önbellek (Cache) Sıklığı">
+        <p>
+          Finans piyasalarında saniyeler dahi önemlidir; ancak her saniye yüzlerce hissenin grafiğini harici
+          kaynaklardan çekmek kota aşımına (API rate-limit) ve sayfa donmalarına yol açabilir. Finans Asistanı,
+          bu dengeyi <strong>Akıllı Önbellek (Smart Cache)</strong> ve <strong>Otomatik Ekran Yenileme</strong>{" "}
+          ikilisiyle kusursuz biçimde çözer.
+        </p>
+
+        <H3>Ekran Yenileme Seçenekleri ve Davranışı</H3>
         <Table
-          head={["Puan", "Teknik / Temel sinyal eşiği", "Karma (nihai) sinyal eşiği"]}
+          head={["Yenileme Aralığı", "Kullanım Amacı", "Veri Kaynağı Davranışı"]}
           rows={[
-            ["AL", "skor ≥ +0,25", "skor ≥ +0,28"],
-            ["TUT", "-0,25 ile +0,25 arası", "-0,28 ile +0,28 arası"],
-            ["SAT", "skor ≤ -0,25", "skor ≤ -0,28"],
+            [
+              <strong key="15" className="text-amber-400">15 Saniye</strong>,
+              "Kripto Para ve hızlı volatilite takibi",
+              "Tarayıcı her 15 saniyede bir API'ye sessiz sorgu gönderir. Kripto gibi 7/24 hareketli piyasalar için idealdir.",
+            ],
+            [
+              <strong key="30" className="text-sky-400">30 Saniye (Önerilen)</strong>,
+              "BIST Seans İçi ve ABD Borsası",
+              "Standart seans içi takip hızıdır; hem fiyat değişimlerini kaçırmaz hem de tarayıcı performansını korur.",
+            ],
+            [
+              <strong key="60" className="text-zinc-200">1 Dakika (60sn)</strong>,
+              "Emtia, Döviz ve Swing Trading",
+              "Altın, petrol ve pariteler için oldukça dengeli bir hızdır.",
+            ],
+            [
+              <strong key="120" className="text-zinc-400">2 Dakika - 5 Dakika</strong>,
+              "Düşük internet kotası / Arka planda açık tutma",
+              "Gereksiz veri trafiğini önler; uzun vadeli pozisyon takip edenler için uygundur.",
+            ],
+            [
+              <strong key="off" className="text-zinc-500">Kapalı (Off)</strong>,
+              "Yalnızca Manuel Yenileme",
+              "Otomatik sorgu yapılmaz; veriler yalnızca siz &quot;Şimdi Yenile&quot; butonuna bastığınızda güncellenir.",
+            ],
           ]}
         />
+
+        <H3>Sunucu Önbelleği (Cache TTL) Nasıl Çalışır?</H3>
         <p>
-          Lider Sinyaller listesinde hisseler karma skora göre sıralanır; yüksek pozitif skorlar AL, düşük negatif
-          skorlar SAT listesine girer.
+          Uygulama sunucusu, seçtiğiniz ekran yenileme süresini (örneğin 30 saniye) önbellek yaşam süresi (TTL)
+          olarak kullanır. Aynı 30 saniye içinde sayfayı 10 kez art arda yenileseniz dahi harici borsa sunucularına
+          tekrar tekrar gitmez; hazır önbellekten milisaniyeler içinde yanıt döner.
+        </p>
+        <p>
+          Ancak anlık bir kırılım, flaş bir haber veya ani bir fiyat sıçraması olduğunda, paneldeki{" "}
+          <strong>🔄 Yenile</strong> butonuna basabilir veya Ayarlar ekranındaki <strong>Önbelleği Temizle</strong>{" "}
+          seçeneğini kullanabilirsiniz. Bu işlem önbelleği baypas eder ve doğrudan en güncel piyasa kotasyonunu
+          indirir.
         </p>
       </Section>
 
-      <Section id="teknik" title="4. Teknik Analiz (4 kategori, 9 gösterge)">
+      {/* ========================================================================= */}
+      {/* 5. E-POSTA GÖNDERİM SIKLIĞI & BİLDİRİM DAĞITIMI */}
+      {/* ========================================================================= */}
+      <Section id="mail-sistemi" title="5. E-Posta Gönderim Sıklığı & Bildirim Dağıtımı">
         <p>
-          Her gösterge -1 ile +1 arası puan ve bir ağırlık alır; kategori içinde ağırlıklı ortalama alınır, sonra
-          kategoriler aşağıdaki oranlarla birleştirilir.
+          Finans Asistanı, ekran başında olmasanız bile sizi piyasadaki fırsatlardan ve risklerden anında haberdar
+          etmek üzere gelişmiş bir <strong>E-Posta Bildirim Motoru</strong> içerir. Sistemde 3 farklı bildirim
+          türü bulunur ve her birinin gönderim kuralları farklıdır.
+        </p>
+
+        <H3>3 Farklı E-Posta Bildirim Türü ve Tetiklenme Kuralları</H3>
+        <Table
+          head={["Bildirim Türü", "İçerik", "Tetiklenme Kuralı & Aciliyet", "Varsayılan Gönderim Sıklığı"]}
+          rows={[
+            [
+              <div key="m1">
+                <strong className="text-sky-300">1. Çoklu Zaman Dilimi Raporu</strong>
+                <span className="block text-[11px] text-zinc-400">Toplu Piyasa Bülteni</span>
+              </div>,
+              "10 farklı mum periyodunda (5dk - Aylık) AL ve SAT sinyali üreten tüm hisselerin karma skorları, teknik ve temel analiz dökümü.",
+              "Seçili piyasadaki tüm varlıklar taranır. Sinyal değişimi aranmaz; tarama anında AL veya SAT olan tüm hisseler raporlanır.",
+              "Belirlenen mail sıklığında periyodik olarak gelir (Varsayılan: 15 Dakika). Seans içi kuralına tabidir.",
+            ],
+            [
+              <div key="m2">
+                <strong className="text-rose-400">2. Portföy Stop-Loss / Kâr Al Alarmı</strong>
+                <span className="block text-[11px] text-zinc-400">Kritik Acil Alarm</span>
+              </div>,
+              "Pozisyon aldığınız hissenin Stop-Loss veya Kâr Al seviyesine ulaştığı bilgisi; giriş fiyatı, güncel fiyat, kâr/zarar % oranı.",
+              "Fiyat stop veya hedef seviyesine değdiği anda ANINDA gönderilir! Periyodik mail saati beklenmez. Spam olmaması için olay başına bir kez gönderilir ve pozisyon durumu güncellenir.",
+              "Portföy Tarama Sıklığına göre (1 dk - 15 dk). Hedefe ulaşıldığı an beklemeksizin iletilir.",
+            ],
+            [
+              <div key="m3">
+                <strong className="text-violet-300">3. İzleme Listesi Sinyal Değişimi</strong>
+                <span className="block text-[11px] text-zinc-400">Favori Hisse Takibi</span>
+              </div>,
+              "İzleme listenize eklediğiniz hisselerin sinyali bir önceki kontrole göre değiştiğinde (örn: TUT → AL veya AL → SAT) oluşan uyarı.",
+              "Yalnızca sinyal durumunda bir değişim yaşandığında gönderilir. Durum aynı kaldığı sürece gereksiz e-posta atılmaz.",
+              "Watchlist kontrol aralığına göre (1 dk - 1 saat veya seans kapanışlarında günde 2 kez Vercel Cron).",
+            ],
+          ]}
+        />
+
+        <H3>Mail Gönderim Sıklığı (Schedule Intervals) Nasıl Ayarlanır?</H3>
+        <p>
+          Genel Ayarlar Masasından veya Çoklu Zaman Dilimi başlığından genel mail sıklığını seçebilirsiniz:
+        </p>
+        <ul className="list-disc space-y-1.5 pl-5 text-xs text-zinc-300">
+          <li>
+            <strong>5 Dakika / 10 Dakika:</strong> Gün içi çok hızlı işlem (scalping / day-trading) yapanlar için.
+          </li>
+          <li>
+            <strong>15 Dakika (Varsayılan &amp; Tavsiye Edilen):</strong> Seans içi trend takibi için altın orandır;
+            hem piyasa değişimlerini zamanında yakalar hem de posta kutunuzu boğmaz.
+          </li>
+          <li>
+            <strong>30 Dakika / 1 Saat / 2 Saat / 4 Saat:</strong> Swing trader&apos;lar ve daha sakin yatırımcılar için.
+          </li>
+          <li>
+            <strong>Günde 1 Kez (1d):</strong> Her gün seans kapanışında (18:15 civarı) tek bir özet bülten gönderir.
+          </li>
+          <li>
+            <strong>Kapalı:</strong> Otomatik periyodik rapor gönderilmez. Yalnızca kritik Stop-Loss alarmları ve
+            elle basılan &quot;Şimdi Tara &amp; Mail Gönder&quot; talepleri çalışır.
+          </li>
+        </ul>
+
+        <H3>Kişiye Özel Mail Sıklığı (Individual Recipient Frequencies)</H3>
+        <p>
+          Finans Asistanı, tek bir genel sıklığa mahkum değildir. Örneğin sistemde 3 alıcı kayıtlıysa:
+        </p>
+        <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-300">
+          <li>
+            <C>ahmet@sirket.com</C> → <strong>15 Dakika</strong> aralıkla sadece BIST raporlarını alabilir.
+          </li>
+          <li>
+            <C>mehmet@sirket.com</C> → <strong>1 Saat</strong> aralıkla Kripto ve ABD Borsası raporlarını alabilir.
+          </li>
+          <li>
+            <C>yonetici@sirket.com</C> → <strong>Günde 1 Kez</strong> akşam özeti alabilir.
+          </li>
+        </ul>
+        <p className="text-xs text-zinc-400">
+          Sistem her kullanıcının en son mail aldığı zamanı (<C>lastMailedAt</C>) bağımsız bir zaman damgasıyla takip
+          eder. Böylece herkes yalnızca kendi istediği tempoda bilgilendirilir.
+        </p>
+
+        <H3>E-Posta Servis Sağlayıcı Ayarları (.env.local)</H3>
+        <p>
+          E-postaların başarıyla ulaşabilmesi için sunucu ortam değişkenlerinde aşağıdaki tanımlardan en az biri
+          yapılmış olmalıdır:
+        </p>
+        <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-300">
+          <li>
+            <C>GMAIL_USER</C> ve <C>GMAIL_APP_PASSWORD</C>: Google Hesabı üzerinden ücretsiz gönderim (Google Hesap
+            Güvenliği sayfasından 16 haneli &quot;Uygulama Şifresi&quot; oluşturulmalıdır; normal e-posta şifreniz
+            kabul edilmez).
+          </li>
+          <li>
+            <C>RESEND_API_KEY</C>: Profesyonel transactional e-posta servisi (Resend üzerinden anlık teslimat).
+          </li>
+        </ul>
+      </Section>
+
+      {/* ========================================================================= */}
+      {/* 6. PORTFÖY TAKİBİ & PORTFÖY TARAMA SIKLIĞI */}
+      {/* ========================================================================= */}
+      <Section id="portfoy-tarama" title="6. Portföy Takibi & Portföy Tarama Sıklığı (Stop-Loss / Kâr Al)">
+        <p>
+          Yatırımda en önemli kural sermayeyi korumak ve kârı realize etmektir.{" "}
+          <Link href="/pozisyonlar" className="font-bold text-rose-400 underline">
+            Portföy Masası (/pozisyonlar)
+          </Link>
+          , aldığınız hisseleri Stop-Loss (Zarar Durdur) ve Take-Profit (Kâr Al) hedefleriyle kayıt altına alır.
+        </p>
+
+        <H3>Portföy Tarama Sıklığı Nedir ve Nasıl Çalışır?</H3>
+        <p>
+          <strong>Portföy Tarama Sıklığı</strong>, sunucu arka plan servisinin portföyünüzdeki açık pozisyonların
+          fiyatını borsa sunucularından kaç dakikada bir sorgulayacağını belirleyen parametredir.
+        </p>
+        <ul className="list-disc space-y-1.5 pl-5 text-xs text-zinc-300">
+          <li>
+            <strong>1 Dakika:</strong> Çok agresif canlı takip. Ani çökmeler veya tavana giden hisselerde saniyeler
+            içinde alarm üretir.
+          </li>
+          <li>
+            <strong>5 Dakika (Varsayılan):</strong> Hem sunucu trafiğini yormayan hem de gün içi zararları minimize
+            eden ideal standarttır.
+          </li>
+          <li>
+            <strong>15 Dakika / 30 Dakika / 1 Saat:</strong> Orta-uzun vadeli hisse taşıyan ve gün içi küçük dalgalanmalardan
+            etkilenmek istemeyenler için.
+          </li>
+          <li>
+            <strong>Kapalı:</strong> Otomatik arka plan fiyat kontrolü yapılmaz; yalnızca ekrandaki &quot;Fiyatları
+            Sorgula&quot; butonuna bastığınızda kontrol edilir.
+          </li>
+        </ul>
+
+        <H3>Dinamik ATR Risk Yönetimi ve Otomatik Seviye Önerisi</H3>
+        <p>
+          Pozisyon eklerken stop veya hedef belirlemekte zorlanıyorsanız, hisse detayında sunulan dinamik{" "}
+          <strong>ATR (Ortalama Gerçek Aralık)</strong> formülünü kullanabilirsiniz:
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-2">
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5">
+            <span className="text-xs font-bold text-rose-300 uppercase">Önerilen Stop-Loss Formülü</span>
+            <p className="mt-1 font-mono text-sm font-bold text-rose-200">Stop-Loss = Alış Fiyatı - (1,5 × ATR)</p>
+            <p className="text-[11px] text-zinc-400 mt-1">
+              Hissenin normal günlük dalgalanma gürültüsüne pay bırakarak erken stop olmanızı engeller.
+            </p>
+          </div>
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5">
+            <span className="text-xs font-bold text-emerald-300 uppercase">Önerilen Kâr Al Formülü</span>
+            <p className="mt-1 font-mono text-sm font-bold text-emerald-200">Kâr Al Hedefi = Alış Fiyatı + (2,5 × ATR)</p>
+            <p className="text-[11px] text-zinc-400 mt-1">
+              Risk/Kazanç oranını yaklaşık <strong>1 : 1,67</strong> seviyesine taşıyarak uzun vadede kârlı bir matematik kurar.
+            </p>
+          </div>
+        </div>
+
+        <H3>Pozisyon Durumları (Yaşam Döngüsü)</H3>
+        <p>Eklediğiniz her pozisyon aşağıdaki durumlardan birinde bulunur:</p>
+        <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-300">
+          <li>
+            <span className="font-bold text-sky-400">Aktif:</span> Fiyat henüz stop veya hedef seviyesine ulaşmamıştır;
+            canlı kâr/zarar % oranı anlık hesaplanır.
+          </li>
+          <li>
+            <span className="font-bold text-red-400">Stop-Loss Gerçekleşti:</span> Fiyat belirlediğiniz stop seviyesine
+            eşit veya altına inmiştir. E-posta alarmı gönderilmiş ve durum kilitlenmiştir.
+          </li>
+          <li>
+            <span className="font-bold text-emerald-400">Kâr Al Hedefi Gerçekleşti:</span> Fiyat hedeflediğiniz seviyeye
+            ulaşmış veya üstüne çıkmıştır. Zafer alarmı e-postası gönderilmiştir.
+          </li>
+          <li>
+            <span className="font-bold text-zinc-400">Kapatıldı:</span> Kendi isteğinizle satıp kapattığınız pozisyonlar.
+          </li>
+        </ul>
+      </Section>
+
+      {/* ========================================================================= */}
+      {/* 7. İZLEME LİSTESİ & SİNYAL DEĞİŞİM KONTROLÜ */}
+      {/* ========================================================================= */}
+      <Section id="izleme-listesi" title="7. İzleme Listesi & Sinyal Değişim Kontrolü (Watchlist)">
+        <p>
+          <Link href="/takip" className="font-bold text-violet-400 underline">
+            İzleme Listesi Masası (/takip)
+          </Link>
+          , sürekli radarınızda tutmak istediğiniz favori hisseleri, altın/döviz varlıklarını veya kripto paraları
+          tek bir tabloda izlemenizi sağlar.
+        </p>
+        <ul className="list-disc space-y-1.5 pl-5 text-xs text-zinc-300">
+          <li>
+            <strong>Kolay Yönetim:</strong> Varlık arama kutusundan hızlıca ekleyebilir, tek tıkla silebilirsiniz.
+          </li>
+          <li>
+            <strong>Piyasa Sekmeleri:</strong> BIST hisseleri, Kriptolar, Emtialar ve ABD hisseleri arasında sekmelerle
+            filtreleme yapabilirsiniz.
+          </li>
+          <li>
+            <strong>Sinyal Değişim Kontrol Sıklığı:</strong> 1dk, 5dk, 15dk, 30dk, 1S, Günlük veya Kapalı.
+            Belirlenen sıklıkta arka plan motoru listenizdeki hisselerin sinyalini kıyaslar.
+          </li>
+          <li>
+            <strong>Anlık Sinyal Değişim E-Postası:</strong> Örneğin listenizdeki bir hisse haftalardır TUT
+            sinyalindeyken aniden güçlü hacimle <strong>AL</strong> sinyaline dönerse, sistem durumu tespit edip
+            derhal &quot;Sinyal Değişimi: THYAO AL&quot; başlığıyla alıcılara e-posta uyarısı yollar.
+          </li>
+        </ul>
+      </Section>
+
+      {/* ========================================================================= */}
+      {/* 8. HİSSELER VE VARLIKLAR NEYE GÖRE BELİRLENİR? */}
+      {/* ========================================================================= */}
+      <Section id="puanlama" title="8. Hisseler ve Varlıklar Neye Göre Belirlenir?">
+        <p>
+          Finans Asistanı, hiçbir hisseyi rastgele veya hissi duygularla listelemez. İncelenen her şirket için
+          üç ayrı matematiksel skor üretilir ve tüm skorlar <strong>-1,00 ile +1,00</strong> arasında normalize edilir:
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 my-2">
+          <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
+            <span className="text-xs font-bold text-sky-400 uppercase">1. Teknik Skor</span>
+            <p className="mt-1 text-xs text-zinc-300 leading-relaxed">
+              Fiyat hareketleri, hacim, trend çizgileri, hareketli ortalamalar ve osilatörlerin (RSI, MACD, ADX,
+              Bollinger vb.) ağırlıklı toplamıdır.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4">
+            <span className="text-xs font-bold text-indigo-400 uppercase">2. Temel Skor</span>
+            <p className="mt-1 text-xs text-zinc-300 leading-relaxed">
+              Şirketin bilançosu, kârlılık marjları, F/K, PD/DD, PEG oranları, borçluluk ve büyüme rasyolarından
+              elde edilen temel sağlamlık puanıdır.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <span className="text-xs font-bold text-emerald-400 uppercase">3. Karma (Nihai) Skor</span>
+            <p className="mt-1 text-xs text-zinc-300 leading-relaxed">
+              Seçilen analiz periyoduna göre teknik ve temel skorun harmanlanmasıyla elde edilen nihai karar
+              skorudur. AL/SAT sinyali bu skora göre verilir.
+            </p>
+          </div>
+        </div>
+
+        <H3>Sinyal Üretim Eşikleri</H3>
+        <Table
+          head={["Karar", "Teknik Skor Eşiği", "Temel Skor Eşiği", "Karma (Nihai) Skor Eşiği"]}
+          rows={[
+            [
+              <span key="a" className="font-bold text-emerald-400">AL</span>,
+              "Skor ≥ +0,25",
+              "Skor ≥ +0,25",
+              <strong key="ak" className="text-emerald-400">Skor ≥ +0,28</strong>,
+            ],
+            [
+              <span key="t" className="font-bold text-amber-400">TUT</span>,
+              "-0,25 &lt; Skor &lt; +0,25",
+              "-0,25 &lt; Skor &lt; +0,25",
+              <strong key="tk" className="text-amber-400">-0,28 &lt; Skor &lt; +0,28</strong>,
+            ],
+            [
+              <span key="s" className="font-bold text-red-400">SAT</span>,
+              "Skor ≤ -0,25",
+              "Skor ≤ -0,25",
+              <strong key="sk" className="text-red-400">Skor ≤ -0,28</strong>,
+            ],
+          ]}
+        />
+        <p className="text-xs text-zinc-400">
+          <strong>Lider Sinyaller Sıralaması:</strong> Seçili periyotta taranan hisseler en yüksek karma skordan en
+          düşüğe dizilir. En yüksek pozitif skora sahip 5 hisse <strong>Lider AL</strong>, en düşük negatif skora
+          sahip 5 hisse ise <strong>Lider SAT</strong> panosunda yer alır.
+        </p>
+      </Section>
+
+      {/* ========================================================================= */}
+      {/* 9. TEKNİK ANALİZ METODOLOJİSİ */}
+      {/* ========================================================================= */}
+      <Section id="teknik" title="9. Teknik Analiz Metodolojisi (4 Kategori, 9 Gösterge)">
+        <p>
+          Teknik analiz motoru, tek bir indikatöre bağlı kalmanın getireceği yanılgıları önlemek için 4 farklı
+          kategoride toplam 9 bağımsız teknik göstergeyi eş zamanlı analiz eder.
         </p>
         <Table
-          head={["Kategori", "Ağırlık", "Göstergeler", "Mantık"]}
+          head={["Kategori", "Ağırlık", "Kullanılan Göstergeler", "Değerlendirme Mantığı"]}
           rows={[
             [
               "Ana Trend",
               "%35",
               "Fiyat/SMA200, EMA20/EMA50, SMA50/SMA200",
-              "Fiyat SMA200 üstünde ise boğa bölgesi (+), altında ayı (-). EMA/SMA kesişimleri (Golden/Death Cross) ve sıralaması yönü verir.",
+              "Fiyat SMA200 üzerindeyse boğa bölgesi (+), altındaysa ayı (-). Golden Cross (50>200) ve EMA sıralaması trend yönünü doğrular.",
             ],
             [
               "Trend Gücü & Rejim",
               "%25",
               "ADX(14), +DI / -DI",
-              "ADX ≥ 25 güçlü trend (yön +DI/-DI'ye göre ±1); ADX 20-25 ılımlı (±0,5); ADX altında 20 yatay piyasa (0).",
+              "ADX ≥ 25 ise güçlü trend vardır; yön +DI / -DI farkına göre belirlenir. ADX < 20 ise piyasa yatay kabul edilir.",
             ],
             [
               "Momentum & Zamanlama",
               "%25",
               "MACD(12,26,9), RSI(14), Stokastik(14,3)",
-              "MACD sinyal kesişimi; RSI altında 30 aşırı satım (+), üstünde 70 aşırı alım (-); Stokastik dipte/tepede kesişim. Güçlü trendde RSI/Stokastik uyarıları yumuşatılır (trendle uyumlu).",
+              "MACD sinyal çizgisi kesişimi; RSI < 30 aşırı satım (+), RSI > 70 aşırı alım (-). Güçlü trendde osilatör uyarıları trend yönüne göre yumuşatılır.",
             ],
             [
               "Hacim & Volatilite",
               "%15",
-              "Hacim (20 dönem ort.), Bollinger(20,2)",
-              "Ortalamanın 1,3 katı hacimle yükseliş (+) / düşüş (-). Fiyat alt bandın altında (+), üst bandın üstünde (-).",
+              "Hacim (20 dönem ortalaması), Bollinger Bantları(20,2)",
+              "Ortalama hacmin 1,3 katı üzerindeki yükselişler alımı kuvvetlendirir (+). Fiyat alt banda değdiğinde tepki alımı (+), üst banda değdiğinde direnç kabul edilir.",
             ],
           ]}
         />
         <Note>
-          <strong>Dinamik risk:</strong> ATR(14) ile <strong>Stop-Loss = Fiyat - 1,5×ATR</strong> ve{" "}
-          <strong>Kâr Al = Fiyat + 2,5×ATR</strong> önerilir (risk/kazanç ≈ 1,67). Bunu pozisyon takibinde
-          başlangıç değeri olarak kullanabilirsiniz.
+          Daha ayrıntılı matematiksel formüller ve kod mantığı için{" "}
+          <Link href="/teknik-detay-klavuzu" className="font-bold underline text-indigo-300">
+            Teknik Detay Kılavuzu
+          </Link>{" "}
+          sayfamızı ziyaret edebilirsiniz.
         </Note>
       </Section>
 
-      <Section id="temel" title="5. Temel Analiz (şirket rasyoları)">
+      {/* ========================================================================= */}
+      {/* 10. TEMEL ANALİZ METODOLOJİSİ */}
+      {/* ========================================================================= */}
+      <Section id="temel" title="10. Temel Analiz Metodolojisi (Sanayi vs. Bankacılık)">
         <p>
-          Rasyolar Yahoo Finance&apos;ten gelir. <strong>Bankalar ve finans şirketleri</strong> için ayrı eşik ve
-          ağırlıklar kullanılır; çünkü mevduat borç sayıldığından Cari Oran ve Borç/Özkaynak bankalarda
-          kullanılmaz (ağırlık 0).
+          Temel analizde şirketlerin finansal tabloları analiz edilir. Finans sektöründe (Bankalar, Holdingler,
+          Sigortalar) mevduat borç olarak geçtiğinden geleneksel cari oran veya borç rasyoları anlamsızdır. Bu
+          yüzden sistem <strong>Sanayi Şirketleri</strong> ve <strong>Bankalar / Finans Kuruluşları</strong> için
+          farklı ağırlık matrisleri uygular.
         </p>
         <Table
-          head={["Kategori", "Sanayi / Banka ağırlığı", "Rasyolar ve AL (+) eşiği", "Negatif (-) eşik"]}
+          head={["Kategori", "Sanayi / Banka Ağırlığı", "Pozitif (AL) Eşikleri", "Negatif (SAT) Eşikleri"]}
           rows={[
             [
               "Kârlılık",
               "%35 / %45",
-              "Net kâr marjı ≥ %10; Faaliyet marjı ≥ %15; ROE ≥ %15 (banka %20); ROA ≥ %5 (banka %1,8)",
-              "Marj ≤ 0; ROE altında %5 (banka %10); ROA altında %1 (banka %0,8)",
+              "Net Kâr Marjı ≥ %10, Faaliyet Marjı ≥ %15, ROE ≥ %15 (Banka %20), ROA ≥ %5 (Banka %1,8)",
+              "Negatif kâr marjı, ROE < %5 (Banka %10), ROA < %1 (Banka %0,8)",
             ],
             [
               "Değerleme",
               "%30 / %40",
-              "PEG 0-1; F/K 0-15 (banka 0-7); PD/DD altında 1,5 (banka 0,9)",
-              "PEG üstünde 2 veya negatif; F/K üstünde 30 (banka 12) veya negatif; PD/DD üstünde 4 (banka 1,8)",
+              "PEG 0 - 1,0, F/K 0 - 15 (Banka 0 - 7), PD/DD < 1,5 (Banka < 0,9)",
+              "PEG > 2,0 veya negatif, F/K > 30 (Banka > 12), PD/DD > 4,0 (Banka > 1,8)",
             ],
             [
               "Mali Sağlamlık",
               "%25 / %0",
-              "Cari oran ≥ 1,2; Borç/Özkaynak altında %100",
-              "Cari oran altında 1,0; Borç/Özkaynak üstünde %200",
+              "Cari Oran ≥ 1,20, Borç / Özkaynak < %100 (Bankalarda sıfır ağırlık)",
+              "Cari Oran < 1,00, Borç / Özkaynak > %200",
             ],
             [
               "Büyüme & Temettü",
               "%10 / %15",
-              "Gelir büyümesi ≥ %10; Temettü verimi ≥ %2",
-              "Gelir büyümesi negatif",
+              "Gelir Büyümesi ≥ %10, Temettü Verimi ≥ %2,0",
+              "Gelir büyümesi negatif veya ciro daralması",
             ],
           ]}
         />
-        <p>
-          Verisi bulunamayan rasyo hesaba katılmaz; kalan kategorilerin ağırlıkları orantılı olarak yeniden
-          dağıtılır. Hiç temel veri yoksa karar <strong>%100 teknik</strong> olur.
+        <p className="text-xs text-zinc-400">
+          Kripto paralarda veya döviz/emtia varlıklarında bilanço bulunmadığından temel analiz skoru uygulanmaz;
+          karar <strong>%100 teknik analiz</strong> ile üretilir.
         </p>
       </Section>
 
-      <Section id="karma" title="6. Karma Karar ve Periyoda Göre Ağırlık">
+      {/* ========================================================================= */}
+      {/* 11. KARMA KARAR & PERİYOT STRATEJİLERİ */}
+      {/* ========================================================================= */}
+      <Section id="karma" title="11. Karma Karar & Periyot Stratejileri">
         <p>
-          Kısa periyotta fiyatı bilanço değil likidite ve teknik hareket belirler; uzun periyotta şirketin temeli
-          daha önemlidir. Bu yüzden teknik/temel ağırlığı periyoda göre değişir:
+          Kısa vadeli grafiklerde fiyatı bilanço değil likidite ve anlık teknik momentum belirler; uzun vadeli
+          grafiklerde ise şirketin temel sağlamlığı baskındır. Bu nedenle teknik ve temel analizin karma skordaki
+          ağırlıkları seçilen zaman dilimine göre dinamik olarak değişir:
         </p>
         <Table
-          head={["Periyot", "Teknik", "Temel"]}
+          head={["Mum Periyodu", "Teknik Ağırlık", "Temel Ağırlık", "Yatırımcı Profili & Strateji"]}
           rows={[
-            ["5dk, 10dk", "%95", "%5"],
-            ["15dk, 30dk", "%90", "%10"],
-            ["1 Saat, 2 Saat", "%80", "%20"],
-            ["4 Saat", "%70", "%30"],
-            ["Günlük", "%60", "%40"],
-            ["Haftalık", "%45", "%55"],
-            ["Aylık", "%35", "%65"],
+            ["5 dk, 10 dk", "%95", "%5", "Çok hızlı gün içi işlem (Scalping)"],
+            ["15 dk, 30 dk", "%90", "%10", "Gün içi aktif al-sat (Day Trading)"],
+            ["1 Saat, 2 Saat", "%80", "%20", "2-3 günlük kısa vade"],
+            ["4 Saat", "%70", "%30", "1-2 haftalık salınım (Swing Trading - Çok Popüler)"],
+            ["1 Gün (Günlük)", "%60", "%40", "Orta vadeli trend takibi (1 - 3 ay)"],
+            ["1 Hafta (Haftalık)", "%45", "%55", "Uzun vadeli yatırım (3 - 12 ay)"],
+            ["1 Ay (Aylık)", "%35", "%65", "Değer ve temettü yatırımı (1 yıl+)"],
           ]}
         />
-        <p>
-          <strong>Karma skor = Teknik ağırlık × Teknik skor + Temel ağırlık × Temel skor.</strong> Hisse detayında
-          teknik ve temel sinyallerin uyumu da yorumlanır (ör. “Güçlü Uyum”, “Ayrışan Sinyal: Teknik AL / Temel
-          Zayıf”). Ayrışan durumlarda yakın stop-loss ile takip önerilir.
-        </p>
-        <H3>Hangi periyodu seçmeliyim?</H3>
+
+        <H3>Çoklu Zaman Dilimi Teyit Matrisi</H3>
         <Table
-          head={["Amaç", "Ana sinyal", "Trend filtresi", "Giriş zamanlaması"]}
+          head={["İşlem Amacınız", "Tetikleyici Giriş Periyodu", "Ana Trend Sinyali", "Üst Trend Filtresi"]}
           rows={[
-            ["Gün içi", "15 dk", "1 saat", "5 dk"],
-            ["2-3 gün", "1 saat", "4 saat", "15 dk"],
-            ["~2 hafta (Swing)", "Günlük", "Haftalık", "4 saat"],
-            ["1-3 ay", "Haftalık", "Aylık", "Günlük"],
+            ["Gün İçi Al-Sat", "5 Dakika", "15 Dakika", "1 Saat"],
+            ["Kısa Vade (2-3 Gün)", "15 Dakika", "1 Saat", "4 Saat"],
+            ["Swing Trade (~2 Hafta)", "1 Saat", "Günlük (1D)", "Haftalık (1W)"],
+            ["Büyük Trend (1-6 Ay)", "Günlük (1D)", "Haftalık (1W)", "Aylık (1M)"],
           ]}
         />
-        <p>
-          Kısa periyotlar daha çok yanlış sinyal üretir; bireysel yatırımcı için komisyon ve spread nedeniyle 4 saat
-          ve günlük periyotlar genellikle daha makuldür. Ayrıntı için <C>periyot-stratejileri.md</C> dosyasına
-          bakın.
-        </p>
       </Section>
 
-      <Section id="ayarlar" title="7. Ekrandaki Ayarlar">
-        <Table
-          head={["Ayar", "Nerede", "Seçenekler", "Ne işe yarar / nerede saklanır"]}
-          rows={[
-            [
-              "Analiz Periyodu",
-              "Arama alanı, Lider Sinyaller, Takip Listesi",
-              "5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, Haftalık, Aylık",
-              <span key="p">
-                Her panel için ayrı seçilir; mum periyodunu ve teknik/temel ağırlığını belirler.{" "}
-                <C>timeframe-settings.md</C>
-              </span>,
-            ],
-            [
-              "Endeks Tipi",
-              "Çoklu Zaman Dilimi, Lider Sinyaller",
-              "BIST 30 / BIST TÜM",
-              <span key="i">
-                Hangi hisse evreninin taranacağını seçer. BIST TÜM çok daha yavaştır. <C>endeks-tip.md</C>
-              </span>,
-            ],
-            [
-              "Veri Yenileme (otomatik)",
-              "Lider Sinyaller, Çoklu Zaman, Takip Listesi",
-              "15sn, 30sn, 1dk, 2dk, 5dk, Kapalı",
-              <span key="r">
-                Ekran verisinin kaç saniyede bir yenileneceğini ve sunucu önbellek süresini belirler. Yanındaki
-                yenile düğmesi anında günceller. <C>refresh-settings.md</C>
-              </span>,
-            ],
-            [
-              "Mail Sıklığı",
-              "Çoklu Zaman Dilimi başlığı",
-              "5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günlük, Kapalı",
-              <span key="m">
-                Otomatik rapor e-postasının aralığı; “yalnızca seans içi” seçeneği ile birlikte çalışır.{" "}
-                <C>mail-settings.md</C>
-              </span>,
-            ],
-            [
-              "Mail Alıcıları & Özel Sıklık",
-              "Çoklu Zaman Dilimi başlığı",
-              "Adres ekle / sil / aktif-pasif / kişiye özel sıklık",
-              <span key="a">
-                Raporların gideceği adresler ve her kişi için bağımsız sıklık (5dk, 15dk, 1S, Günlük).{" "}
-                <C>mail-recipients.md</C>
-              </span>,
-            ],
-            [
-              "Pozisyon kontrol aralığı",
-              "Aktif Pozisyon Takibi",
-              "1dk, 5dk, 15dk, 30dk, 1S, Kapalı",
-              <span key="pp">
-                Stop/hedef kontrolünün sıklığı ve yalnızca seans içi çalışma. <C>portfoy-takip.md</C>
-              </span>,
-            ],
-            [
-              "Takip Listesi Sinyal Kontrolü",
-              "Takip Listesi Masası",
-              "1dk, 5dk, 15dk, 30dk, 1S, Günlük, Kapalı",
-              <span key="ws">
-                Sinyal değişimi tarama sıklığı. <C>watchlist.md</C>
-              </span>,
-            ],
-          ]}
-        />
-        <Note>
-          Ayar dosyaları proje klasöründe düz metin (.md) olarak durur; ekrandan yaptığınız değişiklik dosyaya
-          yazılır, isterseniz dosyayı elle de düzenleyebilirsiniz.
+      {/* ========================================================================= */}
+      {/* 12. SEANS SAATLERİ, İPUÇLARI & GÜVENLİK UYARILARI */}
+      {/* ========================================================================= */}
+      <Section id="ipuclari" title="12. Seans Saatleri, İpuçları & Güvenlik Uyarıları">
+        <H3>Piyasaların Seans Saatleri</H3>
+        <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-300">
+          <li>
+            <strong>Borsa İstanbul (BIST):</strong> Hafta içi her gün <strong>09:50 - 18:00</strong> saatleri
+            arasındadır (Açılış seansı 09:40-09:55, sürekli müzayede 10:00-18:00, kapanış marjı 18:05).
+          </li>
+          <li>
+            <strong>Kripto Para Piyasaları:</strong> <strong>7 gün 24 saat</strong> kesintisizdir; hafta sonu veya tatil
+            yoktur.
+          </li>
+          <li>
+            <strong>ABD Borsaları (NYSE &amp; NASDAQ):</strong> Türkiye saati ile <strong>16:30 - 23:00</strong>{" "}
+            arasındadır.
+          </li>
+          <li>
+            <strong>Emtia &amp; Forex:</strong> Pazar gecesi 01:00 ile Cuma gecesi 23:59 arası 24 saat işlem görür.
+          </li>
+        </ul>
+
+        <H3>Başarılı İşlemler İçin Kritik Altın İpuçları</H3>
+        <ul className="list-disc space-y-2 pl-5 text-xs text-zinc-300">
+          <li>
+            <strong>Tek Göstergeyle Karar Vermeyin:</strong> Sadece RSI aşırı satımda diye veya sadece tek bir mum
+            yeşil yaktı diye alım yapmayın; mutlaka karma skordaki teknik + temel uyumuna bakın.
+          </li>
+          <li>
+            <strong>Yatay Piyasaya Dikkat (ADX &lt; 20):</strong> Piyasa yatay trenddeyken hareketli ortalamalar
+            (EMA/SMA) çok sayıda sahte AL/SAT sinyali üretebilir. Böyle dönemlerde Bollinger bantları ve Stokastik
+            daha güvenilirdir.
+          </li>
+          <li>
+            <strong>Disiplinli Stop-Loss:</strong> Bir hisseye girmeden önce mutlaka zarar kes seviyenizi belirleyin ve{" "}
+            <Link href="/pozisyonlar" className="font-bold underline text-rose-300">
+              Portföy Masasına
+            </Link>{" "}
+            kaydedin. Beklenmedik düşüşlerde e-posta uyarısını aldığınızda duygusallığa kapılmadan planınıza sadık kalın.
+          </li>
+          <li>
+            <strong>BIST 30 vs. BIST TÜM Farkı:</strong> BIST TÜM taraması 800&apos;den fazla hisseyi kapsadığı için
+            tarama süresi daha uzundur. Günlük seri işlemler için likiditesi yüksek olan BIST 30 veya BIST 100 endeksini
+            tercih etmeniz tavsiye edilir.
+          </li>
+        </ul>
+
+        <Note tone="success">
+          <strong>Öneri:</strong> Sistemin tüm ayarlarını tek bir merkezden görmek, test maili yollamak ve tarama
+          sıklıklarını özelleştirmek için hemen{" "}
+          <Link href="/ayarlar" className="font-bold underline text-emerald-200">
+            Genel Ayarlar &amp; Bildirim Dağıtımı Masasını (/ayarlar)
+          </Link>{" "}
+          ziyaret edebilirsiniz.
         </Note>
-        <H3>Sunucu ortam değişkenleri (.env.local)</H3>
-        <ul className="list-disc space-y-1 pl-5">
-          <li><C>GMAIL_USER</C> + <C>GMAIL_APP_PASSWORD</C>: Gmail ile gönderim (önerilen; Google uygulama şifresi gerekir).</li>
-          <li><C>RESEND_API_KEY</C>: Alternatif gönderim yöntemi.</li>
-          <li><C>MAIL_TO</C>: Varsayılan alıcı (boşsa gönderici adresi).</li>
-          <li><C>CRON_SECRET</C>: Zamanlanmış sinyal-değişim görevi için gizli anahtar.</li>
-          <li><C>APP_URL</C>: E-postalardaki bağlantıların adresi.</li>
-          <li><C>KV_REST_API_URL / KV_REST_API_TOKEN</C>: İsteğe bağlı kalıcı depolama (yoksa bellek içi kullanılır).</li>
-        </ul>
-      </Section>
-
-      <Section id="mail" title="8. E-Posta Bildirimleri">
-        <p>Uygulamada <strong>üç tür</strong> otomatik e-posta vardır. Diğer bölümler (arama, Lider Sinyaller, Takip Listem) e-posta göndermez.</p>
-        <Table
-          head={["Bölüm", "E-posta içeriği", "Neye göre gelir?", "Sıklık"]}
-          rows={[
-            [
-              <strong key="1">③ Çoklu Zaman Dilimi Sinyalleri</strong>,
-              "“BIST Çoklu Zaman Dilimi AL/SAT Raporu”: 10 periyodun her biri için AL ve SAT veren hisseler (skorlarıyla).",
-              "Seçili endeksteki tüm hisseler taranır; karma skor ≥ +0,28 ise AL, ≤ -0,28 ise SAT listelenir. Sinyal değişimi şart değildir, tarama anındaki durum raporlanır.",
-              "Mail Sıklığı ayarına göre: 5/10/15/30 dk, 1/2/4 saat veya günde 1 kez (varsayılan 15 dk). Yalnızca seans içinde (Pzt-Cum 09:50-18:00). Kapalı seçilirse otomatik gelmez. “Şimdi Tara & Mail Gönder” ile her an elle gönderilir.",
-            ],
-            [
-              <strong key="2">② Aktif Pozisyon Takibi</strong>,
-              "“Stop-Loss Alarmı” veya “Kâr Al Hedefi Alarmı”: hisse, giriş/güncel fiyat, kâr-zarar %, stop ve hedef.",
-              "Güncel fiyat Stop-Loss seviyesine eşit/altına inerse veya Kâr Al seviyesine eşit/üstüne çıkarsa. Her pozisyon için olay başına bir kez gönderilir; sonra pozisyon durumu değişir.",
-              "Pozisyon kontrol aralığına göre (varsayılan 5 dk; 1dk-1S arası seçilebilir). Varsayılan olarak yalnızca seans içinde.",
-            ],
-            [
-              <strong key="3">⑥ Takip Listesi (İzleme)</strong>,
-              "“Sinyal Değişimi: THYAO AL, ...”: sinyali değişen hisseler, skor, fiyat ve nedenler.",
-              "Takip listesindeki hisselerin sinyali bir önceki kontrole göre değiştiyse (ilk kayıt hariç). Gönderilemezse bir sonraki çalıştırmada yeniden denenir.",
-              "Zamanlanmış görev (Vercel Cron): Pazartesi-Cuma günde 2 kez, 15:30 ve 20:30 UTC (Türkiye saatiyle 18:30 ve 23:30). Yalnızca Vercel dağıtımında ve CRON_SECRET tanımlıyken çalışır.",
-            ],
-          ]}
-        />
-        <Note>
-          <strong>Önemli:</strong> Çoklu Zaman Dilimi ve Pozisyon e-postaları, uygulama sunucusunun{" "}
-          <strong>çalışır durumda</strong> olmasına bağlıdır (her 30 saniyede bir zamanlayıcı kontrol eder). Bilgisayar
-          kapalıysa veya uygulama durmuşsa bu e-postalar gönderilmez. Alıcılar Mail Alıcıları ekranındaki{" "}
-          <strong>aktif</strong> adreslerdir.
-        </Note>
-        <H3>E-posta gelmiyorsa</H3>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>Mail Sıklığı “Kapalı” olmasın.</li>
-          <li>Seans dışındaysanız (hafta sonu, 09:50 öncesi, 18:00 sonrası) otomatik gönderim beklenir; elle gönderim çalışır.</li>
-          <li><C>.env.local</C> içinde Gmail uygulama şifresi veya Resend anahtarı tanımlı olmalı.</li>
-          <li>Mail Alıcıları içinde en az bir aktif adres olmalı; Spam klasörünü de kontrol edin.</li>
-        </ul>
-      </Section>
-
-      <Section id="ipuclari" title="9. İpuçları ve Uyarılar">
-        <ul className="list-disc space-y-1.5 pl-5">
-          <li>Tek bir sinyale değil, <strong>teknik + temel uyumuna</strong> ve birden fazla periyodun aynı yönde olmasına bakın.</li>
-          <li>Yatay piyasada (ADX altında 20) trend göstergeleri yanıltabilir; osilatörlere daha çok dikkat edin.</li>
-          <li>Pozisyon açarken ATR bazlı Stop-Loss / Kâr Al önerisini başlangıç noktası olarak kullanın.</li>
-          <li>BIST TÜM taraması yüzlerce hisse için çok sayıda veri çektiğinden yavaştır; günlük kullanım için BIST 30 önerilir.</li>
-          <li>Veriler Yahoo Finance kaynaklıdır; gecikme ve eksik temel veri olabilir.</li>
-        </ul>
-        <Note tone="warn">Bu içerik eğitim amaçlıdır, yatırım tavsiyesi değildir.</Note>
       </Section>
     </div>
   );

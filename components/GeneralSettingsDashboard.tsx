@@ -10,6 +10,33 @@ import {
   type MailScheduleConfig,
 } from "@/lib/mail-settings-types";
 import { REFRESH_INTERVAL_OPTIONS, type RefreshInterval } from "@/lib/refresh-settings-types";
+import {
+  WATCHLIST_INTERVAL_OPTIONS,
+  type WatchlistCheckInterval,
+  type WatchlistSettings,
+} from "@/lib/watchlist-settings-types";
+import { INDEX_TYPES, type IndexTypeKey } from "@/lib/index-types";
+import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import type { PositionCheckInterval, PositionSettings } from "@/lib/position-types";
+
+const POSITION_INTERVAL_OPTIONS: Array<{ key: PositionCheckInterval; label: string; desc: string }> = [
+  { key: "1m", label: "1 Dakika", desc: "Çok hızlı canlı takip" },
+  { key: "5m", label: "5 Dakika", desc: "Standart alarm kontrolü" },
+  { key: "15m", label: "15 Dakika", desc: "Dengeli kontrol" },
+  { key: "30m", label: "30 Dakika", desc: "Düşük trafik" },
+  { key: "1h", label: "1 Saat", desc: "Saatlik kontrol" },
+  { key: "off", label: "Kapalı", desc: "Yalnızca elle kontrol" },
+];
+
+const AVAILABLE_TIMEFRAME_OPTIONS: Array<{ key: TimeframeKey; label: string; desc: string }> = [
+  { key: "5m", label: "5 Dakika", desc: "Çok hızlı gün içi" },
+  { key: "15m", label: "15 Dakika", desc: "Standart gün içi" },
+  { key: "30m", label: "30 Dakika", desc: "Dengeli momentum" },
+  { key: "1h", label: "1 Saat", desc: "Saatlik trend" },
+  { key: "4h", label: "4 Saat", desc: "Orta vadeli trend" },
+  { key: "1d", label: "1 Gün", desc: "Günlük ana trend" },
+  { key: "1wk", label: "1 Hafta", desc: "Uzun vadeli trend" },
+];
 
 const VALID_CRYPTO_CATEGORIES: Record<string, string> = {
   major: "🔥 Liderler",
@@ -63,11 +90,13 @@ export default function GeneralSettingsDashboard() {
     crypto: number;
     commodity_forex: number;
     us_stocks: number;
+    watchlist?: number;
   }>({
     bist: 30,
     crypto: 15,
     commodity_forex: 60,
     us_stocks: 30,
+    watchlist: 30,
   });
   const [cryptoCategory, setCryptoCategory] = useState<string>("major");
 
@@ -98,15 +127,52 @@ export default function GeneralSettingsDashboard() {
     "us_stocks",
   ]);
 
+  // Watchlist signal settings state
+  const [watchlistSettings, setWatchlistSettings] = useState<WatchlistSettings | null>(null);
+  const [watchlistMarketTab, setWatchlistMarketTab] = useState<MarketScope>("bist");
+
+  // BIST Index Type state (endeks-tip.md)
+  const [indexTypeSettings, setIndexTypeSettings] = useState<{
+    multiTimeframe: IndexTypeKey;
+    topSignals: IndexTypeKey;
+  } | null>(null);
+
+  // Timeframe settings state (timeframe-settings.md)
+  const [timeframeSettings, setTimeframeSettings] = useState<{
+    watchlist: TimeframeKey;
+    topSignals: TimeframeKey;
+    bistSearch: TimeframeKey;
+  } | null>(null);
+
+  // Positions settings state (portfoy-takip.md)
+  const [positionSettings, setPositionSettings] = useState<PositionSettings | null>(null);
+  const [positionMarketTab, setPositionMarketTab] = useState<MarketScope>("bist");
+
+  // Market section filter for Section 2 (Piyasa ve Kategori Bazlı Görünüm)
+  const [marketSectionFilter, setMarketSectionFilter] = useState<"all" | "bist" | "crypto" | "commodity_forex" | "us_stocks">("all");
+
   // Load all initial settings
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [recipientsRes, mailRes, refreshRes, cryptoRes] = await Promise.all([
+      const [
+        recipientsRes,
+        mailRes,
+        refreshRes,
+        cryptoRes,
+        watchlistRes,
+        indexTypeRes,
+        timeframeRes,
+        positionsRes,
+      ] = await Promise.all([
         fetch("/api/mail/recipients", { cache: "no-store" }),
         fetch("/api/mail/settings", { cache: "no-store" }),
         fetch("/api/settings/refresh", { cache: "no-store" }),
         fetch("/api/settings/crypto", { cache: "no-store" }),
+        fetch("/api/watchlist/settings", { cache: "no-store" }),
+        fetch("/api/index-type/settings", { cache: "no-store" }),
+        fetch("/api/timeframe/settings", { cache: "no-store" }),
+        fetch("/api/positions/settings", { cache: "no-store" }),
       ]);
 
       if (recipientsRes.ok) {
@@ -130,6 +196,37 @@ export default function GeneralSettingsDashboard() {
         const data = await cryptoRes.json();
         if (data.settings?.defaultCategory) {
           setCryptoCategory(data.settings.defaultCategory);
+        }
+      }
+      if (watchlistRes.ok) {
+        const data = await watchlistRes.json();
+        if (data.settings) {
+          setWatchlistSettings(data.settings);
+        }
+      }
+      if (indexTypeRes.ok) {
+        const data = await indexTypeRes.json();
+        if (data.settings) {
+          setIndexTypeSettings({
+            multiTimeframe: data.settings.multiTimeframe,
+            topSignals: data.settings.topSignals,
+          });
+        }
+      }
+      if (timeframeRes.ok) {
+        const data = await timeframeRes.json();
+        if (data.settings) {
+          setTimeframeSettings({
+            watchlist: data.settings.watchlist,
+            topSignals: data.settings.topSignals,
+            bistSearch: data.settings.bistSearch,
+          });
+        }
+      }
+      if (positionsRes.ok) {
+        const data = await positionsRes.json();
+        if (data.settings) {
+          setPositionSettings(data.settings);
         }
       }
     } catch (err) {
@@ -415,7 +512,7 @@ export default function GeneralSettingsDashboard() {
   };
 
   // Save market-specific live refresh interval
-  const handleMarketRefreshIntervalChange = async (market: MarketScope, seconds: number) => {
+  const handleMarketRefreshIntervalChange = async (market: MarketScope | "watchlist", seconds: number) => {
     setSavingAction(`ref-${market}`);
     try {
       const res = await fetch("/api/settings/refresh", {
@@ -426,14 +523,257 @@ export default function GeneralSettingsDashboard() {
       const data = await res.json();
       if (data.ok) {
         setMarketRefresh((prev) => ({ ...prev, [market]: seconds }));
-        const mObj = MARKET_DEFINITIONS.find((m) => m.id === market);
+        const label =
+          market === "watchlist"
+            ? "Takip Listesi Masası"
+            : MARKET_DEFINITIONS.find((m) => m.id === market)?.label || market;
         setFeedback({
-          text: `✓ ${mObj?.label || market} canlı yenileme sıklığı "${seconds} sn" olarak güncellendi ve kaydedildi.`,
+          text: `✓ ${label} canlı yenileme sıklığı "${seconds} sn" olarak güncellendi ve kaydedildi.`,
           type: "success",
         });
       }
     } catch {
       setFeedback({ text: "Yenileme sıklığı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Save watchlist signal check interval
+  const handleWatchlistCheckIntervalChange = async (interval: WatchlistCheckInterval) => {
+    setSavingAction("watchlistInterval");
+    try {
+      const res = await fetch("/api/watchlist/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkInterval: interval }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setWatchlistSettings(data.settings);
+        const opt = WATCHLIST_INTERVAL_OPTIONS.find((o) => o.key === interval);
+        setFeedback({
+          text: `✓ İzleme / Takip listesi sinyal kontrol sıklığı "${opt?.label || interval}" olarak güncellendi ve watchlist.md dosyasına kaydedildi.`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Takip listesi ayarı kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Takip listesi ayarı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Change watchlist interval per market (BIST, Kripto, Emtia, ABD)
+  const handleWatchlistMarketIntervalChange = async (market: MarketScope, interval: WatchlistCheckInterval) => {
+    setSavingAction(`wl-market-${market}`);
+    try {
+      const res = await fetch("/api/watchlist/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market, checkInterval: interval }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setWatchlistSettings(data.settings);
+        const opt = WATCHLIST_INTERVAL_OPTIONS.find((o) => o.key === interval);
+        const marketLabel =
+          market === "bist"
+            ? "BIST Takip Listesi"
+            : market === "crypto"
+            ? "Kripto Takip Listesi"
+            : market === "commodity_forex"
+            ? "Emtia & FX Takip Listesi"
+            : "ABD Takip Listesi";
+        setFeedback({
+          text: `✓ ${marketLabel} sinyal kontrol sıklığı "${opt?.label || interval}" olarak güncellendi ve watchlist.md dosyasına kaydedildi.`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Takip listesi piyasa ayarı kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Takip listesi piyasa ayarı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Toggle watchlist trading hours
+  const handleToggleWatchlistTradingHours = async () => {
+    if (!watchlistSettings) return;
+    const nextVal = !watchlistSettings.onlyTradingHours;
+    setSavingAction("watchlistTradingHours");
+    try {
+      const res = await fetch("/api/watchlist/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onlyTradingHours: nextVal }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setWatchlistSettings(data.settings);
+        setFeedback({
+          text: `✓ Takip listesi seans kuralı güncellendi: ${nextVal ? "Sadece seans saatlerinde kontrol edilir" : "7/24 kontrol edilir"}.`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Ayar kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Ayar kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Change BIST index type (endeks-tip.md)
+  const handleIndexTypeChange = async (panel: "multiTimeframe" | "topSignals", indexType: IndexTypeKey) => {
+    setSavingAction(`index-${panel}`);
+    try {
+      const res = await fetch("/api/index-type/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel, indexType }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setIndexTypeSettings({
+          multiTimeframe: data.settings.multiTimeframe,
+          topSignals: data.settings.topSignals,
+        });
+        setFeedback({
+          text: `✓ BIST ${panel === "multiTimeframe" ? "Çoklu Zaman Dilimi" : "Lider Sinyaller"} kapsamı "${INDEX_TYPES[indexType]?.label || indexType}" olarak kaydedildi (endeks-tip.md).`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Endeks kapsamı kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Endeks kapsamı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Change default timeframe per panel/market (timeframe-settings.md)
+  const handleTimeframeChange = async (panel: "watchlist" | "topSignals" | "bistSearch", timeframe: TimeframeKey) => {
+    setSavingAction(`tf-${panel}`);
+    try {
+      const res = await fetch("/api/timeframe/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel, timeframe }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setTimeframeSettings({
+          watchlist: data.settings.watchlist,
+          topSignals: data.settings.topSignals,
+          bistSearch: data.settings.bistSearch,
+        });
+        const opt = AVAILABLE_TIMEFRAME_OPTIONS.find((t) => t.key === timeframe);
+        setFeedback({
+          text: `✓ ${panel === "watchlist" ? "Takip Listesi" : panel === "topSignals" ? "Lider Sinyaller" : "BIST"} analiz periyodu "${opt?.label || timeframe}" olarak kaydedildi (timeframe-settings.md).`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Periyot kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Periyot kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Change position alert check interval (portfoy-takip.md)
+  const handlePositionIntervalChange = async (interval: PositionCheckInterval) => {
+    setSavingAction("posInterval");
+    try {
+      const res = await fetch("/api/positions/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkInterval: interval }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setPositionSettings(data.settings);
+        const opt = POSITION_INTERVAL_OPTIONS.find((p) => p.key === interval);
+        setFeedback({
+          text: `✓ Portföy pozisyon alarm kontrol sıklığı "${opt?.label || interval}" olarak kaydedildi (portfoy-takip.md).`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Pozisyon kontrol ayarı kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Pozisyon kontrol ayarı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Change position alarm interval per market (BIST, Kripto, Emtia, ABD)
+  const handlePositionMarketIntervalChange = async (market: MarketScope, interval: PositionCheckInterval) => {
+    setSavingAction(`pos-market-${market}`);
+    try {
+      const res = await fetch("/api/positions/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market, checkInterval: interval }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setPositionSettings(data.settings);
+        const opt = POSITION_INTERVAL_OPTIONS.find((o) => o.key === interval);
+        const marketLabel =
+          market === "bist"
+            ? "BIST Pozisyon Alarmı"
+            : market === "crypto"
+            ? "Kripto Pozisyon Alarmı"
+            : market === "commodity_forex"
+            ? "Emtia & FX Pozisyon Alarmı"
+            : "ABD Pozisyon Alarmı";
+        setFeedback({
+          text: `✓ ${marketLabel} kontrol sıklığı "${opt?.label || interval}" olarak güncellendi ve portfoy-takip.md dosyasına kaydedildi.`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Pozisyon piyasa ayarı kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Pozisyon piyasa ayarı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Toggle position alert trading hours rule
+  const handleTogglePositionTradingHours = async () => {
+    if (!positionSettings) return;
+    const nextVal = !positionSettings.onlyTradingHours;
+    setSavingAction("posTradingHours");
+    try {
+      const res = await fetch("/api/positions/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onlyTradingHours: nextVal }),
+      });
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        setPositionSettings(data.settings);
+        setFeedback({
+          text: `✓ Portföy alarm seans kuralı güncellendi: ${nextVal ? "Sadece seans saatlerinde alarm gönderilir" : "7/24 alarm gönderilir"}.`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Ayar kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Ayar kaydedilemedi.", type: "error" });
     } finally {
       setSavingAction(null);
     }
@@ -1127,126 +1467,1623 @@ export default function GeneralSettingsDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 2: PİYASA BAZLI BAĞIMSIZ TARAMA & YENİLEME SIKLIKLARI             */}
+      {/* SECTION 2: PİYASA VE KATEGORİ (EKRAN BÖLÜMLERİ) BAZLI BAĞIMSIZ AYARLAR     */}
       {/* ========================================================================= */}
       <div className="rounded-3xl border border-zinc-800/90 bg-zinc-900/40 p-5 sm:p-7 backdrop-blur-2xl shadow-2xl">
-        <div className="flex items-center gap-2.5 border-b border-zinc-800/80 pb-4 mb-6">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-lg">
-            🎛️
-          </span>
-          <div>
-            <h2 className="text-lg sm:text-xl font-extrabold text-zinc-100">
-              Piyasa Bazlı Bağımsız Tarama & Yenileme Sıklıkları
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Her piyasanın (BIST, Kripto, Emtia/Döviz, ABD) seans dinamiklerine göre otomatik bülten tarama ve canlı veri yenileme sürelerini birbirinden bağımsız belirleyin.
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800/80 pb-5 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500/20 via-sky-500/20 to-indigo-500/20 border border-emerald-500/30 text-xl shadow-lg">
+              🎛️
+            </span>
+            <div>
+              <h2 className="text-lg sm:text-xl font-extrabold text-zinc-100 flex items-center gap-2">
+                <span>Piyasa ve Kategori (Ekran Bölümleri) Bazlı Ayarlar</span>
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
+                  4 Piyasa · 15 Ekran Bölümü
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Her bir piyasa ekranındaki ayrı bölümler (Portföy Pozisyon Takibi & Canlı Alarm Masası, Çoklu Zaman Dilimi, Lider Sinyaller, Arama ve Takip Listesi) için tüm ayarlar bağımsız yapılandırılır. Ekranlardaki ayar isimleri ve açıklamaları birebir aynıdır.
+              </p>
+            </div>
+          </div>
+
+          {/* Market Filter Navigation Tabs */}
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-950/80 border border-zinc-800 overflow-x-auto max-w-full">
+            {[
+              { id: "all", label: "🌐 Tümü (15 Bölüm)" },
+              { id: "bist", label: "🇹🇷 BIST (5 Bölüm)" },
+              { id: "crypto", label: "⚡ Kripto (4 Bölüm)" },
+              { id: "commodity_forex", label: "🪙 Emtia & FX (3 Bölüm)" },
+              { id: "us_stocks", label: "🇺🇸 ABD (3 Bölüm)" },
+            ].map((tab) => {
+              const isActive = marketSectionFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setMarketSectionFilter(tab.id as typeof marketSectionFilter)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition active:scale-95 ${
+                    isActive
+                      ? "bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-600/20"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {MARKET_DEFINITIONS.map((m) => {
-            const currentScanKey =
-              mailSettings?.config.markets?.[m.id] ||
-              (m.id === "crypto" ? "5m" : m.id === "us_stocks" ? "30m" : "15m");
-            const currentRefreshSec = marketRefresh[m.id] ?? (m.id === "crypto" ? 15 : m.id === "commodity_forex" ? 60 : 30);
-            const isSavingScan = savingAction === `scan-${m.id}`;
-            const isSavingRef = savingAction === `ref-${m.id}`;
+        <div className="space-y-8">
+          {/* ========================================================================= */}
+          {/* 1. BORSA İSTANBUL (BIST) BÖLÜMLERİ                                        */}
+          {/* ========================================================================= */}
+          {(marketSectionFilter === "all" || marketSectionFilter === "bist") && (
+            <div className="rounded-2xl border border-sky-900/30 bg-sky-950/10 p-5 space-y-4">
+              {/* Market Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🇹🇷</span>
+                  <div>
+                    <h3 className="font-bold text-base text-zinc-100 flex items-center gap-2">
+                      <span>Borsa İstanbul (BIST)</span>
+                      <span className="rounded-full bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 text-[10px] font-semibold text-sky-400">
+                        09:50 - 18:05 Seansı
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      BIST 30, BIST 100 ve Tüm Borsa İstanbul hisselerini kapsayan 5 bağımsız ekran kategorisi
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition self-start sm:self-auto"
+                >
+                  <span>BIST Ekranını Aç</span>
+                  <span>↗</span>
+                </Link>
+              </div>
 
-            return (
-              <div
-                key={m.id}
-                className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4 flex flex-col justify-between hover:border-zinc-700/80 transition-all shadow-lg"
-              >
-                <div>
-                  {/* Card Header */}
-                  <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-800/60 mb-3.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{m.icon}</span>
-                      <div>
-                        <div className="font-bold text-sm text-zinc-100">{m.label}</div>
-                        <div className="text-[10px] text-zinc-500 font-mono truncate max-w-[130px]">{m.desc}</div>
+              {/* Sub-Categories (Ekran Bölümleri) Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* 1.1 Portföy Pozisyon Takibi & Canlı Alarm Masası */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💼</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Portföy Pozisyon Takibi & Canlı Alarm Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Stop-Loss (🛑) & Kâr Al (🎯) Masası</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/#portfolio-section"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-sky-300 transition"
+                        title="Bölüme Git"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Alarm Kontrol Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏰</span>
+                            <span>Alarm Kontrol Sıklığı:</span>
+                          </span>
+                          {savingAction === "pos-market-bist" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={positionSettings?.markets?.bist || positionSettings?.checkInterval || "5m"}
+                          onChange={(e) =>
+                            handlePositionMarketIntervalChange("bist", e.target.value as PositionCheckInterval)
+                          }
+                          disabled={savingAction === "pos-market-bist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          {POSITION_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Fiyatların Stop ve Kâr Al seviyelerine kontrol periyodu
+                        </p>
+                      </div>
+
+                      {/* Sadece Seans Saatlerinde Kontrol */}
+                      <div className="flex items-center justify-between gap-3 p-2 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                        <div>
+                          <div className="text-xs font-semibold text-zinc-200">Sadece Seans Saatlerinde Kontrol</div>
+                          <div className="text-[10px] text-zinc-500">
+                            Hafta içi 10:00 - 18:05 BIST seans saatleri dışında bekletir
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleTogglePositionTradingHours}
+                          disabled={savingAction === "posTradingHours"}
+                          className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+                            positionSettings?.onlyTradingHours ? "bg-emerald-500" : "bg-zinc-700"
+                          }`}
+                        >
+                          <div
+                            className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                              positionSettings?.onlyTradingHours ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
                       </div>
                     </div>
-                    {m.id === "crypto" ? (
-                      <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                        7/24 Açık
-                      </span>
-                    ) : m.id === "us_stocks" ? (
-                      <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-2 py-0.5 text-[10px] font-semibold text-indigo-400">
-                        16:30-23:00
-                      </span>
-                    ) : m.id === "commodity_forex" ? (
-                      <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
-                        Hafta İçi 24S
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 text-[10px] font-semibold text-sky-400">
-                        09:50-18:00
-                      </span>
-                    )}
                   </div>
-
-                  {/* 1. Tarama Sıklığı (Mail Bülteni) */}
-                  <div className="space-y-1.5 mb-3.5">
-                    <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-                      <span className="flex items-center gap-1.5">
-                        <span>⏱️</span>
-                        <span>Bülten Tarama:</span>
-                      </span>
-                      {isSavingScan && <span className="text-[10px] text-sky-400 animate-pulse">...</span>}
-                    </label>
-                    <select
-                      value={currentScanKey}
-                      onChange={(e) => handleMarketScanIntervalChange(m.id, e.target.value as MailIntervalKey)}
-                      disabled={isSavingScan}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
-                    >
-                      {MAIL_INTERVAL_OPTIONS.map((opt) => (
-                        <option key={opt.key} value={opt.key}>
-                          {opt.label} ({opt.desc})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-zinc-500">
-                      Arka plan çoklu periyot AL/SAT bülteni
-                    </p>
-                  </div>
-
-                  {/* 2. Canlı Yenileme Sıklığı (Arayüz) */}
-                  <div className="space-y-1.5">
-                    <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-                      <span className="flex items-center gap-1.5">
-                        <span>⚡</span>
-                        <span>Canlı Veri Yenileme:</span>
-                      </span>
-                      {isSavingRef && <span className="text-[10px] text-amber-400 animate-pulse">...</span>}
-                    </label>
-                    <select
-                      value={currentRefreshSec}
-                      onChange={(e) => handleMarketRefreshIntervalChange(m.id, Number(e.target.value))}
-                      disabled={isSavingRef}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
-                    >
-                      {REFRESH_INTERVAL_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label} ({opt.desc})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-zinc-500">
-                      Ekranda canlı fiyat & tablo güncellemesi
-                    </p>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>portfoy-takip.md</span>
+                    <span className="text-emerald-400">✓ Pozisyon Masası</span>
                   </div>
                 </div>
 
-                <div className="mt-3.5 pt-2 border-t border-zinc-800/40 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
-                  <span>Ayrı kaydedilir</span>
-                  <span className="text-emerald-400">✓ Bağımsız</span>
+                {/* 1.2 Çoklu Zaman Dilimi AL/SAT Taraması */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">⏱️</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Çoklu Zaman Dilimi AL/SAT Taraması
+                          </div>
+                          <div className="text-[10px] text-zinc-500">1s, 2s, 4s, 1g, 1h, 1a Sinyal Matrisi</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/#signals-section"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-sky-300 transition"
+                        title="Bölüme Git"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Bülten Tarama Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏱️</span>
+                            <span>Bülten Tarama Sıklığı:</span>
+                          </span>
+                          {savingAction === "scan-bist" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={mailSettings?.config.markets?.bist || mailSettings?.config.intervalKey || "15m"}
+                          onChange={(e) => handleMarketScanIntervalChange("bist", e.target.value as MailIntervalKey)}
+                          disabled={savingAction === "scan-bist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Arka planda çoklu periyot AL/SAT taraması ve e-posta bülten gönderim periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-bist" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["bist"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("bist", Number(e.target.value))}
+                          disabled={savingAction === "ref-bist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda fiyat ve teknik indikatörlerin otomatik yenilenme süresi
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Endeks Kapsamı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>📊</span>
+                            <span>Varsayılan Endeks Kapsamı:</span>
+                          </span>
+                          {savingAction === "index-multiTimeframe" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={indexTypeSettings?.multiTimeframe || "bist30"}
+                          onChange={(e) => handleIndexTypeChange("multiTimeframe", e.target.value as IndexTypeKey)}
+                          disabled={savingAction === "index-multiTimeframe"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          <option value="bist30">BIST 30 (Likit Hisseler)</option>
+                          <option value="bist100">BIST 100 (Önerilen)</option>
+                          <option value="bistall">BIST TÜM (Tüm Borsa İstanbul)</option>
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Tarama ve çoklu zaman dilimi tablosunda varsayılan hisse listesi
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>endeks-tip.md & refresh</span>
+                    <span className="text-sky-400">✓ Sinyal Matrisi</span>
+                  </div>
+                </div>
+
+                {/* 1.3 Lider Sinyaller Sıralaması (Top Signals) */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🏆</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Lider Sinyaller Sıralaması (Top Signals)
+                          </div>
+                          <div className="text-[10px] text-zinc-500">En Güçlü AL ve SAT Skorları</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/#top-signals-section"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-sky-300 transition"
+                        title="Bölüme Git"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-topSignals" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.topSignals || "1d"}
+                          onChange={(e) => handleTimeframeChange("topSignals", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-topSignals"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">Lider sinyaller analiz ve tarama periyodu</p>
+                      </div>
+
+                      {/* Varsayılan Endeks Kapsamı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>📊</span>
+                            <span>Varsayılan Endeks Kapsamı:</span>
+                          </span>
+                          {savingAction === "index-topSignals" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={indexTypeSettings?.topSignals || "bist100"}
+                          onChange={(e) => handleIndexTypeChange("topSignals", e.target.value as IndexTypeKey)}
+                          disabled={savingAction === "index-topSignals"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          <option value="bist30">BIST 30 (Likit Hisseler)</option>
+                          <option value="bist100">BIST 100 (Önerilen)</option>
+                          <option value="bistall">BIST TÜM (Tüm Borsa İstanbul)</option>
+                        </select>
+                        <p className="text-[10px] text-zinc-500">Lider sinyaller tablosunda varsayılan hisse listesi</p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-bist" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["bist"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("bist", Number(e.target.value))}
+                          disabled={savingAction === "ref-bist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">Lider sinyaller tablosunun otomatik yenilenme süresi</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>timeframe-settings.md</span>
+                    <span className="text-sky-400">✓ Lider Sıralaması</span>
+                  </div>
+                </div>
+
+                {/* 1.4 BIST Şirket Arama & Sinyal Analizi */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🔍</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            BIST Şirket Arama & Sinyal Analizi
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Hisse Detayı, Grafik & Teknik Göstergeler</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-sky-300 transition"
+                        title="BIST Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-bistSearch" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.bistSearch || "1d"}
+                          onChange={(e) => handleTimeframeChange("bistSearch", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-bistSearch"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          BIST şirket arama ve detay analizinde kullanılan mum aralığı
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>timeframe-settings.md</span>
+                    <span className="text-sky-400">✓ Detay Kartı</span>
+                  </div>
+                </div>
+
+                {/* 1.5 İzleme / Takip Listesi Masası (BIST) */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📌</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            İzleme / Takip Listesi Masası (BIST)
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Borsa İstanbul Takip Edilen Hisseler</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/#watchlist-section"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-sky-300 transition"
+                        title="Bölüme Git"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Sinyal Değişim Kontrolü */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>📡</span>
+                            <span>Sinyal Değişim Kontrolü:</span>
+                          </span>
+                          {savingAction === "wl-market-bist" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={watchlistSettings?.markets?.bist || "15m"}
+                          onChange={(e) =>
+                            handleWatchlistMarketIntervalChange("bist", e.target.value as WatchlistCheckInterval)
+                          }
+                          disabled={savingAction === "wl-market-bist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          {WATCHLIST_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Borsa İstanbul hisselerinde sinyal değişim kontrol sıklığı ve e-posta uyarısı
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-watchlist" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.watchlist || "1d"}
+                          onChange={(e) => handleTimeframeChange("watchlist", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Takip tablosunun açılıştaki varsayılan mum periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-watchlist" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["watchlist"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("watchlist", Number(e.target.value))}
+                          disabled={savingAction === "ref-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda takip listesi hisse fiyat ve teknik indikatörlerin otomatik yenilenme süresi
+                        </p>
+                      </div>
+
+                      {/* Sadece Seans İçi Kontrol */}
+                      <div className="flex items-center justify-between gap-3 p-2 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                        <div>
+                          <div className="text-xs font-semibold text-zinc-200">Sadece Seans İçi Kontrol</div>
+                          <div className="text-[10px] text-zinc-500">Borsa kapalıyken taramayı durdur</div>
+                        </div>
+                        <button
+                          onClick={handleToggleWatchlistTradingHours}
+                          disabled={savingAction === "watchlistTradingHours"}
+                          className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+                            watchlistSettings?.onlyTradingHours ? "bg-sky-500" : "bg-zinc-700"
+                          }`}
+                        >
+                          <div
+                            className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                              watchlistSettings?.onlyTradingHours ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>watchlist.md</span>
+                    <span className="text-sky-400">✓ Takip Masası</span>
+                  </div>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 2. KRİPTO PARA BÖLÜMLERİ                                                  */}
+          {/* ========================================================================= */}
+          {(marketSectionFilter === "all" || marketSectionFilter === "crypto") && (
+            <div className="rounded-2xl border border-emerald-900/30 bg-emerald-950/10 p-5 space-y-4">
+              {/* Market Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">⚡</span>
+                  <div>
+                    <h3 className="font-bold text-base text-zinc-100 flex items-center gap-2">
+                      <span>Kripto Para</span>
+                      <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                        7/24 Kesintisiz Piyasa
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      Bitcoin, Ethereum, Solana, Layer 1/2, AI, DeFi ve meme coinler için 4 ekran kategorisi
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/kripto"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition self-start sm:self-auto"
+                >
+                  <span>Kripto Ekranını Aç</span>
+                  <span>↗</span>
+                </Link>
+              </div>
+
+              {/* Sub-Categories (Ekran Bölümleri) Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 2.1 Portföy Pozisyon Takibi & Canlı Alarm Masası (Kripto) */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-emerald-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💼</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Portföy Pozisyon Takibi & Canlı Alarm Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">7/24 Kripto Stop/Kâr Al Takibi</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/pozisyonlar"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-emerald-300 transition"
+                        title="Pozisyon Takip Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Alarm Kontrol Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏰</span>
+                            <span>Alarm Kontrol Sıklığı:</span>
+                          </span>
+                          {savingAction === "pos-market-crypto" && (
+                            <span className="text-[10px] text-emerald-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={positionSettings?.markets?.crypto || positionSettings?.checkInterval || "5m"}
+                          onChange={(e) =>
+                            handlePositionMarketIntervalChange("crypto", e.target.value as PositionCheckInterval)
+                          }
+                          disabled={savingAction === "pos-market-crypto"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-emerald-500 focus:outline-none"
+                        >
+                          {POSITION_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Kripto varlıklarda 7/24 kesintisiz yüksek frekanslı alarm kontrolü
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>portfoy-takip.md</span>
+                    <span className="text-emerald-400">✓ Kripto Alarmları</span>
+                  </div>
+                </div>
+
+                {/* 2.2 Kripto 7/24 Karar Destek & Radar Masası */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-emerald-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">⚡</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Kripto 7/24 Karar Destek & Radar Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Bitcoin, Ethereum & Solana Radarı</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/kripto"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-emerald-300 transition"
+                        title="Kripto Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Bülten Tarama Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏱️</span>
+                            <span>Bülten Tarama Sıklığı:</span>
+                          </span>
+                          {savingAction === "scan-crypto" && (
+                            <span className="text-[10px] text-emerald-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={mailSettings?.config.markets?.crypto || "5m"}
+                          onChange={(e) => handleMarketScanIntervalChange("crypto", e.target.value as MailIntervalKey)}
+                          disabled={savingAction === "scan-crypto"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-emerald-500 focus:outline-none"
+                        >
+                          {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          7/24 kesintisiz kripto sinyal taraması ve e-posta bülten gönderim periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-crypto" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["crypto"] ?? 15}
+                          onChange={(e) => handleMarketRefreshIntervalChange("crypto", Number(e.target.value))}
+                          disabled={savingAction === "ref-crypto"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda 7/24 kripto fiyatlarının otomatik yenilenme süresi
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-topSignals" && (
+                            <span className="text-[10px] text-emerald-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.topSignals || "4h"}
+                          onChange={(e) => handleTimeframeChange("topSignals", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-topSignals"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-emerald-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Kripto analiz ve sinyal varsayılan periyodu
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>mail-settings.md</span>
+                    <span className="text-emerald-400">✓ Kripto Radarı</span>
+                  </div>
+                </div>
+
+                {/* 2.3 Kripto Varlıklar Tablosu & Kategoriler */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-emerald-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🏷️</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Kripto Varlıklar Tablosu & Kategoriler
+                          </div>
+                          <div className="text-[10px] text-zinc-500">80+ Varlık, Katman 1/2, AI & DeFi</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/kripto"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-emerald-300 transition"
+                        title="Kripto Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Varsayılan Kategori / Sekme */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🏷️</span>
+                            <span>Varsayılan Kategori / Sekme:</span>
+                          </span>
+                          {savingAction === "cryptoCat" && (
+                            <span className="text-[10px] text-emerald-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={cryptoCategory}
+                          onChange={(e) => handleCryptoCategoryChange(e.target.value)}
+                          disabled={savingAction === "cryptoCat"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-emerald-500 focus:outline-none"
+                        >
+                          {Object.entries(VALID_CRYPTO_CATEGORIES).map(([catKey, label]) => (
+                            <option key={catKey} value={catKey}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Kripto ekranı açıldığında doğrudan seçilecek kategori
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>crypto-settings.md</span>
+                    <span className="text-emerald-400">✓ Varlık Tablosu</span>
+                  </div>
+                </div>
+
+                {/* 2.4 Kripto Takip Listesi Masası */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-emerald-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📌</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Kripto Takip Listesi Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Kripto Varlık Sinyal Değişim Masası</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/takip"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-emerald-300 transition"
+                        title="Takip Listesini Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Sinyal Değişim Kontrolü */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>📡</span>
+                            <span>Sinyal Değişim Kontrolü:</span>
+                          </span>
+                          {savingAction === "wl-market-crypto" && (
+                            <span className="text-[10px] text-emerald-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={watchlistSettings?.markets?.crypto || "5m"}
+                          onChange={(e) =>
+                            handleWatchlistMarketIntervalChange("crypto", e.target.value as WatchlistCheckInterval)
+                          }
+                          disabled={savingAction === "wl-market-crypto"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-emerald-500 focus:outline-none"
+                        >
+                          {WATCHLIST_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Kripto paralarda 7/24 kesintisiz sinyal değişim kontrolü
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-watchlist" && (
+                            <span className="text-[10px] text-emerald-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.watchlist || "1d"}
+                          onChange={(e) => handleTimeframeChange("watchlist", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-emerald-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Takip tablosunun açılıştaki varsayılan mum periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-watchlist" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["watchlist"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("watchlist", Number(e.target.value))}
+                          disabled={savingAction === "ref-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-emerald-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda takip listesi kripto fiyat ve sinyallerinin otomatik yenilenme süresi
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>watchlist.md</span>
+                    <span className="text-emerald-400">✓ 7/24 Sinyal Takip</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 3. EMTİA & DÖVİZ (FOREX) BÖLÜMLERİ                                        */}
+          {/* ========================================================================= */}
+          {(marketSectionFilter === "all" || marketSectionFilter === "commodity_forex") && (
+            <div className="rounded-2xl border border-amber-900/30 bg-amber-950/10 p-5 space-y-4">
+              {/* Market Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🪙</span>
+                  <div>
+                    <h3 className="font-bold text-base text-zinc-100 flex items-center gap-2">
+                      <span>Emtia & Döviz (Forex)</span>
+                      <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                        Hafta İçi 24 Saat
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      Ons Altın, Gram Altın, Gümüş, Dolar/TL, Euro/TL ve Petrol için 3 ekran kategorisi
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/emtia-doviz"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition self-start sm:self-auto"
+                >
+                  <span>Emtia & FX Ekranını Aç</span>
+                  <span>↗</span>
+                </Link>
+              </div>
+
+              {/* Sub-Categories (Ekran Bölümleri) Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 3.1 Portföy Pozisyon Takibi & Canlı Alarm Masası (Emtia & FX) */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-amber-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💼</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Portföy Pozisyon Takibi & Canlı Alarm Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Altın & Döviz Pozisyon Alarmları</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/pozisyonlar"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-amber-300 transition"
+                        title="Pozisyon Takip Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Alarm Kontrol Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏰</span>
+                            <span>Alarm Kontrol Sıklığı:</span>
+                          </span>
+                          {savingAction === "pos-market-commodity_forex" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={positionSettings?.markets?.commodity_forex || positionSettings?.checkInterval || "5m"}
+                          onChange={(e) =>
+                            handlePositionMarketIntervalChange("commodity_forex", e.target.value as PositionCheckInterval)
+                          }
+                          disabled={savingAction === "pos-market-commodity_forex"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {POSITION_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Altın, gümüş ve döviz pozisyonlarında dinamik seviye kontrolü
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>portfoy-takip.md</span>
+                    <span className="text-amber-400">✓ Emtia & FX Alarmları</span>
+                  </div>
+                </div>
+
+                {/* 3.2 Emtia & FX Analiz Masası */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-amber-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🪙</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Emtia & FX Analiz Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Altın, Gümüş, Dolar, Euro & Petrol</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/emtia-doviz"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-amber-300 transition"
+                        title="Emtia & Döviz Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Bülten Tarama Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏱️</span>
+                            <span>Bülten Tarama Sıklığı:</span>
+                          </span>
+                          {savingAction === "scan-commodity_forex" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={mailSettings?.config.markets?.commodity_forex || "15m"}
+                          onChange={(e) =>
+                            handleMarketScanIntervalChange("commodity_forex", e.target.value as MailIntervalKey)
+                          }
+                          disabled={savingAction === "scan-commodity_forex"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Altın, emtia ve döviz sinyalleri tarama ve e-posta bülten gönderim periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-commodity_forex" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["commodity_forex"] ?? 60}
+                          onChange={(e) => handleMarketRefreshIntervalChange("commodity_forex", Number(e.target.value))}
+                          disabled={savingAction === "ref-commodity_forex"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda ons altın, gram altın ve döviz kurlarının otomatik yenilenme süresi
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-topSignals" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.topSignals || "1d"}
+                          onChange={(e) => handleTimeframeChange("topSignals", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-topSignals"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Emtia ve döviz analiz ve grafik varsayılan periyodu
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>refresh-settings.md</span>
+                    <span className="text-amber-400">✓ Emtia Analiz Masası</span>
+                  </div>
+                </div>
+
+                {/* 3.3 Emtia & FX Takip Listesi Masası */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-amber-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📌</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Emtia & FX Takip Listesi Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Altın, Döviz & Petrol Takip Masası</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/takip"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-amber-300 transition"
+                        title="Takip Listesini Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Sinyal Değişim Kontrolü */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>📡</span>
+                            <span>Sinyal Değişim Kontrolü:</span>
+                          </span>
+                          {savingAction === "wl-market-commodity_forex" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={watchlistSettings?.markets?.commodity_forex || "15m"}
+                          onChange={(e) =>
+                            handleWatchlistMarketIntervalChange("commodity_forex", e.target.value as WatchlistCheckInterval)
+                          }
+                          disabled={savingAction === "wl-market-commodity_forex"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {WATCHLIST_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Altın, gümüş, petrol ve döviz sinyal kontrolü
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-watchlist" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.watchlist || "1d"}
+                          onChange={(e) => handleTimeframeChange("watchlist", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Takip tablosunun açılıştaki varsayılan mum periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-watchlist" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["watchlist"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("watchlist", Number(e.target.value))}
+                          disabled={savingAction === "ref-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda takip listesi emtia ve döviz fiyat ve sinyallerinin otomatik yenilenme süresi
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>watchlist.md</span>
+                    <span className="text-amber-400">✓ Emtia/FX Takip</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 4. AMERİKAN BORSALARI (ABD) BÖLÜMLERİ                                     */}
+          {/* ========================================================================= */}
+          {(marketSectionFilter === "all" || marketSectionFilter === "us_stocks") && (
+            <div className="rounded-2xl border border-indigo-900/30 bg-indigo-950/10 p-5 space-y-4">
+              {/* Market Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🇺🇸</span>
+                  <div>
+                    <h3 className="font-bold text-base text-zinc-100 flex items-center gap-2">
+                      <span>Amerikan Borsası (ABD)</span>
+                      <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-2 py-0.5 text-[10px] font-semibold text-indigo-400">
+                        16:30 - 23:00 TSİ
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      Nasdaq, S&P 500 ve Mega-Cap teknoloji hisseleri için 3 ekran kategorisi
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/amerikan-borsasi"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition self-start sm:self-auto"
+                >
+                  <span>ABD Borsası Ekranını Aç</span>
+                  <span>↗</span>
+                </Link>
+              </div>
+
+              {/* Sub-Categories (Ekran Bölümleri) Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 4.1 Portföy Pozisyon Takibi & Canlı Alarm Masası (ABD) */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-indigo-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💼</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Portföy Pozisyon Takibi & Canlı Alarm Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">ABD Hisseleri Stop/Kâr Al Takibi</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/pozisyonlar"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-indigo-300 transition"
+                        title="Pozisyon Takip Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Alarm Kontrol Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏰</span>
+                            <span>Alarm Kontrol Sıklığı:</span>
+                          </span>
+                          {savingAction === "pos-market-us_stocks" && (
+                            <span className="text-[10px] text-indigo-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={positionSettings?.markets?.us_stocks || positionSettings?.checkInterval || "5m"}
+                          onChange={(e) =>
+                            handlePositionMarketIntervalChange("us_stocks", e.target.value as PositionCheckInterval)
+                          }
+                          disabled={savingAction === "pos-market-us_stocks"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+                        >
+                          {POSITION_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Nasdaq ve S&P 500 hisselerinde seans içi alarm kontrolü
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>portfoy-takip.md</span>
+                    <span className="text-indigo-400">✓ ABD Pozisyon Alarmları</span>
+                  </div>
+                </div>
+
+                {/* 4.2 ABD Borsası Analiz Masası */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-indigo-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🏛️</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            ABD Borsası Analiz Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Nvidia, Apple, Microsoft, Tesla & S&P 500</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/amerikan-borsasi"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-indigo-300 transition"
+                        title="ABD Borsası Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Bülten Tarama Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⏱️</span>
+                            <span>Bülten Tarama Sıklığı:</span>
+                          </span>
+                          {savingAction === "scan-us_stocks" && (
+                            <span className="text-[10px] text-indigo-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={mailSettings?.config.markets?.us_stocks || "30m"}
+                          onChange={(e) =>
+                            handleMarketScanIntervalChange("us_stocks", e.target.value as MailIntervalKey)
+                          }
+                          disabled={savingAction === "scan-us_stocks"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+                        >
+                          {MAIL_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          ABD seansında mega-cap ve teknoloji hisseleri tarama ve e-posta bülten gönderim periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-us_stocks" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["us_stocks"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("us_stocks", Number(e.target.value))}
+                          disabled={savingAction === "ref-us_stocks"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda ABD mega-cap hisse fiyatlarının otomatik yenilenme süresi
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-topSignals" && (
+                            <span className="text-[10px] text-indigo-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.topSignals || "1d"}
+                          onChange={(e) => handleTimeframeChange("topSignals", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-topSignals"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          ABD hisseleri analiz ve grafik varsayılan periyodu
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>mail-settings.md</span>
+                    <span className="text-indigo-400">✓ Wall Street Masası</span>
+                  </div>
+                </div>
+
+                {/* 4.3 ABD Hisseleri Takip Listesi Masası */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-indigo-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📌</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            ABD Hisseleri Takip Listesi Masası
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Amerikan Hisseleri Sinyal Masası</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/takip"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-indigo-300 transition"
+                        title="Takip Listesini Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Sinyal Değişim Kontrolü */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>📡</span>
+                            <span>Sinyal Değişim Kontrolü:</span>
+                          </span>
+                          {savingAction === "wl-market-us_stocks" && (
+                            <span className="text-[10px] text-indigo-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={watchlistSettings?.markets?.us_stocks || "30m"}
+                          onChange={(e) =>
+                            handleWatchlistMarketIntervalChange("us_stocks", e.target.value as WatchlistCheckInterval)
+                          }
+                          disabled={savingAction === "wl-market-us_stocks"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+                        >
+                          {WATCHLIST_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Nasdaq ve S&P hisselerinde seans içi kontrol
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Analiz Periyodu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🕒</span>
+                            <span>Varsayılan Analiz Periyodu:</span>
+                          </span>
+                          {savingAction === "tf-watchlist" && (
+                            <span className="text-[10px] text-indigo-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={timeframeSettings?.watchlist || "1d"}
+                          onChange={(e) => handleTimeframeChange("watchlist", e.target.value as TimeframeKey)}
+                          disabled={savingAction === "tf-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+                        >
+                          {AVAILABLE_TIMEFRAME_OPTIONS.map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Takip tablosunun açılıştaki varsayılan mum periyodu
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-watchlist" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["watchlist"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("watchlist", Number(e.target.value))}
+                          disabled={savingAction === "ref-watchlist"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda takip listesi ABD hisse fiyat ve sinyallerinin otomatik yenilenme süresi
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>watchlist.md</span>
+                    <span className="text-indigo-400">✓ ABD Takip Masası</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1255,104 +3092,112 @@ export default function GeneralSettingsDashboard() {
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Scheduler & Session Card */}
-        <div className="rounded-3xl border border-zinc-800/90 bg-zinc-900/40 p-5 sm:p-6 backdrop-blur-2xl shadow-xl">
-          <div className="flex items-center gap-3 border-b border-zinc-800/80 pb-4 mb-5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/30 text-lg">
-              ⏱️
-            </span>
-            <div>
-              <h3 className="text-base font-bold text-zinc-100">Genel Zamanlayıcı & Seans Ayarları</h3>
-              <p className="text-xs text-zinc-400">Otomatik tarama döngüsü ve seans dışı davranışlar</p>
+        <div className="rounded-3xl border border-zinc-800/90 bg-zinc-900/40 p-5 sm:p-6 backdrop-blur-2xl shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 border-b border-zinc-800/80 pb-4 mb-5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/30 text-lg">
+                ⏱️
+              </span>
+              <div>
+                <h3 className="text-base font-bold text-zinc-100">Genel Bülten Zamanlayıcı</h3>
+                <p className="text-xs text-zinc-400">Çoklu periyot otomatik tarama robotu</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Global Frequency */}
+              <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
+                <div>
+                  <div className="text-xs font-bold text-zinc-200">Global Bülten Tarama Sıklığı</div>
+                  <div className="text-[11px] text-zinc-500">
+                    Piyasa bazlı belirlenmemişse geçerli bülten sıklığı (mail-settings.md)
+                  </div>
+                </div>
+                <select
+                  value={mailSettings?.config.intervalKey || "15m"}
+                  onChange={(e) => handleGlobalScheduleChange(e.target.value as MailIntervalKey)}
+                  className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                >
+                  {MAIL_INTERVAL_OPTIONS.filter((o) => o.key !== "off").map((opt) => (
+                    <option key={opt.key} value={opt.key}>
+                      {opt.label} ({opt.desc})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Only Trading Hours Toggle */}
+              <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
+                <div>
+                  <div className="text-xs font-bold text-zinc-200">Sadece Seans Saatlerinde Gönder</div>
+                  <div className="text-[11px] text-zinc-500">
+                    BIST seans dışındayken bültenleri durdur (Kripto 7/24 devam eder)
+                  </div>
+                </div>
+                <button
+                  onClick={handleToggleOnlyTradingHours}
+                  className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+                    mailSettings?.config.onlyTradingHours ? "bg-sky-500" : "bg-zinc-700"
+                  }`}
+                >
+                  <div
+                    className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
+                      mailSettings?.config.onlyTradingHours ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Scheduler Status Box */}
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-3.5 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500">Zamanlayıcı Durumu:</span>
+                  <span className="font-semibold text-emerald-400">
+                    {mailSettings?.scheduler.initialized ? "✓ Başlatıldı ve Çalışıyor" : "Beklemede"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500">Son Tarama / Gönderim:</span>
+                  <span className="font-mono text-zinc-300">
+                    {mailSettings?.scheduler.lastMailedAt
+                      ? new Date(mailSettings.scheduler.lastMailedAt).toLocaleTimeString("tr-TR")
+                      : "Henüz yapılmadı"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500">Kayıtlı Ayar Dosyası:</span>
+                  <span className="font-mono text-zinc-400 text-[11px]">mail-settings.md</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {/* Global Frequency */}
-            <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
-              <div>
-                <div className="text-xs font-bold text-zinc-200">Global Varsayılan Tarama Sıklığı</div>
-                <div className="text-[11px] text-zinc-500">
-                  Arka plandaki zamanlayıcının çoklu zaman dilimi tarama döngüsü
-                </div>
-              </div>
-              <select
-                value={mailSettings?.config.intervalKey || "15m"}
-                onChange={(e) => handleGlobalScheduleChange(e.target.value as MailIntervalKey)}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
-              >
-                {MAIL_INTERVAL_OPTIONS.filter((o) => o.key !== "off").map((opt) => (
-                  <option key={opt.key} value={opt.key}>
-                    {opt.label} ({opt.desc})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Only Trading Hours Toggle */}
-            <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
-              <div>
-                <div className="text-xs font-bold text-zinc-200">Sadece Seans Saatlerinde Gönder</div>
-                <div className="text-[11px] text-zinc-500">
-                  BIST kapalıyken veya hafta sonlarında BIST raporları durdurulsun (Kripto 7/24 devam eder)
-                </div>
-              </div>
-              <button
-                onClick={handleToggleOnlyTradingHours}
-                className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${
-                  mailSettings?.config.onlyTradingHours ? "bg-sky-500" : "bg-zinc-700"
-                }`}
-              >
-                <div
-                  className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform ${
-                    mailSettings?.config.onlyTradingHours ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Scheduler Status Box */}
-            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-3.5 text-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Zamanlayıcı Durumu:</span>
-                <span className="font-semibold text-emerald-400">
-                  {mailSettings?.scheduler.initialized ? "✓ Başlatıldı ve Çalışıyor" : "Beklemede"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Son Tarama / Gönderim:</span>
-                <span className="font-mono text-zinc-300">
-                  {mailSettings?.scheduler.lastMailedAt
-                    ? new Date(mailSettings.scheduler.lastMailedAt).toLocaleTimeString("tr-TR")
-                    : "Henüz yapılmadı"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Kayıtlı Ayar Dosyası:</span>
-                <span className="font-mono text-zinc-400 text-[11px]">mail-settings.md</span>
-              </div>
-            </div>
+          <div className="mt-4 pt-3 border-t border-zinc-800/50 flex items-center justify-between text-[11px] text-zinc-400">
+            <span>Kapsam:</span>
+            <span className="text-sky-400 font-medium">BIST & Global Bülten</span>
           </div>
         </div>
 
         {/* Data Refresh & Cache Settings */}
-        <div className="rounded-3xl border border-zinc-800/90 bg-zinc-900/40 p-5 sm:p-6 backdrop-blur-2xl shadow-xl">
-          <div className="flex items-center gap-3 border-b border-zinc-800/80 pb-4 mb-5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/30 text-lg">
-              ⚡
-            </span>
-            <div>
-              <h3 className="text-base font-bold text-zinc-100">Veri Yenileme & Önbellek</h3>
-              <p className="text-xs text-zinc-400">Arayüz canlı fiyat yenileme sıklığı ve hafıza yönetimi</p>
+        <div className="rounded-3xl border border-zinc-800/90 bg-zinc-900/40 p-5 sm:p-6 backdrop-blur-2xl shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 border-b border-zinc-800/80 pb-4 mb-5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/30 text-lg">
+                ⚡
+              </span>
+              <div>
+                <h3 className="text-base font-bold text-zinc-100">Veri Yenileme & Önbellek</h3>
+                <p className="text-xs text-zinc-400">Arayüz canlı fiyat yenileme sıklığı ve hafıza</p>
+              </div>
             </div>
-          </div>
 
           <div className="space-y-4">
             {/* Live Refresh Option */}
             <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
               <div>
-                <div className="text-xs font-bold text-zinc-200">Arayüz Veri Yenileme Sıklığı</div>
+                <div className="text-xs font-bold text-zinc-200">Canlı Veri Yenileme Sıklığı</div>
                 <div className="text-[11px] text-zinc-500">
-                  Fiyat ve indikatörlerin arka planda otomatik güncellenme aralığı
+                  Ekranda fiyat ve teknik indikatörlerin otomatik yenilenme süresi (refresh-settings.md)
                 </div>
               </div>
               <select
@@ -1371,9 +3216,9 @@ export default function GeneralSettingsDashboard() {
             {/* Crypto Default Landing Category */}
             <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
               <div>
-                <div className="text-xs font-bold text-zinc-200">Kripto Ekranı Varsayılan Sekmesi</div>
+                <div className="text-xs font-bold text-zinc-200">Varsayılan Kategori / Sekme</div>
                 <div className="text-[11px] text-zinc-500">
-                  /kripto sayfası açıldığında doğrudan seçilecek kategori
+                  Kripto ekranı açıldığında doğrudan seçilecek kategori (crypto-settings.md)
                 </div>
               </div>
               <select
@@ -1407,7 +3252,13 @@ export default function GeneralSettingsDashboard() {
             </div>
           </div>
         </div>
+
+        <div className="mt-4 pt-3 border-t border-zinc-800/50 flex items-center justify-between text-[11px] text-zinc-400">
+          <span>Önbellek:</span>
+          <span className="text-amber-400 font-medium">Hafıza & Sayfa Verisi</span>
+        </div>
       </div>
+    </div>
 
       {/* ========================================================================= */}
       {/* SECTION 3: SMTP / RESEND ENTEGRASYON VE ÇEVRE DEĞİŞKENLERİ REHBERİ        */}

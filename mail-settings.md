@@ -6,15 +6,15 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Parametre | Değer | Açıklama |
 | --- | --- | --- |
 | Sıklık | 15m | Genel varsayılan tarama sıklığı: 5m, 10m, 15m, 30m, 1h, 2h, 4h, daily, off |
-| BIST Sıklık | 15m | Borsa İstanbul çoklu periyot tarama aralığı |
+| BIST Sıklık | 10m | Borsa İstanbul çoklu periyot tarama aralığı |
 | Kripto Sıklık | 5m | Kripto para 7/24 tarama aralığı |
 | Emtia & FX Sıklık | 15m | Altın, döviz, emtia tarama aralığı |
 | ABD Borsası Sıklık | 30m | Amerikan borsası (Nasdaq/S&P) tarama aralığı |
 | Görünen Ad | 15 dk | Standart seans içi tarama |
 | Dakika | 15 | Sayısal dakika karşılığı (0 = devre dışı, 1440 = günlük) |
 | Aktif | Evet | Otomatik gönderim açık/kapalı |
-| Yalnızca Seans İçi | Evet | 09:50 - 18:00 seans saatlerinde çalıştır (Kripto 7/24) |
-| Son Güncelleme | 2026-10-25T18:50:00.000Z | Son güncelleme zamanı |
+| Yalnızca Seans İçi | Evet | 09:50 - 18:00 seans saatlerinde çalıştır |
+| Son Güncelleme | 2026-10-25T18:40:51.387Z | Son güncelleme zamanı |
 
 ---
 

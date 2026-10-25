@@ -18,7 +18,7 @@ interface AutoRefreshControlProps {
   storageKey?: string;
   size?: "sm" | "md";
   align?: "left" | "right";
-  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks";
+  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist";
 }
 
 export default function AutoRefreshControl({
@@ -190,7 +190,7 @@ export default function AutoRefreshControl({
           className={`group flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 font-medium text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100 ${
             size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-xs sm:text-sm"
           }`}
-          title="Veri yenileme sıklığını ayarla (refresh-settings.md)"
+          title="Canlı Veri Yenileme Sıklığı: Ekranda fiyat ve teknik indikatörlerin otomatik yenilenme süresi (refresh-settings.md)"
         >
           {intervalSeconds > 0 ? (
             <span className="relative flex h-2 w-2">
@@ -201,7 +201,9 @@ export default function AutoRefreshControl({
             <span className="h-2 w-2 rounded-full bg-zinc-600" />
           )}
 
-          <span className="text-zinc-400 font-normal">Yenileme:</span>
+          <span className="text-zinc-400 font-normal">
+            <span className="hidden sm:inline">Canlı Veri </span>Yenileme:
+          </span>
           <span className="font-semibold text-zinc-200">{currentOption.label}</span>
 
           {intervalSeconds > 0 && (
@@ -229,16 +231,16 @@ export default function AutoRefreshControl({
         {/* Dropdown Menu */}
         {isOpen && (
           <div
-            className={`absolute ${alignClass} top-full z-[100] mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-800 bg-zinc-950/98 p-2 shadow-2xl backdrop-blur-xl transition duration-150`}
+            className={`absolute ${alignClass} top-full z-[100] mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-800 bg-zinc-950/98 p-2 shadow-2xl backdrop-blur-xl transition duration-150`}
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800/80 px-2 py-1.5 mb-1.5">
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                  <span>⚡ Veri Yenileme Sıklığı</span>
+                  <span>⚡ Canlı Veri Yenileme Sıklığı</span>
                 </div>
-                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
-                  Kaynak: refresh-settings.md
+                <div className="text-[10px] text-zinc-400 mt-0.5">
+                  Ekranda fiyat ve teknik indikatörlerin otomatik yenilenme süresi (refresh-settings.md)
                 </div>
               </div>
               <span

@@ -160,7 +160,7 @@ export default function MailScheduleControl({
         className={`group flex items-center gap-2 rounded-xl border border-indigo-900/50 bg-gradient-to-r from-indigo-950/40 via-zinc-900/90 to-zinc-900/90 font-medium text-zinc-300 shadow-sm transition hover:border-indigo-600/70 hover:bg-zinc-800/80 hover:text-zinc-100 ${
           size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-xs sm:text-sm"
         }`}
-        title="Otomatik e-posta gönderim sıklığını ayarla (mail-settings.md)"
+        title="Bülten Tarama Sıklığı: Otomatik AL/SAT sinyal taraması ve e-posta bülten gönderim periyodu (mail-settings.md)"
       >
         {/* Animated icon */}
         <div className="relative flex h-4 w-4 items-center justify-center">
@@ -179,7 +179,9 @@ export default function MailScheduleControl({
           )}
         </div>
 
-        <span className="text-zinc-400 font-normal">Mail Sıklığı:</span>
+        <span className="text-zinc-400 font-normal">
+          <span className="hidden sm:inline">Bülten Tarama </span>Sıklığı:
+        </span>
         <span className="font-semibold text-indigo-200">{currentOption.label}</span>
 
         {/* Small file badge indicator */}
@@ -214,10 +216,10 @@ export default function MailScheduleControl({
           <div className="flex items-center justify-between border-b border-zinc-800/80 px-2.5 py-2 mb-1.5">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                <span>✉️ E-Posta Gönderim Sıklığı</span>
+                <span>✉️ Bülten Tarama Sıklığı</span>
               </div>
-              <div className="text-[10px] text-zinc-500 mt-0.5 font-mono">
-                Kaynak: mail-settings.md
+              <div className="text-[10px] text-zinc-400 mt-0.5">
+                Otomatik AL/SAT sinyal taraması ve e-posta bülten gönderim periyodu (mail-settings.md)
               </div>
             </div>
             <span

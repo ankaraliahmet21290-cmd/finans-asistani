@@ -72,12 +72,14 @@ export function parseRefreshSettingsMarkdown(content: string): RefreshSettingsCo
   const cryptoVal = params["kripto sıklık"] || params["kripto siklik"] || params["kripto"] || params["crypto"] || "15s";
   const commodityVal = params["emtia & fx sıklık"] || params["emtia sıklık"] || params["emtia"] || params["forex"] || "60s";
   const usStocksVal = params["abd borsası sıklık"] || params["abd sıklık"] || params["abd"] || params["us_stocks"] || rawVal;
+  const watchlistVal = params["takip listesi sıklık"] || params["takip listesi"] || params["takip"] || params["watchlist"] || rawVal;
 
   const markets = {
     bist: normalizeRefreshInterval(bistVal).value,
     crypto: normalizeRefreshInterval(cryptoVal).value,
     commodity_forex: normalizeRefreshInterval(commodityVal).value,
     us_stocks: normalizeRefreshInterval(usStocksVal).value,
+    watchlist: normalizeRefreshInterval(watchlistVal).value,
   };
 
   return {
@@ -102,6 +104,7 @@ export function formatRefreshSettingsMarkdown(config: RefreshSettingsConfig): st
   const cryptoOpt = normalizeRefreshInterval(config.markets?.crypto ?? 15);
   const commOpt = normalizeRefreshInterval(config.markets?.commodity_forex ?? 60);
   const usOpt = normalizeRefreshInterval(config.markets?.us_stocks ?? config.seconds);
+  const watchlistOpt = normalizeRefreshInterval(config.markets?.watchlist ?? config.seconds);
 
   return `# Veri Yenileme Ayarları
 
@@ -115,6 +118,7 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Kripto Sıklık | ${cryptoOpt.key} | Kripto para veri yenileme aralığı (7/24) |
 | Emtia & FX Sıklık | ${commOpt.key} | Altın, döviz, emtia veri yenileme aralığı |
 | ABD Borsası Sıklık | ${usOpt.key} | Amerikan borsası (Nasdaq/S&P) veri yenileme aralığı |
+| Takip Listesi Sıklık | ${watchlistOpt.key} | Takip listesi (Watchlist) veri yenileme aralığı |
 | Görünen Ad | ${opt.label} | ${opt.desc} |
 | Saniye | ${opt.value} | Sayısal saniye karşılığı (0 = kapalı) |
 | Aktif | ${isEnabled ? "Evet" : "Hayır"} | Otomatik veri yenileme açık/kapalı |
@@ -173,7 +177,7 @@ export function getActiveRefreshConfig(): RefreshSettingsConfig {
 
 export interface SaveRefreshSettingsOptions {
   seconds?: RefreshInterval | string | number;
-  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks";
+  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist";
   markets?: Partial<RefreshSettingsConfig["markets"]>;
 }
 
@@ -182,6 +186,7 @@ export function getMarketRefreshSeconds(config: RefreshSettingsConfig, market?: 
   if (market === "commodity_forex") return config.markets?.commodity_forex ?? 60;
   if (market === "us_stocks") return config.markets?.us_stocks ?? config.seconds;
   if (market === "bist") return config.markets?.bist ?? config.seconds;
+  if (market === "watchlist") return config.markets?.watchlist ?? config.seconds;
   return config.seconds;
 }
 
@@ -194,7 +199,7 @@ export async function saveRefreshSettingsToFile(
   const current = await getRefreshSettingsFromFile();
   const currentMarkets: MarketRefreshSettings = current.markets
     ? { ...current.markets }
-    : { bist: 30, crypto: 15, commodity_forex: 60, us_stocks: 30 };
+    : { bist: 30, crypto: 15, commodity_forex: 60, us_stocks: 30, watchlist: 30 };
 
   let nextSeconds: RefreshInterval = current.seconds;
   let nextMarkets: MarketRefreshSettings = { ...currentMarkets };
@@ -206,6 +211,7 @@ export async function saveRefreshSettingsToFile(
       if (input.market === "crypto") nextMarkets.crypto = opt.value;
       if (input.market === "commodity_forex") nextMarkets.commodity_forex = opt.value;
       if (input.market === "us_stocks") nextMarkets.us_stocks = opt.value;
+      if (input.market === "watchlist") nextMarkets.watchlist = opt.value;
     } else {
       if (input.seconds !== undefined) {
         nextSeconds = normalizeRefreshInterval(input.seconds).value;

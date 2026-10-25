@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   WATCHLIST_INTERVAL_OPTIONS,
   type WatchlistCheckInterval,
+  type WatchlistMarketScope,
   type WatchlistSettings,
 } from "@/lib/watchlist-settings-types";
 
@@ -11,18 +12,36 @@ interface WatchlistScheduleControlProps {
   onScheduleChange?: (settings: WatchlistSettings) => void;
   size?: "sm" | "md";
   align?: "left" | "right";
+  market?: WatchlistMarketScope;
 }
+
+const MARKET_TABS: Array<{ id: WatchlistMarketScope | "all"; label: string; icon: string }> = [
+  { id: "bist", label: "BIST", icon: "🇹🇷" },
+  { id: "crypto", label: "Kripto", icon: "⚡" },
+  { id: "commodity_forex", label: "Emtia", icon: "🪙" },
+  { id: "us_stocks", label: "ABD", icon: "🇺🇸" },
+  { id: "all", label: "Genel", icon: "🌐" },
+];
 
 export default function WatchlistScheduleControl({
   onScheduleChange,
   size = "md",
   align = "right",
+  market,
 }: WatchlistScheduleControlProps) {
   const [settings, setSettings] = useState<WatchlistSettings | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<WatchlistMarketScope | "all">(market ?? "bist");
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Sync activeTab when market prop changes
+  useEffect(() => {
+    if (market) {
+      setActiveTab(market);
+    }
+  }, [market]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -78,11 +97,19 @@ export default function WatchlistScheduleControl({
     setSaving(true);
     setSuccessMsg(null);
 
+    const targetMarket = activeTab === "all" ? undefined : activeTab;
+    const body: { checkInterval: WatchlistCheckInterval; market?: WatchlistMarketScope } = {
+      checkInterval: intervalKey,
+    };
+    if (targetMarket) {
+      body.market = targetMarket;
+    }
+
     try {
       const res = await fetch("/api/watchlist/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkInterval: intervalKey }),
+        body: JSON.stringify(body),
       });
 
       if (res.ok) {
@@ -91,7 +118,17 @@ export default function WatchlistScheduleControl({
           setSettings(json.settings);
           if (onScheduleChange) onScheduleChange(json.settings);
           const opt = WATCHLIST_INTERVAL_OPTIONS.find((o) => o.key === intervalKey);
-          setSuccessMsg(`✓ Tarama sıklığı ${opt?.label ?? intervalKey} olarak kaydedildi`);
+          const marketLabel =
+            targetMarket === "bist"
+              ? "BIST"
+              : targetMarket === "crypto"
+              ? "Kripto"
+              : targetMarket === "commodity_forex"
+              ? "Emtia & FX"
+              : targetMarket === "us_stocks"
+              ? "ABD"
+              : "Genel";
+          setSuccessMsg(`✓ ${marketLabel} sıklığı ${opt?.label ?? intervalKey} olarak kaydedildi`);
           setTimeout(() => setSuccessMsg(null), 3000);
         }
       }
@@ -129,15 +166,30 @@ export default function WatchlistScheduleControl({
     }
   };
 
-  const currentKey = settings?.checkInterval ?? "15m";
+  const effectiveMarket = market ?? (activeTab === "all" ? undefined : activeTab);
+  const currentKey =
+    (effectiveMarket && settings?.markets?.[effectiveMarket]) ||
+    settings?.checkInterval ||
+    "15m";
   const currentOption = WATCHLIST_INTERVAL_OPTIONS.find((o) => o.key === currentKey);
   const isOff = currentKey === "off";
+
+  const marketBadge =
+    effectiveMarket === "bist"
+      ? "🇹🇷"
+      : effectiveMarket === "crypto"
+      ? "⚡"
+      : effectiveMarket === "commodity_forex"
+      ? "🪙"
+      : effectiveMarket === "us_stocks"
+      ? "🇺🇸"
+      : "🌐";
 
   const btnPadding =
     size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-xs sm:text-sm";
 
   return (
-    <div className="relative inline-block text-left" ref={menuRef}>
+    <div className="relative inline-flex flex-col gap-0.5 text-left" ref={menuRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -146,10 +198,13 @@ export default function WatchlistScheduleControl({
             ? "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
             : "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:border-amber-500/60 hover:bg-amber-500/20"
         }`}
-        title="Takip Listesi Sinyal Değişim Kontrol Sıklığı (watchlist.md)"
+        title="Sinyal Değişim Kontrolü: Takip listesinde AL/SAT sinyal değişim kontrolü ve e-posta bildirimi (watchlist.md)"
       >
         <span className="text-sm">📡</span>
-        <span className="hidden sm:inline">Sinyal Kontrol:</span>
+        <span className="hidden sm:inline">
+          {effectiveMarket ? `${marketBadge} Sinyal Değişim Kontrolü:` : "Sinyal Değişim Kontrolü:"}
+        </span>
+        <span className="sm:hidden">Sinyal Kontrol:</span>
         <span className="font-mono font-semibold">
           {currentOption?.badge ?? currentKey}
         </span>
@@ -169,6 +224,9 @@ export default function WatchlistScheduleControl({
           />
         </svg>
       </button>
+      <span className="text-[10px] text-zinc-500 px-1 font-normal hidden sm:block">
+        Takip listesi sinyal değişim kontrol sıklığı
+      </span>
 
       {isOpen && (
         <div
@@ -177,13 +235,13 @@ export default function WatchlistScheduleControl({
           }`}
         >
           {/* Header */}
-          <div className="mb-2.5 flex items-center justify-between border-b border-zinc-800 pb-2">
+          <div className="mb-2 flex items-center justify-between border-b border-zinc-800 pb-2">
             <div>
               <div className="text-xs font-semibold text-zinc-200">
-                Takip Listesi Sinyal Taraması
+                Sinyal Değişim Kontrolü
               </div>
-              <div className="text-[11px] text-zinc-400">
-                Sinyal değiştiğinde otomatik e-posta gönderir
+              <div className="text-[10px] text-zinc-400">
+                Takip listesinde AL/SAT sinyal değişim kontrolü ve e-posta bildirimi (watchlist.md)
               </div>
             </div>
             <span
@@ -197,6 +255,32 @@ export default function WatchlistScheduleControl({
             </span>
           </div>
 
+          {/* Market Selector Tabs */}
+          <div className="mb-2.5 flex items-center gap-1 rounded-lg bg-zinc-950/70 p-1 border border-zinc-800">
+            {MARKET_TABS.map((tab) => {
+              const isTabActive = activeTab === tab.id;
+              const tabInterval =
+                tab.id === "all"
+                  ? settings?.checkInterval || "15m"
+                  : settings?.markets?.[tab.id] || settings?.checkInterval || "15m";
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 rounded py-1 text-[10px] font-semibold transition ${
+                    isTabActive
+                      ? "bg-amber-500/20 text-amber-200 border border-amber-500/40 shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  title={`${tab.label}: ${tabInterval}`}
+                >
+                  <span>{tab.icon}</span> {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Success Message Banner */}
           {successMsg && (
             <div className="mb-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-300 transition">
@@ -206,8 +290,21 @@ export default function WatchlistScheduleControl({
 
           {/* Interval Options */}
           <div className="mb-3 space-y-1">
-            <div className="mb-1 text-[11px] font-medium text-zinc-400">
-              Tarama Sıklığı Seçin:
+            <div className="mb-1 text-[11px] font-medium text-zinc-300 flex items-center justify-between">
+              <span>
+                {activeTab === "all"
+                  ? "🌐 Genel Tarama Sıklığı:"
+                  : `${marketBadge} ${
+                      activeTab === "bist"
+                        ? "BIST"
+                        : activeTab === "crypto"
+                        ? "Kripto (7/24)"
+                        : activeTab === "commodity_forex"
+                        ? "Emtia & FX"
+                        : "ABD Borsası"
+                    } Sıklığı:`}
+              </span>
+              <span className="font-mono text-[10px] text-amber-400 font-semibold">{currentKey}</span>
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {WATCHLIST_INTERVAL_OPTIONS.map((opt) => {
@@ -239,10 +336,10 @@ export default function WatchlistScheduleControl({
             <label className="flex items-center justify-between cursor-pointer">
               <div className="pr-2">
                 <div className="text-xs font-medium text-zinc-300">
-                  Sadece Seans Saatlerinde
+                  Sadece Seans İçi Kontrol
                 </div>
                 <div className="text-[10px] text-zinc-500">
-                  09:50 - 18:00 (Pazartesi - Cuma)
+                  Borsa kapalıyken taramayı durdur (09:50 - 18:00)
                 </div>
               </div>
               <input

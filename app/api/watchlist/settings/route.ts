@@ -5,6 +5,8 @@ import {
   WATCHLIST_INTERVAL_OPTIONS,
   normalizeWatchlistCheckInterval,
   type WatchlistCheckInterval,
+  type WatchlistMarketScope,
+  type WatchlistMarketIntervals,
 } from "@/lib/watchlist-storage";
 import { ensureSchedulerStarted } from "@/lib/scheduler";
 
@@ -31,15 +33,26 @@ export async function POST(req: Request) {
   ensureSchedulerStarted();
   try {
     const body = await req.json();
-    const { checkInterval, onlyTradingHours } = body;
+    const { checkInterval, onlyTradingHours, market, markets } = body;
 
-    const updates: { checkInterval?: WatchlistCheckInterval; onlyTradingHours?: boolean } = {};
+    const updates: {
+      checkInterval?: WatchlistCheckInterval;
+      onlyTradingHours?: boolean;
+      market?: WatchlistMarketScope;
+      markets?: WatchlistMarketIntervals;
+    } = {};
 
     if (checkInterval !== undefined) {
       updates.checkInterval = normalizeWatchlistCheckInterval(checkInterval);
     }
     if (onlyTradingHours !== undefined) {
       updates.onlyTradingHours = Boolean(onlyTradingHours);
+    }
+    if (market !== undefined) {
+      updates.market = market as WatchlistMarketScope;
+    }
+    if (markets !== undefined && typeof markets === "object") {
+      updates.markets = markets;
     }
 
     const updated = await saveWatchlistSettingsToFile(updates);

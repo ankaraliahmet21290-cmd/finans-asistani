@@ -165,10 +165,14 @@ export default function PositionTracker({
   // Update check interval setting
   const handleIntervalChange = async (interval: PositionCheckInterval) => {
     try {
+      const targetMarket = marketFilter === "all" ? undefined : marketFilter;
       const res = await fetch("/api/positions/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkInterval: interval }),
+        body: JSON.stringify({
+          checkInterval: interval,
+          market: targetMarket,
+        }),
       });
       if (res.ok) {
         const json = await res.json();
@@ -176,6 +180,25 @@ export default function PositionTracker({
       }
     } catch {
       alert("Ayar kaydedilemedi");
+    }
+  };
+
+  // Toggle trading hours only rule
+  const handleToggleTradingHours = async () => {
+    if (!settings) return;
+    const nextVal = !settings.onlyTradingHours;
+    try {
+      const res = await fetch("/api/positions/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onlyTradingHours: nextVal }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setSettings(json.settings);
+      }
+    } catch {
+      alert("Seans ayarı kaydedilemedi");
     }
   };
 
@@ -285,19 +308,61 @@ export default function PositionTracker({
           {/* Controls: Check Interval Dropdown & Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Interval Selector */}
-            <div className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/60 px-2.5 py-1.5 text-xs">
-              <span className="text-[11px] text-zinc-400">⏰ Tarama:</span>
-              <select
-                value={settings?.checkInterval ?? "5m"}
-                onChange={(e) => void handleIntervalChange(e.target.value as PositionCheckInterval)}
-                className="bg-transparent font-semibold text-zinc-200 outline-none cursor-pointer text-xs"
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/60 px-2.5 py-1.5 text-xs">
+                <span className="text-[11px] text-zinc-400 font-medium">
+                  {marketFilter === "all"
+                    ? "🌐 Genel Alarm:"
+                    : marketFilter === "bist"
+                    ? "🇹🇷 BIST Alarm:"
+                    : marketFilter === "crypto"
+                    ? "⚡ Kripto (7/24):"
+                    : marketFilter === "commodity_forex"
+                    ? "🪙 Emtia/FX:"
+                    : "🇺🇸 ABD Alarm:"}
+                </span>
+                <select
+                  value={
+                    (marketFilter !== "all" && settings?.markets?.[marketFilter]) ||
+                    settings?.checkInterval ||
+                    "5m"
+                  }
+                  onChange={(e) => void handleIntervalChange(e.target.value as PositionCheckInterval)}
+                  className="bg-transparent font-semibold text-zinc-200 outline-none cursor-pointer text-xs"
+                  title="Alarm Kontrol Sıklığı: Fiyatların Stop ve Kâr Al seviyelerine kontrol periyodu (portfoy-takip.md)"
+                >
+                  {INTERVAL_OPTIONS.map((opt) => (
+                    <option key={opt.key} value={opt.key} className="bg-zinc-900 text-zinc-200">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className="text-[10px] text-zinc-500 px-1 font-normal">
+                {marketFilter === "all"
+                  ? "Tüm pozisyonlar için alarm kontrol sıklığı"
+                  : `${marketFilter === "crypto" ? "Kripto (7/24)" : marketFilter.toUpperCase()} pozisyonları için dinamik seviye kontrolü`}
+              </span>
+            </div>
+
+            {/* Sadece Seans Saatlerinde Kontrol Toggle */}
+            <div className="flex flex-col gap-0.5">
+              <button
+                type="button"
+                onClick={() => void handleToggleTradingHours()}
+                className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition active:scale-95 ${
+                  settings?.onlyTradingHours
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                    : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-zinc-200"
+                }`}
+                title="Sadece Seans Saatlerinde Kontrol: Hafta içi 10:00 - 18:05 BIST seans saatleri dışında arka plan kontrolünü bekletir"
               >
-                {INTERVAL_OPTIONS.map((opt) => (
-                  <option key={opt.key} value={opt.key} className="bg-zinc-900 text-zinc-200">
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                <span className="text-[11px] font-medium text-zinc-400">🏛️ Sadece Seans Saatlerinde Kontrol:</span>
+                <span className="font-semibold">{settings?.onlyTradingHours ? "Aktif" : "Devre Dışı"}</span>
+              </button>
+              <span className="text-[10px] text-zinc-500 px-1 font-normal">
+                Hafta içi 10:00 - 18:05 BIST seans saatleri dışında bekletir
+              </span>
             </div>
 
             {/* Mail Recipients Control (Portföy Alarm Alıcıları - Tetikleme Bazlı) */}

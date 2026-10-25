@@ -345,6 +345,8 @@ export default function TopSignals({
             onChange={handleTimeframeChange}
             disabled={loading || refreshing}
             size="sm"
+            label="Varsayılan Analiz Periyodu"
+            description="Lider sinyaller analiz ve tarama periyodu"
           />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}

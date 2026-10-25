@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import {
   INTERVAL_TO_MINUTES,
+  DEFAULT_POSITION_SETTINGS,
   loadPositionsFile,
   normalizeCheckInterval,
   savePositionsFile,
 } from "@/lib/position-storage";
-import type { PositionCheckInterval } from "@/lib/position-types";
+import type {
+  PositionCheckInterval,
+  PositionMarketScope,
+  PositionMarketIntervals,
+} from "@/lib/position-types";
 
 export const dynamic = "force-dynamic";
 
@@ -24,14 +29,29 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { checkInterval, onlyTradingHours } = body;
+    const { checkInterval, onlyTradingHours, market, markets } = body;
 
     const { settings, positions } = await loadPositionsFile();
+    settings.markets = {
+      ...DEFAULT_POSITION_SETTINGS.markets!,
+      ...(settings.markets || {}),
+    };
 
-    if (checkInterval !== undefined) {
+    if (market && checkInterval !== undefined) {
+      const normalized: PositionCheckInterval = normalizeCheckInterval(checkInterval);
+      const m = market as PositionMarketScope;
+      if (m === "bist") settings.markets.bist = normalized;
+      else if (m === "crypto") settings.markets.crypto = normalized;
+      else if (m === "commodity_forex") settings.markets.commodity_forex = normalized;
+      else if (m === "us_stocks") settings.markets.us_stocks = normalized;
+    } else if (checkInterval !== undefined) {
       const normalized: PositionCheckInterval = normalizeCheckInterval(checkInterval);
       settings.checkInterval = normalized;
       settings.intervalMinutes = INTERVAL_TO_MINUTES[normalized];
+    }
+
+    if (markets !== undefined && typeof markets === "object") {
+      Object.assign(settings.markets, markets);
     }
 
     if (onlyTradingHours !== undefined) {
@@ -42,7 +62,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      message: `Tarama aralığı '${settings.checkInterval}' olarak portfoy-takip.md dosyasına kaydedildi`,
+      message: market
+        ? `${market} alarm sıklığı güncellendi`
+        : `Tarama aralığı '${settings.checkInterval}' olarak kaydedildi`,
       settings,
     });
   } catch (e) {

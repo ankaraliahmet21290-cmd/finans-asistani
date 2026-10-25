@@ -12,11 +12,11 @@ export async function GET(req: Request) {
   try {
     const config = await getRefreshSettingsFromFile();
     const { searchParams } = new URL(req.url);
-    const market = searchParams.get("market") as "bist" | "crypto" | "commodity_forex" | "us_stocks" | null;
+    const market = searchParams.get("market") as "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist" | null;
 
     let effectiveSeconds = config.seconds;
     if (market && config.markets?.[market] !== undefined) {
-      effectiveSeconds = config.markets[market];
+      effectiveSeconds = config.markets[market]!;
     }
 
     return NextResponse.json({
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const rawSeconds = body.seconds ?? body.interval ?? body.value;
-    const market = body.market as "bist" | "crypto" | "commodity_forex" | "us_stocks" | undefined;
+    const market = body.market as "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist" | undefined;
 
     if (rawSeconds === undefined || rawSeconds === null) {
       return NextResponse.json(

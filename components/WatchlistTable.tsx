@@ -408,8 +408,13 @@ export default function WatchlistTable({
             onChange={handleTimeframeChange}
             disabled={refreshing}
             size="sm"
+            label="Varsayılan Analiz Periyodu"
+            description="Takip tablosunun varsayılan mum periyodu"
           />
-          <WatchlistScheduleControl size="sm" />
+          <WatchlistScheduleControl
+            size="sm"
+            market={categoryFilter === "all" ? undefined : categoryFilter}
+          />
           <MailRecipientsControl size="sm" context="watchlist" />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}
@@ -417,6 +422,7 @@ export default function WatchlistTable({
             onRefresh={() => void refresh(timeframe)}
             isRefreshing={refreshing}
             lastUpdated={updatedAt}
+            market="watchlist"
             storageKey="watchlist_refresh_interval"
             size="md"
             align="right"

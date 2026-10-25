@@ -15,6 +15,8 @@ export interface WatchlistFileEntry {
 
 import {
   type WatchlistCheckInterval,
+  type WatchlistMarketScope,
+  type WatchlistMarketIntervals,
   type WatchlistSettings,
   type WatchlistIntervalOption,
   DEFAULT_WATCHLIST_SETTINGS,
@@ -25,6 +27,8 @@ import {
 
 export {
   type WatchlistCheckInterval,
+  type WatchlistMarketScope,
+  type WatchlistMarketIntervals,
   type WatchlistSettings,
   type WatchlistIntervalOption,
   DEFAULT_WATCHLIST_SETTINGS,
@@ -132,39 +136,67 @@ export function parseWatchlistWithSettings(content: string): {
   settings: WatchlistSettings;
   entries: WatchlistFileEntry[];
 } {
-  const settings: WatchlistSettings = { ...DEFAULT_WATCHLIST_SETTINGS };
+  const settings: WatchlistSettings = {
+    ...DEFAULT_WATCHLIST_SETTINGS,
+    markets: { ...DEFAULT_WATCHLIST_SETTINGS.markets! },
+  };
   const lines = content.split(/\r?\n/);
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
 
-    if (line.startsWith("- **Tarama Sıklığı:**") || line.startsWith("- **Tarama:**")) {
-      const val = line.split(":")[1]?.trim() || "";
-      settings.checkInterval = normalizeWatchlistCheckInterval(val);
-      settings.intervalMinutes = WATCHLIST_INTERVAL_TO_MINUTES[settings.checkInterval];
-      continue;
-    }
-    if (line.startsWith("- **Yalnızca Seans İçi:**") || line.startsWith("- **Sadece Seans İçi:**")) {
-      const val = line.split(":")[1]?.trim().toLowerCase() || "";
-      settings.onlyTradingHours = val.includes("evet") || val.includes("true");
-      continue;
-    }
-    if (line.startsWith("- **Son Kontrol:**")) {
-      const parts = line.split(":");
-      const val = parts.slice(1).join(":").trim();
-      if (val && val !== "—" && val !== "-") {
-        settings.lastCheckAt = val;
+    const cleanLine = line.replace(/^\s*[-*]\s*/, "");
+    const colonIdx = cleanLine.indexOf(":");
+    if (colonIdx > 0) {
+      const key = cleanLine.slice(0, colonIdx).replace(/\*/g, "").trim().toLowerCase();
+      const val = cleanLine.slice(colonIdx + 1).replace(/\*/g, "").trim();
+
+      if (key.includes("bist") && (key.includes("tarama") || key.includes("takip") || key.includes("kontrol"))) {
+        settings.markets!.bist = normalizeWatchlistCheckInterval(val);
+        continue;
       }
-      continue;
-    }
-    if (line.startsWith("- **Son Sinyal Değişimi:**") || line.startsWith("- **Son Değişim:**")) {
-      const parts = line.split(":");
-      const val = parts.slice(1).join(":").trim();
-      if (val && val !== "—" && val !== "-") {
-        settings.lastChangedAt = val;
+      if (key.includes("kripto") && (key.includes("tarama") || key.includes("takip") || key.includes("kontrol"))) {
+        settings.markets!.crypto = normalizeWatchlistCheckInterval(val);
+        continue;
       }
-      continue;
+      if (
+        (key.includes("emtia") || key.includes("fx") || key.includes("döviz") || key.includes("doviz")) &&
+        (key.includes("tarama") || key.includes("takip") || key.includes("kontrol"))
+      ) {
+        settings.markets!.commodity_forex = normalizeWatchlistCheckInterval(val);
+        continue;
+      }
+      if (
+        (key.includes("abd") || key.includes("us")) &&
+        (key.includes("tarama") || key.includes("takip") || key.includes("kontrol"))
+      ) {
+        settings.markets!.us_stocks = normalizeWatchlistCheckInterval(val);
+        continue;
+      }
+      if (key.includes("tarama") || key.includes("kontrol sıklığı") || key.includes("kontrol sikligi")) {
+        settings.checkInterval = normalizeWatchlistCheckInterval(val);
+        settings.intervalMinutes = WATCHLIST_INTERVAL_TO_MINUTES[settings.checkInterval];
+        continue;
+      }
+      if (key.includes("seans")) {
+        settings.onlyTradingHours = val.toLowerCase().includes("evet") || val.toLowerCase().includes("true");
+        continue;
+      }
+      if (key.includes("son kontrol")) {
+        const cleanVal = val.replace(/[*—\s]/g, "");
+        if (cleanVal && cleanVal !== "-") {
+          settings.lastCheckAt = val.replace(/\*/g, "").trim();
+        }
+        continue;
+      }
+      if (key.includes("son sinyal") || key.includes("son değişim") || key.includes("son degisim")) {
+        const cleanVal = val.replace(/[*—\s]/g, "");
+        if (cleanVal && cleanVal !== "-") {
+          settings.lastChangedAt = val.replace(/\*/g, "").trim();
+        }
+        continue;
+      }
     }
   }
 
@@ -186,6 +218,10 @@ export function formatWatchlistMarkdown(
     return `| ${e.ticker} | ${e.type} | ${displayName} | ${tf} |`;
   });
 
+  const mk = settings.markets ?? DEFAULT_WATCHLIST_SETTINGS.markets!;
+  const cleanLastChanged = (settings.lastChangedAt || "—").replace(/\*/g, "").trim() || "—";
+  const cleanLastCheck = (settings.lastCheckAt || "—").replace(/\*/g, "").trim() || "—";
+
   return `# Takip Listesi
 
 Bu dosya Finans Asistanı takip listesindeki varlıkları içerir.
@@ -193,9 +229,13 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 
 ## Sinyal Değişim Kontrol Ayarları
 - **Tarama Sıklığı:** ${settings.checkInterval}
+- **BIST Takip Sıklığı:** ${mk.bist}
+- **Kripto Takip Sıklığı:** ${mk.crypto}
+- **Emtia & FX Takip Sıklığı:** ${mk.commodity_forex}
+- **ABD Borsası Takip Sıklığı:** ${mk.us_stocks}
 - **Yalnızca Seans İçi:** ${settings.onlyTradingHours ? "Evet" : "Hayır"}
-- **Son Kontrol:** ${settings.lastCheckAt ?? "—"}
-- **Son Sinyal Değişimi:** ${settings.lastChangedAt ?? "—"}
+- **Son Kontrol:** ${cleanLastCheck}
+- **Son Sinyal Değişimi:** ${cleanLastChanged}
 
 | Sembol | Tür | Ad | Periyot |
 | --- | --- | --- | --- |
@@ -266,10 +306,29 @@ export async function saveWatchlistToFile(entries: WatchlistFileEntry[]): Promis
  * Updates watchlist settings in watchlist.md.
  */
 export async function saveWatchlistSettingsToFile(
-  partial: Partial<WatchlistSettings>
+  partial: Partial<WatchlistSettings> & {
+    market?: WatchlistMarketScope;
+  }
 ): Promise<WatchlistSettings> {
   const { settings, entries } = await getWatchlistWithSettingsFromFile();
-  const checkInterval = partial.checkInterval
+  const currentMarkets: WatchlistMarketIntervals = {
+    ...DEFAULT_WATCHLIST_SETTINGS.markets!,
+    ...(settings.markets || {}),
+  };
+
+  if (partial.markets) {
+    Object.assign(currentMarkets, partial.markets);
+  }
+
+  if (partial.market && partial.checkInterval) {
+    const norm = normalizeWatchlistCheckInterval(partial.checkInterval);
+    if (partial.market === "bist") currentMarkets.bist = norm;
+    else if (partial.market === "crypto") currentMarkets.crypto = norm;
+    else if (partial.market === "commodity_forex") currentMarkets.commodity_forex = norm;
+    else if (partial.market === "us_stocks") currentMarkets.us_stocks = norm;
+  }
+
+  const checkInterval = partial.checkInterval && !partial.market
     ? normalizeWatchlistCheckInterval(partial.checkInterval)
     : settings.checkInterval;
   const intervalMinutes = WATCHLIST_INTERVAL_TO_MINUTES[checkInterval];
@@ -279,6 +338,7 @@ export async function saveWatchlistSettingsToFile(
     ...partial,
     checkInterval,
     intervalMinutes,
+    markets: currentMarkets,
   };
 
   await saveWatchlistWithSettingsToFile(entries, updatedSettings);

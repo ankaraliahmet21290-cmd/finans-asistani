@@ -77,6 +77,26 @@ export default function AppHeader() {
             <span>👥 Canlı Analitik</span>
           </Link>
           <Link
+            href="/takip"
+            className={`shrink-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+              pathname === "/takip"
+                ? "border-violet-500/50 bg-violet-500/20 text-violet-200"
+                : "border-zinc-700/60 bg-zinc-800/40 text-zinc-300 hover:border-violet-400 hover:bg-zinc-800/80"
+            }`}
+          >
+            <span>📌 İzleme Listesi</span>
+          </Link>
+          <Link
+            href="/pozisyonlar"
+            className={`shrink-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+              pathname === "/pozisyonlar"
+                ? "border-rose-500/50 bg-rose-500/20 text-rose-200"
+                : "border-zinc-700/60 bg-zinc-800/40 text-zinc-300 hover:border-rose-400 hover:bg-zinc-800/80"
+            }`}
+          >
+            <span>💼 Portföy</span>
+          </Link>
+          <Link
             href="/ayarlar"
             className={`shrink-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
               pathname === "/ayarlar"

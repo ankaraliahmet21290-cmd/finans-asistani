@@ -329,11 +329,14 @@ export default function CryptoDashboard() {
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-              Analiz Periyodu:
-            </span>
-            <TimeframeSelector value={timeframe} onChange={setTimeframe} size="sm" />
-            <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
+            <TimeframeSelector
+              value={timeframe}
+              onChange={setTimeframe}
+              size="sm"
+              label="Varsayılan Analiz Periyodu"
+              description="Kripto analiz ve sinyal varsayılan periyodu"
+            />
+            <div className="h-8 w-px bg-zinc-800 hidden sm:block self-center" />
             <MailScheduleControl size="sm" market="crypto" />
             <MailRecipientsControl size="sm" context="positions" />
             <AutoRefreshControl
@@ -569,11 +572,11 @@ export default function CryptoDashboard() {
                 {filteredData.length} / {totalCount}
               </span>
               <span
-                title="Açılışta otomatik seçilen kategori (crypto-settings.md)"
+                title="Varsayılan Kategori / Sekme: Kripto ekranı açıldığında doğrudan seçilecek kategori (crypto-settings.md)"
                 className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300"
               >
                 <span>⚙️</span>
-                <span>Ayar: {SUBCATEGORY_FILTERS.find((c) => c.key === savedDefaultCategory)?.label ?? "🔥 Liderler"}</span>
+                <span>Varsayılan Kategori: {SUBCATEGORY_FILTERS.find((c) => c.key === savedDefaultCategory)?.label ?? "🔥 Liderler"}</span>
               </span>
               {saveNotice && (
                 <span className="animate-pulse rounded-md border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">

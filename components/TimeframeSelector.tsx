@@ -26,6 +26,7 @@ interface TimeframeSelectorProps {
   disabled?: boolean;
   size?: "sm" | "md";
   label?: string;
+  description?: string;
 }
 
 export default function TimeframeSelector({
@@ -33,17 +34,19 @@ export default function TimeframeSelector({
   onChange,
   disabled = false,
   size = "md",
-  label = "Periyot",
+  label = "Varsayılan Analiz Periyodu",
+  description,
 }: TimeframeSelectorProps) {
   const isSm = size === "sm";
 
   return (
-    <div className="inline-flex max-w-full items-center gap-1.5">
-      {label && (
-        <span className="hidden sm:inline-block shrink-0 text-[11px] font-medium text-zinc-400">
-          {label}:
-        </span>
-      )}
+    <div className="flex flex-col gap-0.5">
+      <div className="inline-flex max-w-full items-center gap-1.5">
+        {label && (
+          <span className="hidden sm:inline-block shrink-0 text-[11px] font-semibold text-zinc-400">
+            {label}:
+          </span>
+        )}
       <div
         className={`inline-flex max-w-full items-center overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/90 p-0.5 shadow-inner scrollbar-none ${
           disabled ? "opacity-60 pointer-events-none" : ""
@@ -75,5 +78,9 @@ export default function TimeframeSelector({
         })}
       </div>
     </div>
-  );
+    {description && (
+      <span className="text-[10px] text-zinc-500 font-normal">{description}</span>
+    )}
+  </div>
+);
 }

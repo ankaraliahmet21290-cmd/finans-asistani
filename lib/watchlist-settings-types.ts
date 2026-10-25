@@ -9,12 +9,22 @@ export type WatchlistCheckInterval =
   | "daily"
   | "off";
 
+export type WatchlistMarketScope = "bist" | "crypto" | "commodity_forex" | "us_stocks";
+
+export interface WatchlistMarketIntervals {
+  bist: WatchlistCheckInterval;
+  crypto: WatchlistCheckInterval;
+  commodity_forex: WatchlistCheckInterval;
+  us_stocks: WatchlistCheckInterval;
+}
+
 export interface WatchlistSettings {
   checkInterval: WatchlistCheckInterval;
   intervalMinutes: number;
   onlyTradingHours: boolean;
   lastCheckAt?: string | null;
   lastChangedAt?: string | null;
+  markets?: WatchlistMarketIntervals;
 }
 
 export const DEFAULT_WATCHLIST_SETTINGS: WatchlistSettings = {
@@ -23,6 +33,12 @@ export const DEFAULT_WATCHLIST_SETTINGS: WatchlistSettings = {
   onlyTradingHours: true,
   lastCheckAt: null,
   lastChangedAt: null,
+  markets: {
+    bist: "15m",
+    crypto: "5m",
+    commodity_forex: "15m",
+    us_stocks: "30m",
+  },
 };
 
 export const WATCHLIST_INTERVAL_TO_MINUTES: Record<WatchlistCheckInterval, number> = {

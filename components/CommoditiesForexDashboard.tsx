@@ -132,11 +132,14 @@ export default function CommoditiesForexDashboard() {
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-              Analiz Periyodu:
-            </span>
-            <TimeframeSelector value={timeframe} onChange={setTimeframe} size="sm" />
-            <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
+            <TimeframeSelector
+              value={timeframe}
+              onChange={setTimeframe}
+              size="sm"
+              label="Varsayılan Analiz Periyodu"
+              description="Emtia ve döviz analiz ve grafik varsayılan periyodu"
+            />
+            <div className="h-8 w-px bg-zinc-800 hidden sm:block self-center" />
             <MailScheduleControl size="sm" market="commodity_forex" />
             <MailRecipientsControl size="sm" context="positions" />
             <AutoRefreshControl

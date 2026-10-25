@@ -88,11 +88,12 @@ export default function HomeDashboard() {
 
           {/* Timeframe Selector with all Leader Signal periods */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-zinc-400">Analiz Periyodu:</span>
             <TimeframeSelector
               value={bistTimeframe}
               onChange={handleBistTimeframeChange}
               size="sm"
+              label="Varsayılan Analiz Periyodu"
+              description="BIST şirket detay ve grafik varsayılan periyodu"
             />
           </div>
 

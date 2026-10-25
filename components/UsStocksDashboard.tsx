@@ -147,11 +147,14 @@ export default function UsStocksDashboard() {
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-              Analiz Periyodu:
-            </span>
-            <TimeframeSelector value={timeframe} onChange={setTimeframe} size="sm" />
-            <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
+            <TimeframeSelector
+              value={timeframe}
+              onChange={setTimeframe}
+              size="sm"
+              label="Varsayılan Analiz Periyodu"
+              description="ABD hisseleri analiz ve grafik varsayılan periyodu"
+            />
+            <div className="h-8 w-px bg-zinc-800 hidden sm:block self-center" />
             <MailScheduleControl size="sm" market="us_stocks" />
             <MailRecipientsControl size="sm" context="positions" />
             <AutoRefreshControl

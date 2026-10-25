@@ -13,6 +13,7 @@ import {
 import { MAIL_INTERVAL_OPTIONS } from "./mail-settings-types";
 import { getRecipientsFromFile, type MailRecipient } from "./mail-recipients-storage";
 import { loadPositionsFile, savePositionsFile } from "./position-storage";
+import type { PositionEntry } from "./position-types";
 import { getCandles } from "./data";
 import {
   getWatchlistWithSettingsFromFile,
@@ -321,45 +322,84 @@ async function checkSchedulerTick() {
     console.error("[scheduler] checkSchedulerTick hatası:", err);
   }
 }
+const positionMarketLastScannedMap = new Map<string, number>();
+
 async function checkPositionTrackerTick() {
   try {
     const { settings, positions } = await loadPositionsFile();
-    if (settings.checkInterval === "off" || settings.intervalMinutes === 0) return;
+    const activePositions = positions.filter((p) => p.status === "active");
+    if (activePositions.length === 0) return;
 
     const now = Date.now();
-    const lastCheck = settings.lastCheckAt ? new Date(settings.lastCheckAt).getTime() : 0;
-    const intervalMs = settings.intervalMinutes * 60 * 1000;
+    const nowIso = new Date().toISOString();
 
-    if (now - lastCheck < intervalMs) return;
+    // Group active positions by market
+    const positionsByMarket = new Map<
+      "bist" | "crypto" | "commodity_forex" | "us_stocks",
+      PositionEntry[]
+    >();
 
-    const activePositions = positions.filter((p) => p.status === "active");
-    if (activePositions.length === 0) {
-      settings.lastCheckAt = new Date().toISOString();
-      await savePositionsFile(settings, positions);
-      return;
+    for (const pos of activePositions) {
+      const cat = detectAssetCategory(pos.ticker);
+      const marketId: "bist" | "crypto" | "commodity_forex" | "us_stocks" =
+        cat === "crypto"
+          ? "crypto"
+          : cat === "us_stock"
+          ? "us_stocks"
+          : cat === "forex" || cat === "commodity" || cat === "gold"
+          ? "commodity_forex"
+          : "bist";
+
+      const list = positionsByMarket.get(marketId) || [];
+      list.push(pos);
+      positionsByMarket.set(marketId, list);
     }
 
-    const nowIso = new Date().toISOString();
+    const MARKETS: Array<"bist" | "crypto" | "commodity_forex" | "us_stocks"> = [
+      "bist",
+      "crypto",
+      "commodity_forex",
+      "us_stocks",
+    ];
+
+    const marketsToScan: Array<"bist" | "crypto" | "commodity_forex" | "us_stocks"> = [];
+
+    for (const m of MARKETS) {
+      const marketPositions = positionsByMarket.get(m);
+      if (!marketPositions || marketPositions.length === 0) continue;
+
+      // Session check: crypto is 24/7; others follow session hours if onlyTradingHours is true
+      if (m !== "crypto" && settings.onlyTradingHours) {
+        const session = getMarketSessionStatus(m);
+        if (!session.isOpen) continue;
+      }
+
+      // Interval check
+      const marketInterval = settings.markets?.[m] || settings.checkInterval || "5m";
+      if (marketInterval === "off") continue;
+
+      const minutes = getMinutesForInterval(marketInterval as any) || 5;
+      const intervalMs = minutes * 60 * 1000;
+      const lastCheck = positionMarketLastScannedMap.get(m) ?? 0;
+
+      if (now - lastCheck < intervalMs) continue;
+
+      marketsToScan.push(m);
+    }
+
+    if (marketsToScan.length === 0) return;
+
     let alarmsSent = 0;
+    const scanPositionsSet = new Set(
+      marketsToScan.flatMap((m) => {
+        positionMarketLastScannedMap.set(m, now);
+        return positionsByMarket.get(m) || [];
+      })
+    );
 
     const updated = await Promise.all(
       positions.map(async (pos) => {
-        if (pos.status !== "active") return pos;
-
-        // Seans saati kontrolü: Kripto 7/24, ABD 16:30-23:00, FX/Emtia Hafta İçi, BIST 09:50-18:00
-        if (settings.onlyTradingHours) {
-          const cat = detectAssetCategory(pos.ticker);
-          const marketId =
-            cat === "crypto"
-              ? "crypto"
-              : cat === "us_stock"
-              ? "us_stocks"
-              : cat === "forex" || cat === "commodity" || cat === "gold"
-              ? "commodity_forex"
-              : "bist";
-          const session = getMarketSessionStatus(marketId);
-          if (!session.isOpen) return pos;
-        }
+        if (!scanPositionsSet.has(pos)) return pos;
 
         try {
           const candleRes = await getCandles(pos.ticker, pos.timeframe);
@@ -442,6 +482,7 @@ async function checkPositionTrackerTick() {
   }
 }
 
+const watchlistMarketLastScannedMap = new Map<string, number>();
 let isRunningWatchlistCheck = false;
 
 async function checkWatchlistTrackerTick() {
@@ -449,22 +490,71 @@ async function checkWatchlistTrackerTick() {
 
   try {
     const { settings, entries } = await getWatchlistWithSettingsFromFile();
-    if (settings.checkInterval === "off" || settings.intervalMinutes === 0) return;
     if (entries.length === 0) return;
 
     const now = Date.now();
-    const lastCheck = settings.lastCheckAt ? new Date(settings.lastCheckAt).getTime() : 0;
-    const intervalMs = settings.intervalMinutes * 60 * 1000;
+    const todayIstanbul = getIstanbulDateString();
 
-    if (settings.checkInterval === "daily") {
-      const todayIstanbul = getIstanbulDateString();
-      const lastCheckDay = settings.lastCheckAt
-        ? getIstanbulDateString(new Date(settings.lastCheckAt))
-        : null;
-      if (lastCheckDay === todayIstanbul) return;
-    } else {
-      if (now - lastCheck < intervalMs) return;
+    // Group watchlist entries by market
+    const entriesByMarket = new Map<
+      "bist" | "crypto" | "commodity_forex" | "us_stocks",
+      typeof entries
+    >();
+
+    for (const w of entries) {
+      const cat = detectAssetCategory(w.ticker);
+      const marketId: "bist" | "crypto" | "commodity_forex" | "us_stocks" =
+        cat === "crypto"
+          ? "crypto"
+          : cat === "us_stock"
+          ? "us_stocks"
+          : cat === "forex" || cat === "commodity" || cat === "gold"
+          ? "commodity_forex"
+          : "bist";
+
+      const list = entriesByMarket.get(marketId) || [];
+      list.push(w);
+      entriesByMarket.set(marketId, list);
     }
+
+    const MARKETS: Array<"bist" | "crypto" | "commodity_forex" | "us_stocks"> = [
+      "bist",
+      "crypto",
+      "commodity_forex",
+      "us_stocks",
+    ];
+
+    const marketsToScan: Array<"bist" | "crypto" | "commodity_forex" | "us_stocks"> = [];
+
+    for (const m of MARKETS) {
+      const marketEntries = entriesByMarket.get(m);
+      if (!marketEntries || marketEntries.length === 0) continue;
+
+      // Session check: crypto is 24/7; others follow session hours if onlyTradingHours is true
+      if (m !== "crypto" && settings.onlyTradingHours) {
+        const session = getMarketSessionStatus(m);
+        if (!session.isOpen) continue;
+      }
+
+      // Interval check
+      const marketInterval = settings.markets?.[m] || settings.checkInterval || "15m";
+      if (marketInterval === "off") continue;
+
+      const minutes = getMinutesForInterval(marketInterval as any) || 15;
+      const intervalMs = minutes * 60 * 1000;
+      const lastCheck = watchlistMarketLastScannedMap.get(m) ?? 0;
+
+      if (marketInterval === "daily") {
+        const lastCheckDay = lastCheck > 0 ? getIstanbulDateString(new Date(lastCheck)) : null;
+        if (lastCheckDay === todayIstanbul) continue;
+      } else {
+        if (now - lastCheck < intervalMs) continue;
+      }
+
+      marketsToScan.push(m);
+    }
+
+    if (marketsToScan.length === 0) return;
 
     isRunningWatchlistCheck = true;
     const nowIso = new Date().toISOString();
@@ -474,64 +564,54 @@ async function checkWatchlistTrackerTick() {
     const watchlistTf = tfConfig.watchlist || "1d";
     const tfLabel = TIMEFRAMES[watchlistTf]?.label ?? watchlistTf;
 
-    for (const w of entries) {
-      // Seans saati kontrolü: Kripto 7/24 taranır, ABD seansında ABD hisseleri taranır
-      if (settings.onlyTradingHours) {
-        const cat = detectAssetCategory(w.ticker);
-        const marketId =
-          cat === "crypto"
-            ? "crypto"
-            : cat === "us_stock"
-            ? "us_stocks"
-            : cat === "forex" || cat === "commodity" || cat === "gold"
-            ? "commodity_forex"
-            : "bist";
-        const session = getMarketSessionStatus(marketId);
-        if (!session.isOpen) continue;
-      }
+    for (const m of marketsToScan) {
+      watchlistMarketLastScannedMap.set(m, now);
+      const items = entriesByMarket.get(m) || [];
 
-      const itemTf = (w.timeframe || watchlistTf) as TimeframeKey;
-      const itemTfLabel = TIMEFRAMES[itemTf]?.label ?? itemTf;
+      for (const w of items) {
+        const itemTf = (w.timeframe || watchlistTf) as TimeframeKey;
+        const itemTfLabel = TIMEFRAMES[itemTf]?.label ?? itemTf;
 
-      try {
-        const res = await analyzeSymbol(w.ticker, w.type, itemTf);
-        const fundReasons =
-          res.fund?.metrics
-            .filter((m) => m.point !== 0)
-            .map((m) => m.detail) ?? [];
+        try {
+          const res = await analyzeSymbol(w.ticker, w.type, itemTf);
+          const fundReasons =
+            res.fund?.metrics
+              .filter((m) => m.point !== 0)
+              .map((m) => m.detail) ?? [];
 
-        const prev = await getSignal(w.ticker, itemTf);
-        if (prev !== res.signal) {
-          await setSignal(w.ticker, res.signal, itemTf);
-          if (prev) {
-            changed.push({
-              ticker: w.ticker,
-              signal: res.signal,
-              score: res.score,
-              reasons: [...res.tech.reasons, ...fundReasons],
-              price: res.price,
-              timeframe: itemTfLabel,
-            });
+          const prev = await getSignal(w.ticker, itemTf);
+          if (prev !== res.signal) {
+            await setSignal(w.ticker, res.signal, itemTf);
+            if (prev) {
+              changed.push({
+                ticker: w.ticker,
+                signal: res.signal,
+                score: res.score,
+                reasons: [...res.tech.reasons, ...fundReasons],
+                price: res.price,
+                timeframe: itemTfLabel,
+              });
+            }
           }
+        } catch (err) {
+          console.error("[scheduler] watchlist sembol kontrol hatası:", w.ticker, err);
         }
-      } catch (err) {
-        console.error("[scheduler] watchlist sembol kontrol hatası:", w.ticker, err);
       }
     }
 
     const queue = new Map<string, SignalMailItem>();
     for (const item of await getPendingMail()) queue.set(item.ticker, item);
     for (const item of changed) queue.set(item.ticker, item);
-    const items = [...queue.values()];
+    const pendingItems = [...queue.values()];
 
-    if (items.length > 0 && isMailConfigured()) {
+    if (pendingItems.length > 0 && isMailConfigured()) {
       try {
-        await sendSignalMail(items, undefined, tfLabel);
+        await sendSignalMail(pendingItems, undefined, tfLabel);
         await setPendingMail([]);
         settings.lastChangedAt = nowIso;
       } catch (e) {
         console.error("[scheduler] watchlist e-posta gönderilemedi, saklanıyor:", e);
-        await setPendingMail(items);
+        await setPendingMail(pendingItems);
       }
     }
 

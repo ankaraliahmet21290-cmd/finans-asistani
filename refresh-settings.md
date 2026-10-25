@@ -10,6 +10,7 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Kripto Sıklık | 15s | Kripto para veri yenileme aralığı (7/24) |
 | Emtia & FX Sıklık | 60s | Altın, döviz, emtia veri yenileme aralığı |
 | ABD Borsası Sıklık | 30s | Amerikan borsası (Nasdaq/S&P) veri yenileme aralığı |
+| Takip Listesi Sıklık | 30s | Takip listesi (Watchlist) veri yenileme aralığı |
 | Görünen Ad | 30 sn | Önerilen (Hızlı & Dengeli) |
 | Saniye | 30 | Sayısal saniye karşılığı (0 = kapalı) |
 | Aktif | Evet | Otomatik veri yenileme açık/kapalı |
