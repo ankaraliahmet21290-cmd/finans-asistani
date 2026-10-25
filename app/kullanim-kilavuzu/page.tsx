@@ -425,7 +425,7 @@ export default function KullanimKilavuzuPage() {
               </li>
               <li>
                 <strong>Kişiye Özel Mail Sıklığı:</strong> Örneğin bir yönetici &quot;Günde 1 Kez&quot; özet alırken,
-                aktif bir trader &quot;15 Dakika&quot; veya &quot;5 Dakika&quot; sıklığında bülten alabilir.
+                aktif bir trader &quot;15 Dakika&quot; veya &quot;5 Dakika&quot; sıklığında bülten alabilir. (Belirtilmemişse piyasanın veya global bülten sıklığı geçerli olur).
               </li>
               <li>
                 <strong>Test E-Postası Gönderimi:</strong> Eklediğiniz adresin mail alıp almadığını &quot;Test Maili
@@ -436,19 +436,48 @@ export default function KullanimKilavuzuPage() {
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
             <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-              <span className="text-emerald-400">B.</span> Sistem Mail Motoru &amp; Zamanlayıcı (Scheduler)
+              <span className="text-sky-400">B.</span> Piyasa Bazlı Ayarlar &amp; Çift Yönlü Canlı Senkronizasyon
             </h4>
             <p className="text-xs text-zinc-400 mt-1">
-              Sunucu arka planında çalışan zamanlayıcı motorun genel çalışma kurallarını belirler:
+              Genel Ayarlar masasında her bir piyasa (BIST, Kripto, Emtia/Döviz, ABD Borsası) için sunulan
+              tüm ayarlar, doğrudan o piyasanın kendi ekranındaki kontrollerle <strong>çift yönlü senkronize</strong> çalışır:
             </p>
-            <ul className="list-disc space-y-1 pl-5 mt-2 text-xs text-zinc-300">
+            <ul className="list-disc space-y-1.5 pl-5 mt-2 text-xs text-zinc-300">
               <li>
-                <strong>Genel Mail Gönderim Sıklığı:</strong> 5dk, 10dk, 15dk, 30dk, 1S, 2S, 4S, Günde 1 Kez veya
-                Kapalı.
+                <strong>⏱️ Bülten Tarama Sıklığı (Piyasa Bazlı):</strong> Çoklu Zaman Dilimi AL/SAT taramasının
+                ve e-posta bülten üretiminin o piyasa için hangi aralıkla çalışacağını belirler. İster Genel Ayarlar&apos;dan
+                ister Çoklu Zaman Dilimi ekranındaki zamanlayıcıdan değiştirin; iki taraf da anında güncellenir.
               </li>
               <li>
-                <strong>Seans İçi Filtresi:</strong> BIST için saat 09:50 - 18:00 haricinde boş mail gönderilmesini
-                önler (istenirse 7/24 kesintisiz çalışacak şekilde ayarlanabilir).
+                <strong>⚡ Canlı Veri Yenileme Sıklığı:</strong> Ekranlardaki geri sayım sayacıyla (AutoRefreshControl)
+                birebir eşzamanlıdır. Bir yerde süreyi değiştirdiğinizde tüm sekmeler ve Genel Ayarlar güncellenir.
+              </li>
+              <li>
+                <strong>📊 Varsayılan Endeks Kapsamı:</strong> BIST için BIST 30, BIST 100 veya TÜMÜ tercihini belirler;
+                ilgili ekranlar açıldığında bu endeksle başlar.
+              </li>
+              <li>
+                <strong>🛡️ / 📋 Pozisyon Masası ve İzleme Listesi Sıklıkları:</strong> Portföy Stop-Loss ve favori
+                hisse sinyal değişim kontrollerinin sunucu arka plan sorgu periyotlarını belirler.
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
+            <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <span className="text-emerald-400">C.</span> Genel Bülten Zamanlayıcı &amp; Scheduler Motoru
+            </h4>
+            <p className="text-xs text-zinc-400 mt-1">
+              Sunucu arka planında çalışan zamanlayıcı motorun küresel çalışma kurallarını belirler:
+            </p>
+            <ul className="list-disc space-y-1.5 pl-5 mt-2 text-xs text-zinc-300">
+              <li>
+                <strong>Global Bülten Tarama Sıklığı:</strong> Eğer bir piyasa veya alıcı için özel bir sıklık
+                belirlenmemişse geçerli olan nihai çatı bülten sıklığıdır (Varsayılan: 15 dk).
+              </li>
+              <li>
+                <strong>Sadece Seans Saatlerinde Gönder:</strong> BIST seans saatleri (09:50 - 18:00) dışındayken
+                bültenleri durdurur (Kripto piyasası 7/24 kesintisiz devam eder).
               </li>
               <li>
                 <strong>Şimdi Tara &amp; Mail Gönder Butonu:</strong> Otomatik saati beklemeden tüm sistemi tarayıp
@@ -600,49 +629,81 @@ export default function KullanimKilavuzuPage() {
           ]}
         />
 
-        <H3>Mail Gönderim Sıklığı (Schedule Intervals) Nasıl Ayarlanır?</H3>
+        <H3>Bülten Tarama Motoru vs. Kişisel Mail Sıklığı: Sistem Nasıl Çalışır?</H3>
         <p>
-          Genel Ayarlar Masasından veya Çoklu Zaman Dilimi başlığından genel mail sıklığını seçebilirsiniz:
+          Finans Asistanı&apos;nda e-posta gönderim mekanizması iki katmanlı (birlikte ve koordineli) bir mimariyle
+          çalışır. Bu iki ayar birbirini ezmez; sistem kaynaklarını korurken kişisel tercihleri de tam olarak karşılar:
         </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-2">
+          <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
+            <div className="text-xs font-bold text-sky-300 uppercase tracking-wider mb-1">
+              ① Veri Tarama Motoru Sıklığı
+            </div>
+            <p className="text-sm font-bold text-zinc-100">Bülten Tarama Sıklığı (Piyasa / Global)</p>
+            <p className="text-xs text-zinc-300 mt-1">
+              Sistemin piyasayı tarayıp sinyalleri hesapladığı temel çalışma frekansıdır (Örn: BIST için 15 dk).
+              Bu süre dolmadıkça o piyasa için yeni bir tarama yapılmaz ve hiçbir kullanıcıya mail çıkmaz.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4">
+            <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-1">
+              ② Kişisel Dağıtım Filtresi
+            </div>
+            <p className="text-sm font-bold text-zinc-100">Alıcı Bazlı Mail Sıklığı</p>
+            <p className="text-xs text-zinc-300 mt-1">
+              Tarama motoru çalıştığında, listedeki her bir alıcının kendi sıklığına bakar. Motor 15 dakikada
+              bir çalışsa bile &quot;1 Saat&quot; seçen bir alıcıya sadece saatte bir mail gider.
+            </p>
+          </div>
+        </div>
+
+        <H3>3 Kademeli Hiyerarşik Öncelik Zinciri</H3>
+        <p className="text-xs text-zinc-300">
+          Bir alıcıya hangi sıklıkla e-posta gönderileceği aşağıdaki öncelik sırasına göre kararlaştırılır:
+        </p>
+
+        <Table
+          head={["Kademe", "Ayar Yeri", "Öncelik Kuralı", "Açıklama"]}
+          rows={[
+            [
+              <strong key="k1" className="text-emerald-400">1. Kademe (En Yüksek)</strong>,
+              "E-Posta Alıcıları Masası",
+              "Alıcının Kendi Özel Sıklığı",
+              "Alıcıya özel bir sıklık (örn: 1 Saat veya Günlük) tanımlanmışsa bu sıklık geçerlidir.",
+            ],
+            [
+              <strong key="k2" className="text-sky-400">2. Kademe</strong>,
+              "Genel Ayarlar & Piyasa Ekranı",
+              "Piyasanın Bülten Tarama Sıklığı",
+              "Alıcıda özel bir sıklık seçilmemişse ('Genel Ayar'), taranan piyasanın (BIST, Kripto vb.) bülten sıklığı baz alınır.",
+            ],
+            [
+              <strong key="k3" className="text-amber-400">3. Kademe (Nihai Varsayılan)</strong>,
+              "Genel Bülten Zamanlayıcı",
+              "Global Bülten Tarama Sıklığı",
+              "O piyasaya özel bir ayar da yapılmamışsa tüm sistemin çatı değeri olan Global sıklık (15 dk) devreye girer.",
+            ],
+          ]}
+        />
+
+        <H3>Kritik Davranış Kuralları &amp; Senaryolar</H3>
         <ul className="list-disc space-y-1.5 pl-5 text-xs text-zinc-300">
           <li>
-            <strong>5 Dakika / 10 Dakika:</strong> Gün içi çok hızlı işlem (scalping / day-trading) yapanlar için.
+            <strong>Alıcı Sıklığı Motor Sıklığından Seyrekse (Örn: Motor 15 dk, Alıcı 1 Saat):</strong> Motor her 15 dakikada
+            bir piyasayı tarar; fakat bu alıcıya sadece saatte 1 kez bülten postalar. Kullanıcı gelen kutusu gereksiz yere boğulmaz.
           </li>
           <li>
-            <strong>15 Dakika (Varsayılan &amp; Tavsiye Edilen):</strong> Seans içi trend takibi için altın orandır;
-            hem piyasa değişimlerini zamanında yakalar hem de posta kutunuzu boğmaz.
+            <strong>Alıcı Sıklığı Motor Sıklığından Hızlıysa (Örn: Motor 1 Saat, Alıcı 5 Dakika):</strong> Motor saatte bir
+            çalıştığı için sistem 5 dakikada bir veri üretmez. Alıcı en fazla motorun çalıştığı sıklıkta (saatte 1) mail alır.
           </li>
           <li>
-            <strong>30 Dakika / 1 Saat / 2 Saat / 4 Saat:</strong> Swing trader&apos;lar ve daha sakin yatırımcılar için.
-          </li>
-          <li>
-            <strong>Günde 1 Kez (1d):</strong> Her gün seans kapanışında (18:15 civarı) tek bir özet bülten gönderir.
-          </li>
-          <li>
-            <strong>Kapalı:</strong> Otomatik periyodik rapor gönderilmez. Yalnızca kritik Stop-Loss alarmları ve
-            elle basılan &quot;Şimdi Tara &amp; Mail Gönder&quot; talepleri çalışır.
+            <strong>Çift Yönlü Senkronizasyon:</strong> İster Genel Ayarlar sayfasından ister Çoklu Zaman Dilimi AL/SAT
+            ekranının başlığındaki zamanlayıcıdan sıklığı değiştirin, iki taraf da <C>mail-settings.md</C> dosyasını
+            güncelleyerek birbirini anında senkronize eder.
           </li>
         </ul>
-
-        <H3>Kişiye Özel Mail Sıklığı (Individual Recipient Frequencies)</H3>
-        <p>
-          Finans Asistanı, tek bir genel sıklığa mahkum değildir. Örneğin sistemde 3 alıcı kayıtlıysa:
-        </p>
-        <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-300">
-          <li>
-            <C>ahmet@sirket.com</C> → <strong>15 Dakika</strong> aralıkla sadece BIST raporlarını alabilir.
-          </li>
-          <li>
-            <C>mehmet@sirket.com</C> → <strong>1 Saat</strong> aralıkla Kripto ve ABD Borsası raporlarını alabilir.
-          </li>
-          <li>
-            <C>yonetici@sirket.com</C> → <strong>Günde 1 Kez</strong> akşam özeti alabilir.
-          </li>
-        </ul>
-        <p className="text-xs text-zinc-400">
-          Sistem her kullanıcının en son mail aldığı zamanı (<C>lastMailedAt</C>) bağımsız bir zaman damgasıyla takip
-          eder. Böylece herkes yalnızca kendi istediği tempoda bilgilendirilir.
-        </p>
 
         <H3>E-Posta Servis Sağlayıcı Ayarları (.env.local)</H3>
         <p>

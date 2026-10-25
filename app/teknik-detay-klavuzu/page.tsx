@@ -391,10 +391,122 @@ export default function TeknikDetayKilavuzuPage() {
         />
       </Section>
 
+      {/* 7. Otomasyon & Zamanlayıcı Mimarisi */}
+      <Section id="otomasyon-scheduler" title="7. Otomasyon & Zamanlayıcı Mimarisi (Scheduler & Senkronizasyon)">
+        <p>
+          Finans Asistanı, arka planda bağımsız bir zamanlayıcı motoru (<code className="rounded bg-zinc-800 px-1 py-0.5 text-xs text-sky-300 font-mono">lib/scheduler.ts</code>) 
+          çalıştırır. Bu motor, sistem kaynaklarını (CPU, API kotası ve bellek) korurken her alıcıya kişiselleştirilmiş 
+          analiz teslimatı sağlamak üzere tasarlanmıştır.
+        </p>
+
+        {/* 7.1 Tick Döngüsü */}
+        <h3 className="text-base font-bold text-zinc-100 mt-2">7.1. 30 Saniyelik Asenkron Tick Döngüsü</h3>
+        <p className="text-xs text-zinc-300">
+          Sunucu ilk başladığında arka planda her 30 saniyede bir tetiklenen hafif bir kontrol döngüsü başlatılır:
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3 my-2">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+            <span className="text-xs font-bold text-sky-400 block mb-1">1. checkSchedulerTick()</span>
+            <p className="text-[11px] text-zinc-400">Piyasa bazlı bülten tarama sürelerini ve alıcıların mail periyotlarını denetler.</p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+            <span className="text-xs font-bold text-rose-400 block mb-1">2. checkPositionTrackerTick()</span>
+            <p className="text-[11px] text-zinc-400">Açık pozisyonların fiyatlarını sorgular; Stop-Loss veya Kâr Al tetiklendiğinde anında acil alarm üretir.</p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+            <span className="text-xs font-bold text-violet-400 block mb-1">3. checkWatchlistTrackerTick()</span>
+            <p className="text-[11px] text-zinc-400">İzleme listesindeki hisselerin önceki sinyalleriyle güncel sinyallerini kıyaslar (State-Diff).</p>
+          </div>
+        </div>
+
+        {/* 7.2 Piyasa vs Alıcı Algoritması */}
+        <h3 className="text-base font-bold text-zinc-100 mt-3">7.2. Piyasa Tarama Motoru vs. Alıcı Dağıtım Filtresi Algoritması</h3>
+        <p className="text-xs text-zinc-300">
+          Scheduler, e-posta gönderirken iki aşamalı bir matematiksel kontrol uygular:
+        </p>
+
+        <NoteBox type="formula">
+{`// 1. AŞAMA: Piyasa Tarama Motoru Kontrolü
+if (now - lastMarketScan < marketIntervalMs) {
+    skip(); // Bu piyasa için henüz tarama vakti gelmedi, API çağrısı yapma!
+}
+
+// 2. AŞAMA: Alıcı Bazlı Dağıtım Filtresi
+effectiveInterval = recipient.intervalKey || marketIntervalKey || globalIntervalKey;
+if (effectiveInterval === "daily") {
+    isDue = (lastDateIstanbul !== todayIstanbul);
+} else {
+    isDue = (now - recipientLastMailedTime >= recipientIntervalMs);
+}
+if (isDue) {
+    dueRecipients.push(recipient); // Yalnızca süresi dolan alıcıya mail hazırla
+}`}
+        </NoteBox>
+
+        <ul className="text-xs space-y-1.5 text-zinc-300 list-disc pl-5 my-2">
+          <li>
+            <strong>Piyasa Seans Koruması:</strong> Kripto piyasası 7/24 taranırken; BIST ve ABD piyasaları 
+            <code className="text-sky-300 font-mono"> onlyTradingHours </code> aktifse yalnızca resmi seans saatlerinde taranır.
+          </li>
+          <li>
+            <strong>Kaynak Koruma Garantisi:</strong> Bülten tarama sıklığı 15 dakika ise, sistem saatte yalnızca 4 kez ağır sinyal taraması yapar. 
+            Alıcıların 1 saatlik veya günlük tercihleri bu taramaların içinden filtrelenerek servis edilir.
+          </li>
+        </ul>
+
+        {/* 7.3 Çift Yönlü Senkronizasyon */}
+        <h3 className="text-base font-bold text-zinc-100 mt-3">7.3. Çift Yönlü Senkronizasyon & Tek Gerçeklik Kaynağı (Single Source of Truth)</h3>
+        <p className="text-xs text-zinc-300">
+          Uygulama arayüzünde (Genel Ayarlar masası ile canlı piyasa ekranları) dağınık veya birbiriyle çelişen veri bulunmaz. 
+          Tüm yapılandırmalar proje kökündeki standart Markdown dosyalarında tutulur:
+        </p>
+
+        <Table
+          head={["Ayar Grubu", "Depolama Dosyası", "İlgili REST API", "Senkronize Bileşenler"]}
+          rows={[
+            [
+              <strong key="a1" className="text-sky-300">Bülten Tarama Sıklığı</strong>,
+              "mail-settings.md",
+              "/api/mail/settings",
+              "Genel Ayarlar ↔ Çoklu Zaman Dilimi MailScheduleControl",
+            ],
+            [
+              <strong key="a2" className="text-amber-300">Canlı Veri Yenileme</strong>,
+              "refresh-settings.md",
+              "/api/settings/refresh",
+              "Genel Ayarlar ↔ Ekran Geri Sayım Sayacı (AutoRefreshControl)",
+            ],
+            [
+              <strong key="a3" className="text-emerald-300">Varsayılan Endeks Kapsamı</strong>,
+              "endeks-tip.md",
+              "/api/index-type/settings",
+              "Genel Ayarlar ↔ BIST 30 / BIST 100 Butonları",
+            ],
+            [
+              <strong key="a4" className="text-rose-300">Portföy Masası Sıklığı</strong>,
+              "portfoy-takip.md",
+              "/api/positions/settings",
+              "Genel Ayarlar ↔ Pozisyon Masası Tarama Seçicisi",
+            ],
+            [
+              <strong key="a5" className="text-violet-300">İzleme Listesi Sıklığı</strong>,
+              "watchlist.md",
+              "/api/watchlist/settings",
+              "Genel Ayarlar ↔ Takip Listesi Zamanlayıcı Butonu",
+            ],
+          ]}
+        />
+        <p className="text-xs text-zinc-400">
+          Kullanıcı arayüzde bir ayarı değiştirdiğinde, sunucu dosyayı günceller ve tarayıcı içi 
+          <code className="text-sky-300 font-mono"> CustomEvent </code> tetikleyerek açık olan tüm sekmelerin 
+          sayfayı yenilemeye gerek kalmadan anında yeni duruma geçmesini sağlar.
+        </p>
+      </Section>
+
       {/* Footer navigation */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 text-xs text-zinc-400">
         <div>
-          <span>Bu kılavuz sistemin matematiksel formüllerini ve kural setlerini özetler.</span>
+          <span>Bu kılavuz sistemin matematiksel formüllerini, kural setlerini ve otomasyon mimarisini özetler.</span>
           <p className="text-[11px] text-zinc-500 mt-0.5">Yatırım kararlarınızı sadece tek bir göstergeye veya araca bağlamayınız.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
