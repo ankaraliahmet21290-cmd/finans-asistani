@@ -6,7 +6,7 @@ Arayüz üzerinden sektör veya filtre seçildiğinde bu dosya otomatik güncell
 | Panel | Ayar | Değer | Görünen Ad |
 | --- | --- | --- | --- |
 | BIST Değerleme Tablosu | Varsayılan Sektör / Endeks | bist30 | BIST 30 |
-| BIST Analist Konsensüsü | Görünüm Modu | top_upside | En Yüksek Potansiyel |
+| BIST Analist Konsensüsü | Görünüm Modu | leaders | BIST Liderleri |
 
 ---
 
@@ -25,4 +25,4 @@ Arayüz üzerinden sektör veya filtre seçildiğinde bu dosya otomatik güncell
 - **GYO & Gayrimenkul** (`gyo`): Gayrimenkul yatırım ortaklıkları ve inşaat
 - **Diğer** (`diger`): Diğer sektörlerde faaliyet gösteren şirketler
 
-*Son Güncelleme: 2026-10-26T17:43:01.689Z*
+*Son Güncelleme: 2026-10-26T17:48:08.642Z*

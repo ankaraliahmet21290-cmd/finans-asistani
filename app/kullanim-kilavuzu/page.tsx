@@ -104,18 +104,18 @@ export default function KullanimKilavuzuPage() {
             📖 Kapsamlı Kullanım Kılavuzu
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
-            Sürüm 2.4 · 2026 Güncellemesi
+            Sürüm 2.6 · Ekim 2026 Güncellemesi
           </span>
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight text-zinc-100 sm:text-4xl">
           Finans Asistanı Kullanım ve Operasyon Kılavuzu
         </h1>
         <p className="mt-2.5 max-w-4xl text-sm text-zinc-400 sm:text-base leading-relaxed">
-          Finans Asistanı; Borsa İstanbul (BIST), Kripto Paralar, Emtia &amp; Döviz ve ABD Borsası için
-          geliştirilmiş yapay zeka ve kural tabanlı bir <strong>Karar Destek Terminalidir</strong>.
-          Ekran bölümleri, <strong>Genel Ayarlar Masası</strong>, <strong>Mail Gönderim Sıklığı</strong>,{" "}
-          <strong>Ekran Yenileme &amp; Cache</strong> mimarisi, <strong>Portföy Tarama Sıklığı</strong> ve
-          sinyal algoritmaları bu dokümanda eksiksiz açıklanmıştır.
+          Finans Asistanı; Borsa İstanbul (BIST), Kripto Paralar, Emtia &amp; Döviz ve Amerikan Borsası (S&amp;P 500 / Nasdaq) için
+          geliştirilmiş çok periyotlu, analist hedef fiyatlı ve kural tabanlı bir <strong>Karar Destek Terminalidir</strong>.
+          Ekran bölümleri, <strong>BIST ve ABD Değerleme Tabloları</strong>, <strong>Analist Konsensüsü &amp; Hedef Fiyatlar</strong>,{" "}
+          <strong>Genel Ayarlar Masası</strong>, <strong>10 Bağımsız Ekran Yenileme Frekansı</strong> ve
+          çift yönlü senkronizasyon mimarisi bu dokümanda eksiksiz açıklanmıştır.
         </p>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -149,7 +149,7 @@ export default function KullanimKilavuzuPage() {
           <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
             <span>📑</span> İçindekiler Tablosu (Hızlı Atlama)
           </p>
-          <span className="text-[11px] text-zinc-500">12 Bölüm</span>
+          <span className="text-[11px] text-zinc-500">13 Bölüm</span>
         </div>
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {TOC.map((t) => (
@@ -376,13 +376,14 @@ export default function KullanimKilavuzuPage() {
 
           <div className="rounded-xl border border-sky-500/30 bg-sky-950/20 p-4 md:col-span-2">
             <h4 className="font-bold text-sky-300 text-sm mb-1 flex items-center gap-2">
-              <span>🎯</span> ⑤ BIST Analist Konsensüsü &amp; Hedef Fiyat Kartları
+              <span>🎯</span> ⑤ BIST Analist Konsensüsü &amp; Hedef Fiyat Kartları (Çoklu Periyot Destekli)
             </h4>
             <p className="text-xs text-zinc-300 leading-relaxed">
               Arama kutusunun hemen altında konumlanan bu özel vitrin paneli, Borsa İstanbul&apos;un dev şirketlerini
               takip eden yerli ve küresel aracı kurumların (İş Yatırım, Garanti BBVA, Ak Yatırım, Yapı Kredi, HSBC vb.)
               12 aylık <strong>konsensüs hedef fiyatlarını</strong> ve cari borsa fiyatına göre <strong>getiri potansiyellerini (%)</strong>
-              canlı olarak karşılaştırır.
+              canlı olarak karşılaştırır. Üst kısımdaki <strong>Periyot Seçici (5dk, 15dk, 30dk, 1S, 4S, 1G, 1H)</strong> ile
+              kartların teknik sinyalleri seçilen mum zaman dilimine göre anlık olarak hesaplanır.
             </p>
             <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
@@ -394,24 +395,163 @@ export default function KullanimKilavuzuPage() {
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
                 <span className="font-bold text-emerald-400">🚀 En Yüksek Potansiyel Modu:</span>
                 <p className="text-zinc-400 text-[11px] mt-0.5">
-                  BIST 30 havuzunda analistlerin belirlediği 12 aylık hedef fiyata göre en yüksek prim potansiyeli sunan ilk 4 şirketi anında öne çıkarır.
+                  BIST havuzunda analistlerin belirlediği 12 aylık hedef fiyata göre en yüksek prim potansiyeli sunan lider şirketleri öne çıkarır.
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-4 md:col-span-2">
+            <h4 className="font-bold text-indigo-300 text-sm mb-1 flex items-center gap-2">
+              <span>📊</span> ⑥ Borsa İstanbul Değerleme Tablosu (12 Sektör Filtreli)
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Borsa İstanbul&apos;da işlem gören şirketlerin temel çarpanlarını (F/K, PD/DD, FD/FAVÖK), son fiyatını, günlük değişimini
+              ve piyasa değerini tek bir interaktif tabloda sunar. <strong>12 farklı sektör/endeks filtresi</strong>, dinamik arama ve sütun bazlı
+              sıralama imkanı sunar. Varsayılan sektör tercihi <C>bist-settings.md</C> üzerinden otomatik saklanır ve Genel Ayarlar ile çift yönlü senkronize çalışır.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 md:col-span-2">
+            <h4 className="font-bold text-zinc-200 text-sm mb-1 flex items-center gap-2">
+              <span>🇺🇸</span> ⑦ Amerikan Borsası (Wall Street Analistleri &amp; Değerleme Tablosu)
+            </h4>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Apple, Microsoft, NVIDIA, Tesla, Amazon gibi 100&apos;den fazla S&amp;P 500 ve Nasdaq devinin Wall Street analist hedef fiyatları,
+              konsensüs önerileri (Strong Buy, Buy, Hold) ve sektör bazlı (Teknoloji, Finans, Sağlık vb.) değerleme rasyoları taranır.
+            </p>
           </div>
         </div>
       </Section>
 
       {/* ========================================================================= */}
-      {/* 3. GENEL AYARLAR & BİLDİRİM MASASI (/ayarlar) */}
+      {/* 3. BIST SEKTÖRLERİ, DEĞERLEME TABLOSU & ANALİST KONSENSÜSÜ */}
       {/* ========================================================================= */}
-      <Section id="genel-ayarlar" title="3. Genel Ayarlar & Bildirim Dağıtımı Masası (/ayarlar)">
+      <Section id="bist-degerleme" title="3. BIST Sektörleri, Değerleme Tablosu & Analist Konsensüsü">
+        <p>
+          Borsa İstanbul analizlerini daha derin ve rasyonel kılmak amacıyla sisteme <strong>12 Sektörlü BIST Değerleme Tablosu</strong> ve{" "}
+          <strong>Çok Periyotlu Analist Konsensüs Vitrini</strong> kazandırılmıştır.
+        </p>
+
+        <H3>Desteklenen 12 BIST Sektör ve Endeks Filtresi</H3>
+        <p className="text-xs text-zinc-300">
+          Değerleme tablosunda ve Genel Ayarlar Masasında aşağıdaki 12 sektörden birini seçerek yalnızca ilgilendiğiniz alandaki şirketleri filtreleyebilirsiniz:
+        </p>
+        <Table
+          head={["Sektör / Endeks", "Sistem Kodu", "Kapsam ve Temsil Edilen Şirketler"]}
+          rows={[
+            [
+              <strong key="b30" className="text-sky-400">BIST 30 (Varsayılan)</strong>,
+              <C key="c30">bist30</C>,
+              "Borsa İstanbul'un en yüksek piyasa değerine ve işlem hacmine sahip 30 lokomotif şirketi (THYAO, ASELS, GARAN, TUPRS, KCHOL vb.).",
+            ],
+            [
+              <strong key="b100" className="text-indigo-400">BIST 100</strong>,
+              <C key="c100">bist100</C>,
+              "Borsa İstanbul'un ana gösterge endeksi olan 100 büyük şirket.",
+            ],
+            [
+              <strong key="all" className="text-zinc-200">BIST TÜM</strong>,
+              <C key="call">all</C>,
+              "Borsa İstanbul Pay Piyasası'nda işlem gören tüm kayıtlı şirketler havuzu.",
+            ],
+            [
+              <strong key="banka" className="text-emerald-400">Bankacılık & Finans</strong>,
+              <C key="cbnk">banka</C>,
+              "Mevduat bankaları, katılım bankaları, faktoring, leasing ve aracı kurumlar (AKBNK, GARAN, ISCTR, YKBNK vb.).",
+            ],
+            [
+              <strong key="sanayi" className="text-amber-400">Sanayi & Üretim</strong>,
+              <C key="csan">sanayi</C>,
+              "Otomotiv, demir-çelik, cam, beyaz eşya ve makine üreticileri (EREGL, FROTO, TOASO, SISE, ARCLK vb.).",
+            ],
+            [
+              <strong key="holding" className="text-violet-400">Holding & Yatırım</strong>,
+              <C key="chld">holding</C>,
+              "Çok sektörlü büyük konglomera ve holdingler (KCHOL, SAHOL, AGHOL, DOHOL, ALARK vb.).",
+            ],
+            [
+              <strong key="enerji" className="text-yellow-400">Enerji & Petrol</strong>,
+              <C key="cenr">enerji</C>,
+              "Rafineri, petrokimya, elektrik üretimi, dağıtım ve yenilenebilir enerji devleri (TUPRS, PETKM, ENJSA, ASTOR vb.).",
+            ],
+            [
+              <strong key="havacilik" className="text-cyan-400">Havacılık & Lojistik</strong>,
+              <C key="chav">havacilik</C>,
+              "Havayolları, havalimanı işletmeciliği, kargo ve lojistik (THYAO, PGSUS, TAVHL vb.).",
+            ],
+            [
+              <strong key="teknoloji" className="text-blue-400">Teknoloji & Savunma</strong>,
+              <C key="ctek">teknoloji</C>,
+              "Savunma elektroniği, yazılım, bilişim ve sistem entegrasyon şirketleri (ASELS, LOGO, VBTYZ vb.).",
+            ],
+            [
+              <strong key="perakende" className="text-rose-400">Perakende & Tüketim</strong>,
+              <C key="cper">perakende</C>,
+              "Market zincirleri, gıda üreticileri ve hızlı tüketim devleri (BIMAS, MGROS, CCOLA, AEFES vb.).",
+            ],
+            [
+              <strong key="telekom" className="text-teal-400">Telekomünikasyon</strong>,
+              <C key="ctel">telekom</C>,
+              "Mobil iletişim, sabit hat ve fiber optik telekomünikasyon altyapısı (TCELL, TTKOM).",
+            ],
+            [
+              <strong key="gyo" className="text-orange-400">GYO & Gayrimenkul</strong>,
+              <C key="cgyo">gyo</C>,
+              "Gayrimenkul yatırım ortaklıkları ve konut/ticari gayrimenkul geliştiricileri (EKGYO vb.).",
+            ],
+          ]}
+        />
+
+        <H3>BIST Değerleme Tablosunda Takip Edilen Çarpanlar</H3>
+        <ul className="list-disc space-y-1.5 pl-5 text-xs text-zinc-300">
+          <li>
+            <strong>F/K (Fiyat / Kazanç Oranı):</strong> Şirketin hisse fiyatının hisse başına net kâra oranıdır. Sektör ortalamasının altında olması cazip değerlemeye işaret edebilir.
+          </li>
+          <li>
+            <strong>PD/DD (Piyasa Değeri / Defter Değeri):</strong> Şirketin borsadaki değerinin özkaynaklarına oranıdır. 1&apos;in altındaki değerler şirketin özkaynaklarından daha ucuza işlem gördüğünü gösterebilir.
+          </li>
+          <li>
+            <strong>FD / FAVÖK (Firma Değeri / FAVÖK):</strong> Şirketin borçlarını da hesaba katarak nakit yaratma kabiliyetini ölçen küresel sanayi çarpanıdır.
+          </li>
+          <li>
+            <strong>Piyasa Değeri:</strong> Şirketin toplam hisse adedi ile son borsa fiyatının çarpımıyla bulunan büyüklük metriğidir (Milyar ₺ cinsinden).
+          </li>
+        </ul>
+
+        <H3>BIST Analist Konsensüsü: Hedef Fiyat &amp; Çoklu Periyot Sinerjisi</H3>
+        <p className="text-xs text-zinc-300 leading-relaxed">
+          BIST Analist Konsensüsü bileşeni, iki kritik analizi tek kartta birleştirir:
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-2">
+          <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3.5">
+            <span className="text-xs font-bold text-sky-300 uppercase">1. Temel Öngörü (12 Aylık Hedef)</span>
+            <p className="text-xs text-zinc-300 mt-1">
+              Lisanslı aracı kurumların şirket için belirlediği adil değer ortalaması ve getiri potansiyeli % oranı.
+            </p>
+          </div>
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3.5">
+            <span className="text-xs font-bold text-indigo-300 uppercase">2. Canlı Mum Periyodu Sinyali</span>
+            <p className="text-xs text-zinc-300 mt-1">
+              Seçilen periyoda (örneğin 15 Dakika veya 4 Saat) göre hissenin anlık teknik AL/TUT/SAT sinyali ve gerekçesi.
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-zinc-400">
+          Böylece hem uzun vadeli hedef fiyatı yüksek olan hem de kısa vadeli teknik göstergeleri AL veren hisseleri saniyeler içinde tespit edebilirsiniz.
+        </p>
+      </Section>
+
+      {/* ========================================================================= */}
+      {/* 4. GENEL AYARLAR & ÇİFT YÖNLÜ SENKRONİZASYON (/ayarlar) */}
+      {/* ========================================================================= */}
+      <Section id="genel-ayarlar" title="4. Genel Ayarlar & Çift Yönlü Senkronizasyon Masası (/ayarlar)">
         <p>
           <Link href="/ayarlar" className="font-bold text-sky-400 underline">
             Genel Ayarlar Masası (/ayarlar)
           </Link>
           , Finans Asistanı&apos;nın sinir merkezidir. Eskiden farklı panellere dağılmış olan tüm tarama aralıkları,
-          e-posta alıcıları, bildirim türleri, ekran yenileme sıklıkları ve önbellek tercihleri tek bir merkezi
+          e-posta alıcıları, bildirim türleri, ekran yenileme sıklıkları, BIST sektör seçimleri ve önbellek tercihleri tek bir merkezi
           ekranda toplanmıştır.
         </p>
 
@@ -471,19 +611,25 @@ export default function KullanimKilavuzuPage() {
             </p>
             <ul className="list-disc space-y-1.5 pl-5 mt-2 text-xs text-zinc-300">
               <li>
+                <strong>🇹🇷 Borsa İstanbul Sektör &amp; Analist Ayarları (<C>bist-settings.md</C>):</strong> BIST Değerleme Tablosunun açılış varsayılan sektörünü (BIST 30, BIST 100, Banka, Sanayi, Holding, Enerji vb.) ve Analist Konsensüs vitrininin başlangıç modunu (BIST Liderleri veya En Yüksek Potansiyel) belirler. İki ekrandan hangisinde değiştirilirse diğerinde anında güncellenir.
+              </li>
+              <li>
+                <strong>🇺🇸 Amerikan Borsası Sektör Ayarları (<C>us-stock-settings.md</C>):</strong> S&amp;P 500 ve Nasdaq değerleme tablosunun varsayılan sektörünü (Teknoloji, Finans, Sağlık vb.) belirler.
+              </li>
+              <li>
                 <strong>⏱️ Bülten Tarama Sıklığı (Piyasa Bazlı):</strong> Çoklu Zaman Dilimi AL/SAT taramasının
                 ve e-posta bülten üretiminin o piyasa için hangi aralıkla çalışacağını belirler. İster Genel Ayarlar&apos;dan
                 ister Çoklu Zaman Dilimi ekranındaki zamanlayıcıdan değiştirin; iki taraf da anında güncellenir.
               </li>
               <li>
-                <strong>⚡ Canlı Veri Yenileme Sıklığı (Çift Yönlü):</strong> Ekranlardaki geri sayım sayacıyla (AutoRefreshControl)
+                <strong>⚡ Canlı Veri Yenileme Sıklığı (10 Bağımsız Panel):</strong> Ekranlardaki geri sayım sayacıyla (<C>AutoRefreshControl</C>)
                 birebir eşzamanlıdır. BIST Analist Konsensüsü &amp; Hedef Fiyatlar, BIST Değerleme Tablosu, Wall Street Analist
                 Konsensüsü ve Amerikan Borsası Değerleme Tablosu dahil tüm ekranların yenileme sıklığı hem kendi ekranlarındaki
                 sayaç kontrolünden hem de Genel Ayarlar masasından (/ayarlar) kolayca değiştirilebilir. Bir yerde süreyi değiştirdiğinizde
-                tüm sekmeler, refresh-settings.md ve Genel Ayarlar anında güncellenir.
+                tüm sekmeler, <C>refresh-settings.md</C> ve Genel Ayarlar anında güncellenir.
               </li>
               <li>
-                <strong>📊 Varsayılan Endeks Kapsamı:</strong> BIST için BIST 30, BIST 100 veya TÜMÜ tercihini belirler;
+                <strong>📊 Varsayılan Endeks Kapsamı (<C>endeks-tip.md</C>):</strong> BIST için BIST 30, BIST 100 veya TÜMÜ tercihini belirler;
                 ilgili ekranlar açıldığında bu endeksle başlar.
               </li>
               <li>
@@ -518,19 +664,18 @@ export default function KullanimKilavuzuPage() {
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
             <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-              <span className="text-amber-400">C.</span> Ekran Yenileme &amp; Canlı Piyasa Önbellek Sıklıkları
+              <span className="text-amber-400">D.</span> 10 Bağımsız Ekran Yenileme &amp; Canlı Piyasa Önbellek Sıklıkları
             </h4>
             <p className="text-xs text-zinc-400 mt-1">
-              Tarayıcı açıkken ekranın kaç saniyede bir otomatik güncelleneceğini ve piyasa bazlı veri tazelemeyi
+              Tarayıcı açıkken her bir panelin kaç saniyede bir otomatik güncelleneceğini ve piyasa bazlı veri tazelemeyi
               yönetir:
             </p>
             <ul className="list-disc space-y-1 pl-5 mt-2 text-xs text-zinc-300">
               <li>
-                <strong>Global Ekran Yenileme:</strong> 15sn, 30sn, 1dk, 2dk, 5dk veya Kapalı seçenekleri.
+                <strong>Global Varsayılan Yenileme:</strong> 15sn, 30sn, 1dk, 2dk, 5dk veya Kapalı seçenekleri.
               </li>
               <li>
-                <strong>Piyasa Bazlı Ayrı Sıklıklar:</strong> BIST (30sn), Kripto (15sn - 7/24 hızlı piyasa), Emtia/FX
-                (60sn), ABD Borsası (30sn).
+                <strong>Panellere Özel Frekanslar:</strong> BIST Pay Piyasası, BIST Analist Konsensüsü, BIST Değerleme Tablosu, Kripto (7/24), Emtia/FX, ABD Borsası, Wall Street Analist Konsensüsü, ABD Değerleme Tablosu ve Takip Listesi her biri için müstakil süre atanabilir.
               </li>
               <li>
                 <strong>Önbelleği Temizle (Clear Cache) Butonu:</strong> Bellekteki tüm geçmiş verileri tek tıkla silip
@@ -541,7 +686,7 @@ export default function KullanimKilavuzuPage() {
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
             <h4 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-              <span className="text-rose-400">D.</span> Portföy &amp; İzleme Listesi Tarama Aralıkları
+              <span className="text-rose-400">E.</span> Portföy &amp; İzleme Listesi Tarama Aralıkları
             </h4>
             <p className="text-xs text-zinc-400 mt-1">
               Stop-Loss alarmlarının ve sinyal değişimlerinin sunucu tarafından arka planda kaç dakikada bir kontrol
@@ -552,24 +697,92 @@ export default function KullanimKilavuzuPage() {
 
         <Note tone="purple">
           <strong>Kalıcı Depolama Garantisi:</strong> Ayarlar ekranında yaptığınız her değişiklik anında proje
-          içerisindeki yapılandırma dosyalarına (<C>mail-settings.md</C>, <C>mail-recipients.md</C>,{" "}
-          <C>refresh-settings.md</C>, <C>portfoy-takip.md</C>, <C>watchlist.md</C>) yazılır. Sunucu yeniden başlasa
+          içerisindeki yapılandırma dosyalarına (<C>bist-settings.md</C>, <C>us-stock-settings.md</C>, <C>refresh-settings.md</C>, <C>mail-settings.md</C>, <C>mail-recipients.md</C>,{" "}
+          <C>timeframe-settings.md</C>, <C>portfoy-takip.md</C>, <C>watchlist.md</C>) yazılır. Sunucu yeniden başlasa
           bile tercihleriniz asla kaybolmaz.
         </Note>
       </Section>
 
       {/* ========================================================================= */}
-      {/* 4. EKRAN YENİLEME & ÖNBELLEK (CACHE) SIKLIĞI */}
+      {/* 5. EKRAN YENİLEME & AKILLI ÖNBELLEK (CACHE) SIKLIĞI */}
       {/* ========================================================================= */}
-      <Section id="ekran-yenileme" title="4. Ekran Yenileme & Önbellek (Cache) Sıklığı">
+      <Section id="ekran-yenileme" title="5. Ekran Yenileme & Akıllı Önbellek (10 Panel Frekansı)">
         <p>
           Finans piyasalarında saniyeler dahi önemlidir; ancak her saniye yüzlerce hissenin grafiğini harici
           kaynaklardan çekmek kota aşımına (API rate-limit) ve sayfa donmalarına yol açabilir. Finans Asistanı,
-          bu dengeyi <strong>Akıllı Önbellek (Smart Cache)</strong> ve <strong>Otomatik Ekran Yenileme</strong>{" "}
-          ikilisiyle kusursuz biçimde çözer.
+          bu dengeyi <strong>Akıllı Önbellek (Smart Cache)</strong> ve <strong>10 Bağımsız Panel Otomatik Ekran Yenileme</strong>{" "}
+          mimarisiyle kusursuz biçimde çözer.
         </p>
 
-        <H3>Ekran Yenileme Seçenekleri ve Davranışı</H3>
+        <H3>10 Bağımsız Panel Yenileme Frekansı &amp; Parametreleri</H3>
+        <p className="text-xs text-zinc-300">
+          Uygulamada her ekran bölümü birbirinden bağımsız bir yenileme periyoduna sahiptir. Hem kendi ekranındaki sayaçtan hem de Genel Ayarlar masasından ayarlanabilir:
+        </p>
+        <Table
+          head={["Panel / Ekran Bölümü", "Ayar Anahtarı", "Varsayılan Süre", "Önerilen Kullanım"]}
+          rows={[
+            [
+              <strong key="p1" className="text-zinc-100">Genel Varsayılan Yenileme</strong>,
+              <C key="k1">default</C>,
+              "300 sn (5 dk)",
+              "Özel ayar tanımlanmamış diğer tüm ekranlar için çatı yenileme süresi.",
+            ],
+            [
+              <strong key="p2" className="text-sky-400">BIST Pay Piyasası</strong>,
+              <C key="k2">bist</C>,
+              "30 sn",
+              "Borsa İstanbul hisseleri, çoklu periyot taraması ve canlı fiyat takibi.",
+            ],
+            [
+              <strong key="p3" className="text-sky-300">BIST Analist Konsensüsü</strong>,
+              <C key="k3">bist_analyst</C>,
+              "60 sn (1 dk)",
+              "Aracı kurum hedef fiyat kartları, analist önerileri ve çoklu periyot sinyalleri.",
+            ],
+            [
+              <strong key="p4" className="text-indigo-400">BIST Değerleme Tablosu</strong>,
+              <C key="k4">bist_valuation</C>,
+              "300 sn (5 dk) / 60 sn",
+              "12 sektör filtresi, F/K, PD/DD, FD/FAVÖK çarpanları ve şirket piyasa değerleri.",
+            ],
+            [
+              <strong key="p5" className="text-amber-400">Kripto Paralar (7/24)</strong>,
+              <C key="k5">crypto</C>,
+              "15 sn",
+              "Bitcoin, Ethereum ve 9 kripto kategorisindeki anlık volatilite takibi.",
+            ],
+            [
+              <strong key="p6" className="text-emerald-400">Emtia &amp; Döviz</strong>,
+              <C key="k6">commodity_forex</C>,
+              "60 sn (1 dk)",
+              "Ons/Gram Altın, Gümüş, Brent Petrol, Dolar/TL, Euro/TL ve DXY.",
+            ],
+            [
+              <strong key="p7" className="text-indigo-300">Amerikan Borsası</strong>,
+              <C key="k7">us_stocks</C>,
+              "30 sn",
+              "Nasdaq ve S&P 500 hisse fiyatları ve seans içi canlı hareketleri.",
+            ],
+            [
+              <strong key="p8" className="text-violet-400">ABD Analist Konsensüsü</strong>,
+              <C key="k8">us_stocks_analyst</C>,
+              "60 sn (1 dk)",
+              "Wall Street analist konsensüsü, Strong Buy / Hold dağılımı ve hedef fiyatlar.",
+            ],
+            [
+              <strong key="p9" className="text-cyan-400">ABD Değerleme Tablosu</strong>,
+              <C key="k9">us_stocks_valuation</C>,
+              "30 sn",
+              "100+ ABD hissesinin temel çarpanları, sektör filtreleri ve bilanço rasyoları.",
+            ],
+            [
+              <strong key="p10" className="text-rose-400">İzleme Listesi (Watchlist)</strong>,
+              <C key="k10">watchlist</C>,
+              "300 sn (5 dk) / 30 sn",
+              "Favoriye aldığınız hisselerin fiyat ve sinyal değişimlerinin canlı izlenmesi.",
+            ],
+          ]}
+        />
         <Table
           head={["Yenileme Aralığı", "Kullanım Amacı", "Veri Kaynağı Davranışı"]}
           rows={[
@@ -616,9 +829,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 5. E-POSTA GÖNDERİM SIKLIĞI & BİLDİRİM DAĞITIMI */}
+      {/* 6. E-POSTA GÖNDERİM SIKLIĞI & BİLDİRİM DAĞITIMI */}
       {/* ========================================================================= */}
-      <Section id="mail-sistemi" title="5. E-Posta Gönderim Sıklığı & Bildirim Dağıtımı">
+      <Section id="mail-sistemi" title="6. E-Posta Gönderim Sıklığı & Bildirim Dağıtımı">
         <p>
           Finans Asistanı, ekran başında olmasanız bile sizi piyasadaki fırsatlardan ve risklerden anında haberdar
           etmek üzere gelişmiş bir <strong>E-Posta Bildirim Motoru</strong> içerir. Sistemde 3 farklı bildirim
@@ -753,9 +966,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 6. PORTFÖY TAKİBİ & PORTFÖY TARAMA SIKLIĞI */}
+      {/* 7. PORTFÖY TAKİBİ & PORTFÖY TARAMA SIKLIĞI */}
       {/* ========================================================================= */}
-      <Section id="portfoy-tarama" title="6. Portföy Takibi & Portföy Tarama Sıklığı (Stop-Loss / Kâr Al)">
+      <Section id="portfoy-tarama" title="7. Portföy Takibi & Portföy Tarama Sıklığı (Stop-Loss / Kâr Al)">
         <p>
           Yatırımda en önemli kural sermayeyi korumak ve kârı realize etmektir.{" "}
           <Link href="/pozisyonlar" className="font-bold text-rose-400 underline">
@@ -832,9 +1045,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 7. İZLEME LİSTESİ & SİNYAL DEĞİŞİM KONTROLÜ */}
+      {/* 8. İZLEME LİSTESİ & SİNYAL DEĞİŞİM KONTROLÜ */}
       {/* ========================================================================= */}
-      <Section id="izleme-listesi" title="7. İzleme Listesi & Sinyal Değişim Kontrolü (Watchlist)">
+      <Section id="izleme-listesi" title="8. İzleme Listesi & Sinyal Değişim Kontrolü (Watchlist)">
         <p>
           <Link href="/takip" className="font-bold text-violet-400 underline">
             İzleme Listesi Masası (/takip)
@@ -863,9 +1076,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 8. HİSSELER VE VARLIKLAR NEYE GÖRE BELİRLENİR? */}
+      {/* 9. HİSSELER, HEDEF FİYATLAR VE ÇARPANLAR NEYE GÖRE BELİRLENİR? */}
       {/* ========================================================================= */}
-      <Section id="puanlama" title="8. Hisseler ve Varlıklar Neye Göre Belirlenir?">
+      <Section id="puanlama" title="9. Hisseler, Hedef Fiyatlar ve Çarpanlar Neye Göre Belirlenir?">
         <p>
           Finans Asistanı, hiçbir hisseyi rastgele veya hissi duygularla listelemez. İncelenen her şirket için
           üç ayrı matematiksel skor üretilir ve tüm skorlar <strong>-1,00 ile +1,00</strong> arasında normalize edilir:
@@ -929,8 +1142,8 @@ export default function KullanimKilavuzuPage() {
 
         <H3>🎯 Kurumsal Analist Hedef Fiyatları &amp; Getiri Potansiyeli Nasıl Hesaplanır?</H3>
         <p className="text-xs text-zinc-300">
-          Finans Asistanı, kendi matematiksel teknik ve temel skorlarının yanı sıra kurumsal yatırım dünyasının ve
-          lisanslı aracı kurumların (İş Yatırım, Garanti BBVA, Ak Yatırım, Yapı Kredi, HSBC vb.) öngörülerini de yatırımcılara sunar:
+          Finans Asistanı, kendi matematiksel teknik ve temel skorlarının yanı sıra hem BIST hem de Wall Street için kurumsal yatırım dünyasının ve
+          lisanslı aracı kurumların (İş Yatırım, Garanti BBVA, Ak Yatırım, Morgan Stanley, Goldman Sachs vb.) öngörülerini sunar:
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-2">
@@ -962,9 +1175,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 9. TEKNİK ANALİZ METODOLOJİSİ */}
+      {/* 10. TEKNİK ANALİZ METODOLOJİSİ */}
       {/* ========================================================================= */}
-      <Section id="teknik" title="9. Teknik Analiz Metodolojisi (4 Kategori, 9 Gösterge)">
+      <Section id="teknik" title="10. Teknik Analiz Metodolojisi (4 Kategori, 9 Gösterge)">
         <p>
           Teknik analiz motoru, tek bir indikatöre bağlı kalmanın getireceği yanılgıları önlemek için 4 farklı
           kategoride toplam 9 bağımsız teknik göstergeyi eş zamanlı analiz eder.
@@ -1008,9 +1221,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 10. TEMEL ANALİZ METODOLOJİSİ */}
+      {/* 11. TEMEL ANALİZ METODOLOJİSİ */}
       {/* ========================================================================= */}
-      <Section id="temel" title="10. Temel Analiz Metodolojisi (Sanayi vs. Bankacılık)">
+      <Section id="temel" title="11. Temel Analiz Metodolojisi (Sanayi vs. Bankacılık)">
         <p>
           Temel analizde şirketlerin finansal tabloları analiz edilir. Finans sektöründe (Bankalar, Holdingler,
           Sigortalar) mevduat borç olarak geçtiğinden geleneksel cari oran veya borç rasyoları anlamsızdır. Bu
@@ -1053,9 +1266,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 11. KARMA KARAR & PERİYOT STRATEJİLERİ */}
+      {/* 12. KARMA KARAR & PERİYOT STRATEJİLERİ */}
       {/* ========================================================================= */}
-      <Section id="karma" title="11. Karma Karar & Periyot Stratejileri">
+      <Section id="karma" title="12. Karma Karar & Periyot Stratejileri">
         <p>
           Kısa vadeli grafiklerde fiyatı bilanço değil likidite ve anlık teknik momentum belirler; uzun vadeli
           grafiklerde ise şirketin temel sağlamlığı baskındır. Bu nedenle teknik ve temel analizin karma skordaki
@@ -1087,9 +1300,9 @@ export default function KullanimKilavuzuPage() {
       </Section>
 
       {/* ========================================================================= */}
-      {/* 12. SEANS SAATLERİ, İPUÇLARI & GÜVENLİK UYARILARI */}
+      {/* 13. SEANS SAATLERİ, İPUÇLARI & GÜVENLİK UYARILARI */}
       {/* ========================================================================= */}
-      <Section id="ipuclari" title="12. Seans Saatleri, İpuçları & Güvenlik Uyarıları">
+      <Section id="ipuclari" title="13. Seans Saatleri, İpuçları & Güvenlik Uyarıları">
         <H3>Piyasaların Seans Saatleri</H3>
         <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-300">
           <li>

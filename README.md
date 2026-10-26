@@ -52,27 +52,34 @@ app/
 lib/
 ├─ watchlist.ts              # takip listesi tipleri ve yardımcıları
 ├─ watchlist-storage.ts      # watchlist.md okuma/yazma motoru
+├─ bist-sectors.ts           # 12 BIST sektörü ve filtreleme motoru
+├─ bist-settings-storage.ts  # bist-settings.md okuma/yazma motoru
+├─ us-stock-assets.ts        # 100+ S&P 500 & Nasdaq hissesi ve sektörleri
 ├─ timeframe-settings-storage.ts # timeframe-settings.md okuma/yazma ve periyot motoru
 ├─ mail-settings-storage.ts  # mail-settings.md okuma/yazma ve sıklık motoru
-├─ refresh-settings-storage.ts # refresh-settings.md okuma/yazma ve önbellek TTL motoru
-├─ refresh-settings-types.ts # veri yenileme tipleri ve seçenekleri
+├─ refresh-settings-storage.ts # refresh-settings.md okuma/yazma ve önbellek TTL motoru (10 panel)
+├─ refresh-settings-types.ts # 10 bağımsız panel veri yenileme tipleri ve seçenekleri
 ├─ scheduler.ts              # zamanlayıcı ve periyodik mail motoru
 ├─ data.ts                   # fiyat + temel veri (yahoo-finance2)
-├─ indicators.ts             # RSI, MACD, SMA, Bollinger
+├─ indicators.ts             # RSI, MACD, SMA, Bollinger, ADX
 ├─ scoring.ts                # teknik/temel skor ve nihai sinyal
 ├─ analyze.ts                # tek sembol analiz akışı (her iki route da kullanır)
 ├─ store.ts                  # önceki sinyal + bekleyen mail (KV / bellek)
 ├─ mail.ts                   # e-posta gönderim motoru (Gmail / Resend)
 ├─ types.ts, format.ts
 watchlist.md                 # dinamik takip listesi dosyası (Markdown tablosu)
-timeframe-settings.md        # takip listesi ve lider sinyaller analiz periyotları (1s, 2s, 4s, 1d, 1wk, 1mo)
+bist-settings.md             # BIST varsayılan sektör ve analist konsensüs görünüm ayarları
+us-stock-settings.md         # ABD borsası varsayılan sektör ayarları
+timeframe-settings.md        # takip listesi, lider sinyaller ve analist konsensüs analiz periyotları
 mail-settings.md             # e-posta bildirim sıklığı ayar dosyası (5dk, 10dk, 1 saat, günlük vb.)
-refresh-settings.md          # ekran veri yenileme sıklığı ve önbellek TTL ayar dosyası (15sn, 30sn, 1dk vb.)
+refresh-settings.md          # 10 bağımsız panelin canlı veri yenileme sıklığı ve TTL önbellek ayarları
 components/
-├─ WatchlistTable.tsx        # ana sayfa tablosu
-├─ SymbolDetail.tsx          # detay sayfası düzeni
-├─ TimeframeSelector.tsx     # 1S, 2S, 4S, Günlük, 1H, 1A periyot seçici (.md senkronize)
-├─ AutoRefreshControl.tsx    # ekrandan canlı veri yenileme sıklık seçici (.md senkronize)
+├─ WatchlistTable.tsx        # ana sayfa takip tablosu
+├─ BistAnalystHighlights.tsx # çok periyotlu analist konsensüsü ve hedef fiyat kartları
+├─ BistValuationTable.tsx    # 12 sektör filtreli BIST değerleme tablosu (F/K, PD/DD, FD/FAVÖK)
+├─ UsStocksDashboard.tsx     # 100+ S&P 500 & Nasdaq hisseleri, değerleme ve Wall Street konsensüsü
+├─ GeneralSettingsDashboard.tsx # merkezi Genel Ayarlar & Çift Yönlü Senkronizasyon masası
+├─ AutoRefreshControl.tsx    # 10 panel bağımsız canlı veri yenileme sayacı ve çift yönlü seçici
 ├─ PriceChart.tsx            # mum + SMA50/200 + Bollinger
 ├─ IndicatorCharts.tsx       # RSI ve MACD panelleri
 ├─ SignalCard.tsx, SignalBadge.tsx
