@@ -15,4 +15,4 @@ Arayüzdeki endeks tipi menüsünden seçim yapıldığında bu dosya otomatik g
 - **BIST 100** (`bist100`): BIST 100 endeksindeki şirketler (canlı XU100)
 - **BIST TÜM** (`bistall`): Borsa İstanbul'daki tüm şirketler (yavaş tarama)
 
-*Son Güncelleme: 2026-10-25T10:32:25.796Z*
+*Son Güncelleme: 2026-10-26T17:36:52.921Z*

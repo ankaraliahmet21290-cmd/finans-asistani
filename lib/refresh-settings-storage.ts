@@ -73,6 +73,10 @@ export function parseRefreshSettingsMarkdown(content: string): RefreshSettingsCo
   const commodityVal = params["emtia & fx sıklık"] || params["emtia sıklık"] || params["emtia"] || params["forex"] || "60s";
   const usStocksVal = params["abd borsası sıklık"] || params["abd sıklık"] || params["abd"] || params["us_stocks"] || rawVal;
   const watchlistVal = params["takip listesi sıklık"] || params["takip listesi"] || params["takip"] || params["watchlist"] || rawVal;
+  const bistAnalystVal = params["bist analist sıklık"] || params["bist analist konsensüsü sıklık"] || params["bist analist"] || params["bist_analyst"] || "60s";
+  const bistValuationVal = params["bist değerleme tablosu sıklık"] || params["bist değerleme sıklık"] || params["bist değerleme"] || params["bist_valuation"] || bistAnalystVal;
+  const usAnalystVal = params["abd analist sıklık"] || params["abd analist konsensüsü sıklık"] || params["abd analist"] || params["us_stocks_analyst"] || "30s";
+  const usValuationVal = params["abd değerleme tablosu sıklık"] || params["abd değerleme sıklık"] || params["abd değerleme"] || params["us_stocks_valuation"] || usAnalystVal;
 
   const markets = {
     bist: normalizeRefreshInterval(bistVal).value,
@@ -80,6 +84,10 @@ export function parseRefreshSettingsMarkdown(content: string): RefreshSettingsCo
     commodity_forex: normalizeRefreshInterval(commodityVal).value,
     us_stocks: normalizeRefreshInterval(usStocksVal).value,
     watchlist: normalizeRefreshInterval(watchlistVal).value,
+    bist_analyst: normalizeRefreshInterval(bistAnalystVal).value,
+    bist_valuation: normalizeRefreshInterval(bistValuationVal).value,
+    us_stocks_analyst: normalizeRefreshInterval(usAnalystVal).value,
+    us_stocks_valuation: normalizeRefreshInterval(usValuationVal).value,
   };
 
   return {
@@ -105,6 +113,10 @@ export function formatRefreshSettingsMarkdown(config: RefreshSettingsConfig): st
   const commOpt = normalizeRefreshInterval(config.markets?.commodity_forex ?? 60);
   const usOpt = normalizeRefreshInterval(config.markets?.us_stocks ?? config.seconds);
   const watchlistOpt = normalizeRefreshInterval(config.markets?.watchlist ?? config.seconds);
+  const bistAnalystOpt = normalizeRefreshInterval(config.markets?.bist_analyst ?? 60);
+  const bistValuationOpt = normalizeRefreshInterval(config.markets?.bist_valuation ?? config.markets?.bist_analyst ?? 60);
+  const usAnalystOpt = normalizeRefreshInterval(config.markets?.us_stocks_analyst ?? 30);
+  const usValuationOpt = normalizeRefreshInterval(config.markets?.us_stocks_valuation ?? config.markets?.us_stocks_analyst ?? 30);
 
   return `# Veri Yenileme Ayarları
 
@@ -119,6 +131,10 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Emtia & FX Sıklık | ${commOpt.key} | Altın, döviz, emtia veri yenileme aralığı |
 | ABD Borsası Sıklık | ${usOpt.key} | Amerikan borsası (Nasdaq/S&P) veri yenileme aralığı |
 | Takip Listesi Sıklık | ${watchlistOpt.key} | Takip listesi (Watchlist) veri yenileme aralığı |
+| BIST Analist Konsensüsü Sıklık | ${bistAnalystOpt.key} | BIST analist konsensüsü ve hedef fiyat kartları yenileme aralığı |
+| BIST Değerleme Tablosu Sıklık | ${bistValuationOpt.key} | Borsa İstanbul hisseleri değerleme tablosu yenileme aralığı |
+| ABD Analist Konsensüsü Sıklık | ${usAnalystOpt.key} | Wall Street analist konsensüsü ve hedef fiyat kartları yenileme aralığı |
+| ABD Değerleme Tablosu Sıklık | ${usValuationOpt.key} | Amerikan borsası hisseleri değerleme tablosu yenileme aralığı |
 | Görünen Ad | ${opt.label} | ${opt.desc} |
 | Saniye | ${opt.value} | Sayısal saniye karşılığı (0 = kapalı) |
 | Aktif | ${isEnabled ? "Evet" : "Hayır"} | Otomatik veri yenileme açık/kapalı |
@@ -177,7 +193,16 @@ export function getActiveRefreshConfig(): RefreshSettingsConfig {
 
 export interface SaveRefreshSettingsOptions {
   seconds?: RefreshInterval | string | number;
-  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist";
+  market?:
+    | "bist"
+    | "crypto"
+    | "commodity_forex"
+    | "us_stocks"
+    | "watchlist"
+    | "bist_analyst"
+    | "bist_valuation"
+    | "us_stocks_analyst"
+    | "us_stocks_valuation";
   markets?: Partial<RefreshSettingsConfig["markets"]>;
 }
 
@@ -187,6 +212,10 @@ export function getMarketRefreshSeconds(config: RefreshSettingsConfig, market?: 
   if (market === "us_stocks") return config.markets?.us_stocks ?? config.seconds;
   if (market === "bist") return config.markets?.bist ?? config.seconds;
   if (market === "watchlist") return config.markets?.watchlist ?? config.seconds;
+  if (market === "bist_analyst") return config.markets?.bist_analyst ?? 60;
+  if (market === "bist_valuation") return config.markets?.bist_valuation ?? config.markets?.bist_analyst ?? 60;
+  if (market === "us_stocks_analyst") return config.markets?.us_stocks_analyst ?? config.markets?.us_stocks ?? config.seconds;
+  if (market === "us_stocks_valuation") return config.markets?.us_stocks_valuation ?? config.markets?.us_stocks_analyst ?? config.markets?.us_stocks ?? config.seconds;
   return config.seconds;
 }
 
@@ -199,7 +228,17 @@ export async function saveRefreshSettingsToFile(
   const current = await getRefreshSettingsFromFile();
   const currentMarkets: MarketRefreshSettings = current.markets
     ? { ...current.markets }
-    : { bist: 30, crypto: 15, commodity_forex: 60, us_stocks: 30, watchlist: 30 };
+    : {
+        bist: 30,
+        crypto: 15,
+        commodity_forex: 60,
+        us_stocks: 30,
+        watchlist: 30,
+        bist_analyst: 60,
+        bist_valuation: 60,
+        us_stocks_analyst: 30,
+        us_stocks_valuation: 30,
+      };
 
   let nextSeconds: RefreshInterval = current.seconds;
   let nextMarkets: MarketRefreshSettings = { ...currentMarkets };
@@ -212,6 +251,10 @@ export async function saveRefreshSettingsToFile(
       if (input.market === "commodity_forex") nextMarkets.commodity_forex = opt.value;
       if (input.market === "us_stocks") nextMarkets.us_stocks = opt.value;
       if (input.market === "watchlist") nextMarkets.watchlist = opt.value;
+      if (input.market === "bist_analyst") nextMarkets.bist_analyst = opt.value;
+      if (input.market === "bist_valuation") nextMarkets.bist_valuation = opt.value;
+      if (input.market === "us_stocks_analyst") nextMarkets.us_stocks_analyst = opt.value;
+      if (input.market === "us_stocks_valuation") nextMarkets.us_stocks_valuation = opt.value;
     } else {
       if (input.seconds !== undefined) {
         nextSeconds = normalizeRefreshInterval(input.seconds).value;

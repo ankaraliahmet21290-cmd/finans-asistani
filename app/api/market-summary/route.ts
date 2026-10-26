@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       const usdTry = await getUsdTry();
 
       // 2. Compute lightweight signals for each featured ticker with controlled concurrency
-      const concurrency = selectedMarket.id === "us_stocks" ? 10 : 8;
+      const concurrency = selectedMarket.id === "us_stocks" || selectedMarket.id === "bist" ? 12 : 8;
       const items = await mapWithLimit(tickers, concurrency, async (ticker) => {
         const curated = CURATED_MARKET_ITEMS[ticker];
         const category = detectAssetCategory(ticker);

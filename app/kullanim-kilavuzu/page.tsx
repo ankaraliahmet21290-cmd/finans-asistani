@@ -10,17 +10,18 @@ export const metadata: Metadata = {
 
 const TOC = [
   { id: "genel", label: "1. Genel Bakış & Çoklu Piyasa Desteği" },
-  { id: "navigasyon", label: "2. Ekran Bölümleri & Navigasyon" },
-  { id: "genel-ayarlar", label: "3. Genel Ayarlar & Bildirim Masası (/ayarlar)" },
-  { id: "ekran-yenileme", label: "4. Ekran Yenileme & Önbellek (Cache) Sıklığı" },
-  { id: "mail-sistemi", label: "5. E-Posta Gönderim Sıklığı & Bildirim Dağıtımı" },
-  { id: "portfoy-tarama", label: "6. Portföy Takibi & Portföy Tarama Sıklığı" },
-  { id: "izleme-listesi", label: "7. İzleme Listesi & Sinyal Değişim Kontrolü" },
-  { id: "puanlama", label: "8. Hisseler ve Varlıklar Neye Göre Belirlenir?" },
-  { id: "teknik", label: "9. Teknik Analiz Metodolojisi (9 Gösterge)" },
-  { id: "temel", label: "10. Temel Analiz Metodolojisi (Sanayi & Banka)" },
-  { id: "karma", label: "11. Karma Karar & Periyot Stratejileri" },
-  { id: "ipuclari", label: "12. Seans Saatleri, İpuçları & Güvenlik Uyarıları" },
+  { id: "navigasyon", label: "2. Ekran Bölümleri & Navigasyon Mimarisi" },
+  { id: "bist-degerleme", label: "3. BIST Sektörleri, Değerleme Tablosu & Analist Konsensüsü" },
+  { id: "genel-ayarlar", label: "4. Genel Ayarlar & Çift Yönlü Senkronizasyon (/ayarlar)" },
+  { id: "ekran-yenileme", label: "5. Ekran Yenileme & Akıllı Önbellek (10 Panel Frekansı)" },
+  { id: "mail-sistemi", label: "6. E-Posta Gönderim Sıklığı & Bildirim Dağıtımı" },
+  { id: "portfoy-tarama", label: "7. Portföy Takibi & Portföy Tarama Sıklığı" },
+  { id: "izleme-listesi", label: "8. İzleme Listesi & Sinyal Değişim Kontrolü" },
+  { id: "puanlama", label: "9. Hisseler, Hedef Fiyatlar ve Çarpanlar Neye Göre Belirlenir?" },
+  { id: "teknik", label: "10. Teknik Analiz Metodolojisi (9 Gösterge)" },
+  { id: "temel", label: "11. Temel Analiz Metodolojisi (Sanayi & Banka)" },
+  { id: "karma", label: "12. Karma Karar & Periyot Stratejileri" },
+  { id: "ipuclari", label: "13. Seans Saatleri, İpuçları & Güvenlik Uyarıları" },
 ];
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -475,8 +476,11 @@ export default function KullanimKilavuzuPage() {
                 ister Çoklu Zaman Dilimi ekranındaki zamanlayıcıdan değiştirin; iki taraf da anında güncellenir.
               </li>
               <li>
-                <strong>⚡ Canlı Veri Yenileme Sıklığı:</strong> Ekranlardaki geri sayım sayacıyla (AutoRefreshControl)
-                birebir eşzamanlıdır. Bir yerde süreyi değiştirdiğinizde tüm sekmeler ve Genel Ayarlar güncellenir.
+                <strong>⚡ Canlı Veri Yenileme Sıklığı (Çift Yönlü):</strong> Ekranlardaki geri sayım sayacıyla (AutoRefreshControl)
+                birebir eşzamanlıdır. BIST Analist Konsensüsü &amp; Hedef Fiyatlar, BIST Değerleme Tablosu, Wall Street Analist
+                Konsensüsü ve Amerikan Borsası Değerleme Tablosu dahil tüm ekranların yenileme sıklığı hem kendi ekranlarındaki
+                sayaç kontrolünden hem de Genel Ayarlar masasından (/ayarlar) kolayca değiştirilebilir. Bir yerde süreyi değiştirdiğinizde
+                tüm sekmeler, refresh-settings.md ve Genel Ayarlar anında güncellenir.
               </li>
               <li>
                 <strong>📊 Varsayılan Endeks Kapsamı:</strong> BIST için BIST 30, BIST 100 veya TÜMÜ tercihini belirler;

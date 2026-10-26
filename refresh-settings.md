@@ -11,11 +11,15 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Emtia & FX Sıklık | 60s | Altın, döviz, emtia veri yenileme aralığı |
 | ABD Borsası Sıklık | 30s | Amerikan borsası (Nasdaq/S&P) veri yenileme aralığı |
 | Takip Listesi Sıklık | 300s | Takip listesi (Watchlist) veri yenileme aralığı |
+| BIST Analist Konsensüsü Sıklık | 60s | BIST analist konsensüsü ve hedef fiyat kartları yenileme aralığı |
+| BIST Değerleme Tablosu Sıklık | 300s | Borsa İstanbul hisseleri değerleme tablosu yenileme aralığı |
+| ABD Analist Konsensüsü Sıklık | 60s | Wall Street analist konsensüsü ve hedef fiyat kartları yenileme aralığı |
+| ABD Değerleme Tablosu Sıklık | 30s | Amerikan borsası hisseleri değerleme tablosu yenileme aralığı |
 | Görünen Ad | 5 dk | Tasarruflu |
 | Saniye | 300 | Sayısal saniye karşılığı (0 = kapalı) |
 | Aktif | Evet | Otomatik veri yenileme açık/kapalı |
 | Önbellek Süresi | 300 sn | Sunucu veri TTL süresi |
-| Son Güncelleme | 2026-10-25T21:26:14.482Z | Son güncelleme zamanı |
+| Son Güncelleme | 2026-10-26T17:40:20.473Z | Son güncelleme zamanı |
 
 ---
 

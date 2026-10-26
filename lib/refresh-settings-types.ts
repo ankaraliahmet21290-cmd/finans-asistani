@@ -59,6 +59,10 @@ export interface MarketRefreshSettings {
   commodity_forex: RefreshInterval;
   us_stocks: RefreshInterval;
   watchlist?: RefreshInterval;
+  bist_analyst?: RefreshInterval;
+  bist_valuation?: RefreshInterval;
+  us_stocks_analyst?: RefreshInterval;
+  us_stocks_valuation?: RefreshInterval;
 }
 
 export const DEFAULT_MARKET_REFRESH_SETTINGS: MarketRefreshSettings = {
@@ -67,6 +71,10 @@ export const DEFAULT_MARKET_REFRESH_SETTINGS: MarketRefreshSettings = {
   commodity_forex: 60,
   us_stocks: 30,
   watchlist: 30,
+  bist_analyst: 60,
+  bist_valuation: 60,
+  us_stocks_analyst: 30,
+  us_stocks_valuation: 30,
 };
 
 export interface RefreshSettingsConfig {

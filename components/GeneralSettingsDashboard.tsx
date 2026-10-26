@@ -19,6 +19,7 @@ import { INDEX_TYPES, type IndexTypeKey } from "@/lib/index-types";
 import type { TimeframeKey } from "@/lib/timeframes";
 import type { PositionCheckInterval, PositionSettings } from "@/lib/position-types";
 import { VALID_US_STOCK_SECTORS } from "@/lib/us-stock-settings-types";
+import { BIST_SECTOR_FILTERS, getBistSectorLabel, type BistSectorKey } from "@/lib/bist-sectors";
 
 const POSITION_INTERVAL_OPTIONS: Array<{ key: PositionCheckInterval; label: string; desc: string }> = [
   { key: "1m", label: "1 Dakika", desc: "Çok hızlı canlı takip" },
@@ -92,15 +93,25 @@ export default function GeneralSettingsDashboard() {
     commodity_forex: number;
     us_stocks: number;
     watchlist?: number;
+    bist_analyst?: number;
+    bist_valuation?: number;
+    us_stocks_analyst?: number;
+    us_stocks_valuation?: number;
   }>({
     bist: 30,
     crypto: 15,
     commodity_forex: 60,
     us_stocks: 30,
     watchlist: 30,
+    bist_analyst: 60,
+    bist_valuation: 60,
+    us_stocks_analyst: 30,
+    us_stocks_valuation: 30,
   });
   const [cryptoCategory, setCryptoCategory] = useState<string>("major");
   const [usStockSector, setUsStockSector] = useState<string>("tech");
+  const [bistDefaultSector, setBistDefaultSector] = useState<BistSectorKey>("bist30");
+  const [bistAnalystMode, setBistAnalystMode] = useState<"leaders" | "top_upside">("leaders");
 
   // Loading & action states
   const [loading, setLoading] = useState<boolean>(true);
@@ -165,6 +176,7 @@ export default function GeneralSettingsDashboard() {
         indexTypeRes,
         timeframeRes,
         positionsRes,
+        bistRes,
       ] = await Promise.all([
         fetch("/api/mail/recipients", { cache: "no-store" }),
         fetch("/api/mail/settings", { cache: "no-store" }),
@@ -175,6 +187,7 @@ export default function GeneralSettingsDashboard() {
         fetch("/api/index-type/settings", { cache: "no-store" }),
         fetch("/api/timeframe/settings", { cache: "no-store" }),
         fetch("/api/positions/settings", { cache: "no-store" }),
+        fetch("/api/settings/bist", { cache: "no-store" }),
       ]);
 
       if (recipientsRes.ok) {
@@ -235,6 +248,15 @@ export default function GeneralSettingsDashboard() {
         const data = await positionsRes.json();
         if (data.settings) {
           setPositionSettings(data.settings);
+        }
+      }
+      if (bistRes.ok) {
+        const data = await bistRes.json();
+        if (data.settings?.defaultSector) {
+          setBistDefaultSector(data.settings.defaultSector);
+        }
+        if (data.settings?.analystFilterMode) {
+          setBistAnalystMode(data.settings.analystFilterMode);
         }
       }
     } catch (err) {
@@ -518,6 +540,59 @@ export default function GeneralSettingsDashboard() {
     }
   };
 
+  // Save BIST default sector
+  const handleBistSectorChange = async (sector: BistSectorKey) => {
+    setSavingAction("bistDefaultSector");
+    try {
+      const res = await fetch("/api/settings/bist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sector }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setBistDefaultSector(sector);
+        try {
+          localStorage.setItem("bist_default_sector", sector);
+        } catch {
+          // ignore
+        }
+        setFeedback({
+          text: `✓ BIST Değerleme Tablosu varsayılan sektörü "${getBistSectorLabel(sector)}" olarak kaydedildi ve bist-settings.md ile senkronize edildi.`,
+          type: "success",
+        });
+      }
+    } catch {
+      setFeedback({ text: "BIST sektör ayarı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
+  // Save BIST analyst filter mode
+  const handleBistAnalystModeChange = async (analystFilterMode: "leaders" | "top_upside") => {
+    setSavingAction("bistAnalystMode");
+    try {
+      const res = await fetch("/api/settings/bist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ analystFilterMode }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setBistAnalystMode(analystFilterMode);
+        setFeedback({
+          text: `✓ BIST analist görünüm modu "${analystFilterMode === "top_upside" ? "En Yüksek Potansiyel" : "BIST Liderleri"}" olarak kaydedildi.`,
+          type: "success",
+        });
+      }
+    } catch {
+      setFeedback({ text: "BIST analist modu kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
   // Save market-specific scan interval
   const handleMarketScanIntervalChange = async (market: MarketScope, intervalKey: MailIntervalKey) => {
     setSavingAction(`scan-${market}`);
@@ -544,7 +619,16 @@ export default function GeneralSettingsDashboard() {
   };
 
   // Save market-specific live refresh interval
-  const handleMarketRefreshIntervalChange = async (market: MarketScope | "watchlist", seconds: number) => {
+  const handleMarketRefreshIntervalChange = async (
+    market:
+      | MarketScope
+      | "watchlist"
+      | "bist_analyst"
+      | "bist_valuation"
+      | "us_stocks_analyst"
+      | "us_stocks_valuation",
+    seconds: number
+  ) => {
     setSavingAction(`ref-${market}`);
     try {
       const res = await fetch("/api/settings/refresh", {
@@ -556,7 +640,15 @@ export default function GeneralSettingsDashboard() {
       if (data.ok) {
         setMarketRefresh((prev) => ({ ...prev, [market]: seconds }));
         const label =
-          market === "watchlist"
+          market === "bist_analyst"
+            ? "BIST Analist Konsensüsü & Hedef Fiyatlar"
+            : market === "bist_valuation"
+            ? "Borsa İstanbul Hisseleri & Değerleme Tablosu"
+            : market === "us_stocks_analyst"
+            ? "Wall Street Analist Konsensüsü & Hedef Fiyatlar"
+            : market === "us_stocks_valuation"
+            ? "Amerikan Borsası Hisseleri & Değerleme Tablosu"
+            : market === "watchlist"
             ? "Takip Listesi Masası"
             : MARKET_DEFINITIONS.find((m) => m.id === market)?.label || market;
         setFeedback({
@@ -1471,11 +1563,11 @@ export default function GeneralSettingsDashboard() {
           {/* Market Filter Navigation Tabs */}
           <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-950/80 border border-zinc-800 overflow-x-auto max-w-full">
             {[
-              { id: "all", label: "🌐 Tümü (15 Bölüm)" },
-              { id: "bist", label: "🇹🇷 BIST (5 Bölüm)" },
+              { id: "all", label: "🌐 Tümü (18 Bölüm)" },
+              { id: "bist", label: "🇹🇷 BIST (7 Bölüm)" },
               { id: "crypto", label: "⚡ Kripto (4 Bölüm)" },
               { id: "commodity_forex", label: "🪙 Emtia & FX (3 Bölüm)" },
-              { id: "us_stocks", label: "🇺🇸 ABD (3 Bölüm)" },
+              { id: "us_stocks", label: "🇺🇸 ABD (4 Bölüm)" },
             ].map((tab) => {
               const isActive = marketSectionFilter === tab.id;
               return (
@@ -1514,7 +1606,7 @@ export default function GeneralSettingsDashboard() {
                       </span>
                     </h3>
                     <p className="text-[11px] text-zinc-400">
-                      BIST 30, BIST 100 ve Tüm Borsa İstanbul hisselerini kapsayan 5 bağımsız ekran kategorisi
+                      BIST 30, BIST 100 ve Tüm Borsa İstanbul hisselerini kapsayan 7 bağımsız ekran kategorisi
                     </p>
                   </div>
                 </div>
@@ -1612,7 +1704,176 @@ export default function GeneralSettingsDashboard() {
                   </div>
                 </div>
 
-                {/* 1.2 Çoklu Zaman Dilimi AL/SAT Taraması */}
+                {/* 1.2 BIST Analist Konsensüsü & Hedef Fiyatlar */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🎯</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            BIST Analist Konsensüsü &amp; Hedef Fiyatlar
+                          </div>
+                          <div className="text-[10px] text-zinc-500">12 Aylık Hedef Fiyat &amp; Analist Tavsiyeleri</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/#bist-analyst-section"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-sky-300 transition"
+                        title="Bölüme Git"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-bist_analyst" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["bist_analyst"] ?? 60}
+                          onChange={(e) => handleMarketRefreshIntervalChange("bist_analyst", Number(e.target.value))}
+                          disabled={savingAction === "ref-bist_analyst"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Analist konsensüs kartlarının otomatik yenilenme süresi (refresh-settings.md)
+                        </p>
+                      </div>
+
+                      {/* Varsayılan Kart Görünüm Modu */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🏆</span>
+                            <span>Varsayılan Kart Modu:</span>
+                          </span>
+                          {savingAction === "bistAnalystMode" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={bistAnalystMode}
+                          onChange={(e) => handleBistAnalystModeChange(e.target.value as "leaders" | "top_upside")}
+                          disabled={savingAction === "bistAnalystMode"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          <option value="leaders">🏆 BIST Liderleri (THYAO, ASELS, GARAN, TUPRS)</option>
+                          <option value="top_upside">🚀 En Yüksek Potansiyel (Analist Prim Hedefleri)</option>
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Üst panelde öne çıkan 4 ana hisse kartının sıralama mantığı (bist-settings.md)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>bist-settings.md &amp; refresh</span>
+                    <span className="text-sky-400">✓ Konsensüs Kartları</span>
+                  </div>
+                </div>
+
+                {/* 1.3 Borsa İstanbul Hisseleri & Değerleme Tablosu */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📊</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Borsa İstanbul Hisseleri &amp; Değerleme Tablosu
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Konsensüs Hedefler, F/K, PD/DD, ROE Masası</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/#bist-valuation-table-section"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-sky-300 transition"
+                        title="Bölüme Git"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Varsayılan Sektör / Endeks Filtresi */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>🏆</span>
+                            <span>Varsayılan Sektör / Endeks:</span>
+                          </span>
+                          {savingAction === "bistDefaultSector" && (
+                            <span className="text-[10px] text-sky-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={bistDefaultSector}
+                          onChange={(e) => handleBistSectorChange(e.target.value as BistSectorKey)}
+                          disabled={savingAction === "bistDefaultSector"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-sky-500 focus:outline-none"
+                        >
+                          {BIST_SECTOR_FILTERS.map((s) => (
+                            <option key={s.key} value={s.key}>
+                              {s.label} {s.key === "bist30" ? "★ (Varsayılan)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Değerleme tablosu açıldığında doğrudan seçilecek sektör (Varsayılan: BIST 30)
+                        </p>
+                      </div>
+
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-bist_valuation" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["bist_valuation"] ?? 60}
+                          onChange={(e) => handleMarketRefreshIntervalChange("bist_valuation", Number(e.target.value))}
+                          disabled={savingAction === "ref-bist_valuation"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Değerleme tablosu fiyat ve çarpanlarının otomatik yenilenme süresi (refresh-settings.md)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>bist-settings.md &amp; refresh</span>
+                    <span className="text-sky-400">✓ Değerleme Tablosu</span>
+                  </div>
+                </div>
+
+                {/* 1.4 Çoklu Zaman Dilimi AL/SAT Taraması */}
                 <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
                   <div>
                     <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
@@ -1724,7 +1985,7 @@ export default function GeneralSettingsDashboard() {
                   </div>
                 </div>
 
-                {/* 1.3 Lider Sinyaller Sıralaması (Top Signals) */}
+                {/* 1.5 Lider Sinyaller Sıralaması (Top Signals) */}
                 <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
                   <div>
                     <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
@@ -1830,7 +2091,7 @@ export default function GeneralSettingsDashboard() {
                   </div>
                 </div>
 
-                {/* 1.4 BIST Şirket Arama & Sinyal Analizi */}
+                {/* 1.6 BIST Şirket Arama & Sinyal Analizi */}
                 <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
                   <div>
                     <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
@@ -1888,7 +2149,7 @@ export default function GeneralSettingsDashboard() {
                   </div>
                 </div>
 
-                {/* 1.5 İzleme / Takip Listesi Masası (BIST) */}
+                {/* 1.7 İzleme / Takip Listesi Masası (BIST) */}
                 <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-sky-500/40 transition shadow-md">
                   <div>
                     <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
@@ -2755,7 +3016,7 @@ export default function GeneralSettingsDashboard() {
                       </span>
                     </h3>
                     <p className="text-[11px] text-zinc-400">
-                      Nasdaq, S&P 500 ve Mega-Cap teknoloji hisseleri için 3 ekran kategorisi
+                      Nasdaq, S&amp;P 500 ve Mega-Cap hisseleri kapsayan 4 bağımsız ekran kategorisi
                     </p>
                   </div>
                 </div>
@@ -2769,7 +3030,7 @@ export default function GeneralSettingsDashboard() {
               </div>
 
               {/* Sub-Categories (Ekran Bölümleri) Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* 4.1 Portföy Pozisyon Takibi & Canlı Alarm Masası (ABD) */}
                 <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-indigo-500/40 transition shadow-md">
                   <div>
@@ -2778,7 +3039,7 @@ export default function GeneralSettingsDashboard() {
                         <span className="text-lg">💼</span>
                         <div>
                           <div className="font-bold text-xs sm:text-sm text-zinc-100">
-                            Portföy Pozisyon Takibi & Canlı Alarm Masası
+                            Portföy Pozisyon Takibi &amp; Canlı Alarm Masası
                           </div>
                           <div className="text-[10px] text-zinc-500">ABD Hisseleri Stop/Kâr Al Takibi</div>
                         </div>
@@ -2819,7 +3080,7 @@ export default function GeneralSettingsDashboard() {
                           ))}
                         </select>
                         <p className="text-[10px] text-zinc-500">
-                          Nasdaq ve S&P 500 hisselerinde seans içi alarm kontrolü
+                          Nasdaq ve S&amp;P 500 hisselerinde seans içi alarm kontrolü
                         </p>
                       </div>
                     </div>
@@ -2830,7 +3091,69 @@ export default function GeneralSettingsDashboard() {
                   </div>
                 </div>
 
-                {/* 4.2 ABD Borsası Analiz Masası */}
+                {/* 4.2 Wall Street Analist Konsensüsü & Hedef Fiyatlar */}
+                <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-indigo-500/40 transition shadow-md">
+                  <div>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🎯</span>
+                        <div>
+                          <div className="font-bold text-xs sm:text-sm text-zinc-100">
+                            Wall Street Analist Konsensüsü &amp; Hedef Fiyatlar
+                          </div>
+                          <div className="text-[10px] text-zinc-500">Mega-Cap Liderler &amp; Wall Street Hedefleri</div>
+                        </div>
+                      </div>
+                      <Link
+                        href="/abd-borsasi"
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-indigo-300 transition"
+                        title="ABD Borsası Ekranını Aç"
+                      >
+                        ↗
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-us_stocks_analyst" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["us_stocks_analyst"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("us_stocks_analyst", Number(e.target.value))}
+                          disabled={savingAction === "ref-us_stocks_analyst"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          NVDA, AAPL, MSFT, TSLA kartları ve Wall Street konsensüs primlerinin yenilenme süresi
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-2.5 text-[11px] text-zinc-400">
+                        <span className="font-semibold text-zinc-200">Kapsam:</span> 12 aylık kurumsal analist konsensüs hedefleri ve prim potansiyelleri.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
+                    <span>refresh-settings.md</span>
+                    <span className="text-indigo-400">✓ Wall Street Konsensüs</span>
+                  </div>
+                </div>
+
+                {/* 4.3 Amerikan Borsası Hisseleri & Değerleme Tablosu */}
                 <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-indigo-500/40 transition shadow-md">
                   <div>
                     <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">
@@ -2838,9 +3161,9 @@ export default function GeneralSettingsDashboard() {
                         <span className="text-lg">🏛️</span>
                         <div>
                           <div className="font-bold text-xs sm:text-sm text-zinc-100">
-                            ABD Borsası Analiz Masası
+                            Amerikan Borsası Hisseleri &amp; Değerleme Tablosu
                           </div>
-                          <div className="text-[10px] text-zinc-500">100+ S&P 500 & Nasdaq Hissesi</div>
+                          <div className="text-[10px] text-zinc-500">100+ S&amp;P 500 &amp; Nasdaq Hissesi</div>
                         </div>
                       </div>
                       <Link
@@ -2881,6 +3204,34 @@ export default function GeneralSettingsDashboard() {
                         </p>
                       </div>
 
+                      {/* Canlı Veri Yenileme Sıklığı */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Canlı Veri Yenileme Sıklığı:</span>
+                          </span>
+                          {savingAction === "ref-us_stocks_valuation" && (
+                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={marketRefresh["us_stocks_valuation"] ?? 30}
+                          onChange={(e) => handleMarketRefreshIntervalChange("us_stocks_valuation", Number(e.target.value))}
+                          disabled={savingAction === "ref-us_stocks_valuation"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
+                        >
+                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label} ({opt.desc})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          Ekranda ABD hisse değerleme tablosunun otomatik yenilenme süresi (refresh-settings.md)
+                        </p>
+                      </div>
+
                       {/* Bülten Tarama Sıklığı */}
                       <div className="space-y-1">
                         <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
@@ -2908,34 +3259,6 @@ export default function GeneralSettingsDashboard() {
                         </select>
                         <p className="text-[10px] text-zinc-500">
                           ABD seansında hisseleri tarama ve e-posta bülten gönderim periyodu
-                        </p>
-                      </div>
-
-                      {/* Canlı Veri Yenileme Sıklığı */}
-                      <div className="space-y-1">
-                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-                          <span className="flex items-center gap-1.5">
-                            <span>⚡</span>
-                            <span>Canlı Veri Yenileme Sıklığı:</span>
-                          </span>
-                          {savingAction === "ref-us_stocks" && (
-                            <span className="text-[10px] text-amber-400 animate-pulse">Kaydediliyor...</span>
-                          )}
-                        </label>
-                        <select
-                          value={marketRefresh["us_stocks"] ?? 30}
-                          onChange={(e) => handleMarketRefreshIntervalChange("us_stocks", Number(e.target.value))}
-                          disabled={savingAction === "ref-us_stocks"}
-                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-amber-500 focus:outline-none"
-                        >
-                          {REFRESH_INTERVAL_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label} ({opt.desc})
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-[10px] text-zinc-500">
-                          Ekranda ABD hisse fiyatlarının otomatik yenilenme süresi
                         </p>
                       </div>
 
@@ -2970,11 +3293,11 @@ export default function GeneralSettingsDashboard() {
                   </div>
                   <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
                     <span>us-stock-settings.md</span>
-                    <span className="text-indigo-400">✓ Wall Street Masası</span>
+                    <span className="text-indigo-400">✓ Değerleme Tablosu</span>
                   </div>
                 </div>
 
-                {/* 4.3 ABD Hisseleri Takip Listesi Masası */}
+                {/* 4.4 ABD Hisseleri Takip Listesi Masası */}
                 <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-4 flex flex-col justify-between hover:border-indigo-500/40 transition shadow-md">
                   <div>
                     <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/70 mb-3">

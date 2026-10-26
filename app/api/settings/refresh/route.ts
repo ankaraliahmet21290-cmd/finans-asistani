@@ -12,7 +12,17 @@ export async function GET(req: Request) {
   try {
     const config = await getRefreshSettingsFromFile();
     const { searchParams } = new URL(req.url);
-    const market = searchParams.get("market") as "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist" | null;
+    const market = searchParams.get("market") as
+      | "bist"
+      | "crypto"
+      | "commodity_forex"
+      | "us_stocks"
+      | "watchlist"
+      | "bist_analyst"
+      | "bist_valuation"
+      | "us_stocks_analyst"
+      | "us_stocks_valuation"
+      | null;
 
     let effectiveSeconds = config.seconds;
     if (market && config.markets?.[market] !== undefined) {
@@ -40,7 +50,17 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const rawSeconds = body.seconds ?? body.interval ?? body.value;
-    const market = body.market as "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist" | undefined;
+    const market = body.market as
+      | "bist"
+      | "crypto"
+      | "commodity_forex"
+      | "us_stocks"
+      | "watchlist"
+      | "bist_analyst"
+      | "bist_valuation"
+      | "us_stocks_analyst"
+      | "us_stocks_valuation"
+      | undefined;
 
     if (rawSeconds === undefined || rawSeconds === null) {
       return NextResponse.json(

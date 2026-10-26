@@ -7,7 +7,7 @@ Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya do
 | --- | --- | --- | --- |
 | Takip Listesi | 1h | 1 Saatlik | Kısa vadeli gün içi sinyaller |
 | Lider Sinyaller | 1d | Günlük | Ana günlük trend ve kapanışlar |
-| Tüm BIST Şirketleri | 1h | 1 Saatlik | Kısa vadeli gün içi sinyaller |
+| Tüm BIST Şirketleri | 1d | Günlük | Ana günlük trend ve kapanışlar |
 
 ---
 
@@ -23,4 +23,4 @@ Arayüz üzerinden periyot seçildiğinde bu dosya otomatik güncellenir veya do
 - **Haftalık** (`1wk`): Orta-uzun vadeli trend
 - **Aylık** (`1mo`): Makro ve uzun vadeli yatırım trendi
 
-*Son Güncelleme: 2026-10-25T14:49:37.361Z*
+*Son Güncelleme: 2026-10-26T17:26:23.464Z*

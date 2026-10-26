@@ -201,6 +201,8 @@ export default function UsStocksDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedCompany, setSelectedCompany] = useState<BistCompany | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
+  const [analystRefreshInterval, setAnalystRefreshInterval] = useState<RefreshInterval>(30);
+  const [valuationRefreshInterval, setValuationRefreshInterval] = useState<RefreshInterval>(30);
   const [searchQuery, setSearchQuery] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("tech");
   const [savedDefaultCategory, setSavedDefaultCategory] = useState("tech");
@@ -208,7 +210,7 @@ export default function UsStocksDashboard() {
   const [signalFilter, setSignalFilter] = useState<"ALL" | "AL" | "SAT" | "TUT">("ALL");
   const [sortBy, setSortBy] = useState<SortKey>("upside");
 
-  // Load saved default sector from us-stock-settings.md via API and localStorage
+  // Load saved default sector and refresh settings via API and localStorage
   useEffect(() => {
     let active = true;
 
@@ -237,6 +239,25 @@ export default function UsStocksDashboard() {
       .catch((e) => {
         console.warn("[UsStocksDashboard] Sektör ayarları yüklenemedi:", e);
       });
+
+    // 3. Fetch server-side analyst & valuation refresh settings
+    fetch("/api/settings/refresh?market=us_stocks_analyst")
+      .then((r) => r.json())
+      .then((json) => {
+        if (!active) return;
+        const sec = json.config?.markets?.us_stocks_analyst ?? json.effectiveSeconds;
+        if (sec !== undefined) setAnalystRefreshInterval(sec as RefreshInterval);
+      })
+      .catch(() => {});
+
+    fetch("/api/settings/refresh?market=us_stocks_valuation")
+      .then((r) => r.json())
+      .then((json) => {
+        if (!active) return;
+        const sec = json.config?.markets?.us_stocks_valuation ?? json.effectiveSeconds;
+        if (sec !== undefined) setValuationRefreshInterval(sec as RefreshInterval);
+      })
+      .catch(() => {});
 
     return () => {
       active = false;
@@ -283,7 +304,7 @@ export default function UsStocksDashboard() {
     void loadData(timeframe);
   }, [timeframe]);
 
-  // Auto-refresh timer
+  // Main dashboard auto-refresh timer
   useEffect(() => {
     if (refreshInterval <= 0) return;
     const timer = setInterval(() => {
@@ -291,6 +312,24 @@ export default function UsStocksDashboard() {
     }, refreshInterval * 1000);
     return () => clearInterval(timer);
   }, [refreshInterval, timeframe]);
+
+  // Analyst consensus auto-refresh timer
+  useEffect(() => {
+    if (analystRefreshInterval <= 0) return;
+    const timer = setInterval(() => {
+      void loadData(timeframe);
+    }, analystRefreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [analystRefreshInterval, timeframe]);
+
+  // Valuation table auto-refresh timer
+  useEffect(() => {
+    if (valuationRefreshInterval <= 0) return;
+    const timer = setInterval(() => {
+      void loadData(timeframe);
+    }, valuationRefreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [valuationRefreshInterval, timeframe]);
 
   // Mega-Cap Highlights
   const nvda = data.find((d) => d.ticker === "NVDA");
@@ -464,6 +503,34 @@ export default function UsStocksDashboard() {
         />
       )}
 
+      {/* Wall Street Analist Konsensüsü & Mega-Cap Liderler Header */}
+      <div id="us-analyst-section" className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between scroll-mt-20">
+        <div>
+          <div className="inline-flex items-center gap-2">
+            <span className="text-base sm:text-lg">🎯</span>
+            <h2 className="text-base sm:text-lg font-bold text-zinc-100">
+              Wall Street Analist Konsensüsü &amp; Mega-Cap Liderler
+            </h2>
+            <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-400">
+              12 Aylık Hedef
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400">
+            Goldman Sachs, Morgan Stanley, JPMorgan vb. Wall Street analist konsensüs hedefleri ve getiri potansiyelleri.
+          </p>
+        </div>
+
+        <AutoRefreshControl
+          intervalSeconds={analystRefreshInterval}
+          onIntervalChange={(sec) => setAnalystRefreshInterval(sec)}
+          onRefresh={() => void loadData(timeframe)}
+          isRefreshing={loading}
+          market="us_stocks_analyst"
+          storageKey="us_stocks_analyst_refresh_interval"
+          size="sm"
+        />
+      </div>
+
       {/* Top Mega-Cap Highlights */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[nvda, aapl, msft, tsla].filter(Boolean).map((stock) => {
@@ -573,7 +640,7 @@ export default function UsStocksDashboard() {
       </section>
 
       {/* Main US Stocks Table */}
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-xl backdrop-blur-md">
+      <section id="us-valuation-table-section" className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-xl backdrop-blur-md scroll-mt-20">
         {/* Table Header & Search */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4">
           <div>
@@ -603,26 +670,38 @@ export default function UsStocksDashboard() {
             </p>
           </div>
 
-          {/* Table Search Input */}
-          <div className="w-full sm:w-72">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Listede filtrele (Apple, LLY, Nvidia, JPM...)"
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-200"
-                >
-                  ✕
-                </button>
-              )}
+          {/* Table Search & AutoRefresh Controls */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="w-full sm:w-64">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Listede filtrele (Apple, LLY, Nvidia, JPM...)"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-200"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
+
+            <AutoRefreshControl
+              intervalSeconds={valuationRefreshInterval}
+              onIntervalChange={(sec) => setValuationRefreshInterval(sec)}
+              onRefresh={() => void loadData(timeframe)}
+              isRefreshing={loading}
+              market="us_stocks_valuation"
+              storageKey="us_stocks_valuation_refresh_interval"
+              size="sm"
+            />
           </div>
         </div>
 

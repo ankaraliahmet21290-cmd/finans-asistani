@@ -18,7 +18,16 @@ interface AutoRefreshControlProps {
   storageKey?: string;
   size?: "sm" | "md";
   align?: "left" | "right";
-  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks" | "watchlist";
+  market?:
+    | "bist"
+    | "crypto"
+    | "commodity_forex"
+    | "us_stocks"
+    | "watchlist"
+    | "bist_analyst"
+    | "bist_valuation"
+    | "us_stocks_analyst"
+    | "us_stocks_valuation";
 }
 
 export default function AutoRefreshControl({
@@ -159,8 +168,19 @@ export default function AutoRefreshControl({
         const json = await res.json();
         if (res.ok && json.ok) {
           const opt = REFRESH_INTERVAL_OPTIONS.find((o) => o.value === val);
-          const mLabel = market ? `[${market.toUpperCase()}] ` : "";
-          setSaveSuccessMsg(`✓ ${mLabel}refresh-settings.md: "${opt?.label ?? val}" kaydedildi`);
+          const friendlyMarketLabel =
+            market === "bist_analyst"
+              ? "[BIST ANALİST] "
+              : market === "bist_valuation"
+              ? "[BIST DEĞERLEME] "
+              : market === "us_stocks_analyst"
+              ? "[ABD ANALİST] "
+              : market === "us_stocks_valuation"
+              ? "[ABD DEĞERLEME] "
+              : market
+              ? `[${market.toUpperCase()}] `
+              : "";
+          setSaveSuccessMsg(`✓ ${friendlyMarketLabel}refresh-settings.md: "${opt?.label ?? val}" kaydedildi`);
           setTimeout(() => setSaveSuccessMsg(null), 3500);
         }
       } catch (err) {

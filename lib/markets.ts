@@ -21,6 +21,7 @@ export interface MarketConfig {
 
 import { ALL_CRYPTO_TICKERS, CRYPTO_ASSETS, findCryptoAsset } from "./crypto-assets";
 import { ALL_US_STOCK_TICKERS, US_STOCK_ASSETS, findUsStockAsset } from "./us-stock-assets";
+import { BIST_100_TICKERS } from "./bist";
 
 export const MARKETS: readonly MarketConfig[] = [
   {
@@ -31,7 +32,7 @@ export const MARKETS: readonly MarketConfig[] = [
     icon: "🇹🇷",
     tradingHours: "09:50 - 18:00",
     description: "BIST 100 & 30 hisseleri, çoklu zaman dilimi AL/SAT sinyalleri ve bilanço analizi.",
-    featuredTickers: ["THYAO.IS", "ASELS.IS", "GARAN.IS", "EREGL.IS", "BIMAS.IS", "TUPRS.IS", "KCHOL.IS", "SISE.IS", "AKBNK.IS", "FROTO.IS"],
+    featuredTickers: BIST_100_TICKERS,
   },
   {
     id: "commodity_forex",
