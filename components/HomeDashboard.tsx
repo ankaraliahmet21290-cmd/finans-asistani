@@ -9,6 +9,7 @@ import WatchlistTable from "./WatchlistTable";
 import TrackListTable from "./TrackListTable";
 import PositionTracker from "./PositionTracker";
 import TimeframeSelector from "./TimeframeSelector";
+import BistAnalystHighlights from "./BistAnalystHighlights";
 import { findBistCompany, type BistCompany } from "@/lib/bist";
 import type { TimeframeKey } from "@/lib/timeframes";
 
@@ -139,6 +140,9 @@ export default function HomeDashboard() {
           onClose={() => setSelectedCompany(null)}
         />
       )}
+
+      {/* BIST Analist Konsensüsü & Ortalama Hedef Fiyat Kartları */}
+      <BistAnalystHighlights timeframe={bistTimeframe} />
 
       {/* Active Position Tracking & Live Stop-Loss / Take-Profit Desk */}
       <section id="portfolio-section" className="w-full scroll-mt-20">

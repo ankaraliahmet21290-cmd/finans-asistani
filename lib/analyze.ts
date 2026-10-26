@@ -59,9 +59,8 @@ export async function analyzeSymbol(
     const isBank = isFinancialOrBank(ticker);
     fund = fundamentalScore(fundamentals, isBank);
 
-    if (type === "us_stock") {
-      usStockFundamentals = await getUsStockFundamentals(ticker, price);
-    }
+    // Hem BIST (type === 'stock') hem de ABD (type === 'us_stock') hisseleri için analist konsensüs ve hedef fiyatları al
+    usStockFundamentals = await getUsStockFundamentals(ticker, price);
   } else if (type === "crypto") {
     cryptoFundamentals = await getCryptoFundamentals(ticker);
   } else if (type === "forex" || type === "commodity" || type === "gold") {

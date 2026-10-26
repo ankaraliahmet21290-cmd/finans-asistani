@@ -21,4 +21,4 @@ Arayüz üzerinden sektör seçildiğinde bu dosya otomatik güncellenir veya do
 - **Enerji & Petrol** (`energy`): 🛢️ Enerji & Petrol
 - **İletişim & Medya** (`media`): 🎬 İletişim & Medya
 
-*Son Güncelleme: 2026-10-25T21:15:04.916Z*
+*Son Güncelleme: 2026-10-26T16:27:03.024Z*

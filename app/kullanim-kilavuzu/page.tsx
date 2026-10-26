@@ -372,6 +372,32 @@ export default function KullanimKilavuzuPage() {
               kıyaslayarak sistemin geçmiş sinyal isabet oranını şeffaf biçimde ölçer.
             </p>
           </div>
+
+          <div className="rounded-xl border border-sky-500/30 bg-sky-950/20 p-4 md:col-span-2">
+            <h4 className="font-bold text-sky-300 text-sm mb-1 flex items-center gap-2">
+              <span>🎯</span> ⑤ BIST Analist Konsensüsü &amp; Hedef Fiyat Kartları
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Arama kutusunun hemen altında konumlanan bu özel vitrin paneli, Borsa İstanbul&apos;un dev şirketlerini
+              takip eden yerli ve küresel aracı kurumların (İş Yatırım, Garanti BBVA, Ak Yatırım, Yapı Kredi, HSBC vb.)
+              12 aylık <strong>konsensüs hedef fiyatlarını</strong> ve cari borsa fiyatına göre <strong>getiri potansiyellerini (%)</strong>
+              canlı olarak karşılaştırır.
+            </p>
+            <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
+                <span className="font-bold text-sky-400">🏆 BIST Liderleri Modu:</span>
+                <p className="text-zinc-400 text-[11px] mt-0.5">
+                  THYAO, ASELS, GARAN, TUPRS gibi BIST 30&apos;un lokomotif şirketlerinin hedef fiyat, analist tavsiyesi ve canlı AL/SAT sinyallerini sunar.
+                </p>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
+                <span className="font-bold text-emerald-400">🚀 En Yüksek Potansiyel Modu:</span>
+                <p className="text-zinc-400 text-[11px] mt-0.5">
+                  BIST 30 havuzunda analistlerin belirlediği 12 aylık hedef fiyata göre en yüksek prim potansiyeli sunan ilk 4 şirketi anında öne çıkarır.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </Section>
 
@@ -895,6 +921,39 @@ export default function KullanimKilavuzuPage() {
           <strong>Lider Sinyaller Sıralaması:</strong> Seçili periyotta taranan hisseler en yüksek karma skordan en
           düşüğe dizilir. En yüksek pozitif skora sahip 5 hisse <strong>Lider AL</strong>, en düşük negatif skora
           sahip 5 hisse ise <strong>Lider SAT</strong> panosunda yer alır.
+        </p>
+
+        <H3>🎯 Kurumsal Analist Hedef Fiyatları &amp; Getiri Potansiyeli Nasıl Hesaplanır?</H3>
+        <p className="text-xs text-zinc-300">
+          Finans Asistanı, kendi matematiksel teknik ve temel skorlarının yanı sıra kurumsal yatırım dünyasının ve
+          lisanslı aracı kurumların (İş Yatırım, Garanti BBVA, Ak Yatırım, Yapı Kredi, HSBC vb.) öngörülerini de yatırımcılara sunar:
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-2">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <h4 className="font-bold text-sm text-zinc-200 mb-1">1. Ortalama Hedef Fiyat (Target Mean Price)</h4>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              İlgili şirketi resmi olarak takip eden tüm aracı kurum ve yatırım bankası analistlerinin
+              yayınladığı 12 aylık adil değer modellemelerinin ağırlıklı aritmetik ortalamasıdır.
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <h4 className="font-bold text-sm text-zinc-200 mb-1">2. Getiri Potansiyeli (%) Formülü</h4>
+            <p className="text-xs font-mono text-emerald-400 mb-1">
+              Potansiyel (%) = ((Hedef Fiyat - Canlı Fiyat) / Canlı Fiyat) × 100
+            </p>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Analistlerin konsensüs hedefi güncel borsa fiyatından ne kadar yüksekse yeşil renkte pozitif getiri potansiyeli olarak listelenir.
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs text-zinc-400">
+          <strong>Analist Konsensüs Rozetleri:</strong> Kurumların genel tavsiye eğilimine göre kartlarda{" "}
+          <span className="text-emerald-400 font-semibold">Güçlü AL</span>,{" "}
+          <span className="text-emerald-300 font-semibold">AL</span>,{" "}
+          <span className="text-amber-400 font-semibold">TUT</span> veya{" "}
+          <span className="text-red-400 font-semibold">SAT</span> rozeti ve ankete katılan analist sayısı (örneğin <em>13 Analist</em>) birlikte gösterilir.
         </p>
       </Section>
 

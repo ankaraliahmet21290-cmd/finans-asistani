@@ -785,6 +785,7 @@ export async function getUsStockFundamentals(
 
       const recommendationKey = (s.financialData?.recommendationKey as string | undefined) ?? null;
       const recommendationMean = (s.financialData?.recommendationMean as number | undefined) ?? null;
+      const numberOfAnalystOpinions = (s.financialData?.numberOfAnalystOpinions as number | undefined) ?? null;
 
       const pe =
         (s.summaryDetail?.trailingPE as number | undefined) ??
@@ -805,6 +806,7 @@ export async function getUsStockFundamentals(
         upsidePercent,
         recommendationKey,
         recommendationMean,
+        numberOfAnalystOpinions,
         pe,
         forwardPe,
         peg,
@@ -823,6 +825,7 @@ export async function getUsStockFundamentals(
         upsidePercent: null,
         recommendationKey: null,
         recommendationMean: null,
+        numberOfAnalystOpinions: null,
         pe: null,
         forwardPe: null,
         peg: null,

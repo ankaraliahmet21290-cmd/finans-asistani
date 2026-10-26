@@ -1080,6 +1080,74 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 </div>
               </div>
 
+              {/* Kurumsal Analist Konsensüsü & 12 Aylık Hedef Fiyat Paneli */}
+              {currentResult.usStockFundamentals?.targetMeanPrice != null && (
+                <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-950/40 via-zinc-900/80 to-zinc-900/60 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">🎯</span>
+                      <div>
+                        <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                          Kurumsal Analist Konsensüsü & 12 Aylık Hedef Fiyat
+                          {currentResult.usStockFundamentals.numberOfAnalystOpinions ? (
+                            <span className="rounded-full bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 text-[10px] font-mono font-semibold text-sky-400">
+                              {currentResult.usStockFundamentals.numberOfAnalystOpinions} Analist
+                            </span>
+                          ) : null}
+                        </h3>
+                        <p className="text-xs text-zinc-400">
+                          Yatırım bankaları ve aracı kurum analistlerinin konsensüs ortalama hedef fiyatı ve getiri potansiyeli.
+                        </p>
+                      </div>
+                    </div>
+                    {currentResult.usStockFundamentals.recommendationKey && (
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">
+                        Konsensüs: {currentResult.usStockFundamentals.recommendationKey.toUpperCase().replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">Ortalama Hedef Fiyat</span>
+                      <div className="mt-1 font-mono text-lg font-black text-zinc-100">
+                        {formatPrice(currentResult.usStockFundamentals.targetMeanPrice, currentResult.currency)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">12 Aylık Getiri Potansiyeli</span>
+                      <div
+                        className={`mt-1 font-mono text-lg font-black ${
+                          (currentResult.usStockFundamentals.upsidePercent ?? 0) > 0
+                            ? "text-emerald-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {(currentResult.usStockFundamentals.upsidePercent ?? 0) > 0 ? "+" : ""}
+                        {currentResult.usStockFundamentals.upsidePercent}%
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">Güncel Piyasa Fiyatı</span>
+                      <div className="mt-1 font-mono text-lg font-bold text-zinc-300">
+                        {formatPrice(currentResult.price, currentResult.currency)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">İleri F/K (Forward P/E)</span>
+                      <div className="mt-1 font-mono text-lg font-bold text-zinc-300">
+                        {currentResult.usStockFundamentals.forwardPe != null
+                          ? currentResult.usStockFundamentals.forwardPe.toFixed(1)
+                          : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 4-Category Institutional Breakdown */}
               <div className="grid gap-5 md:grid-cols-2">
                 {/* 1. Değerleme & Çarpanlar */}

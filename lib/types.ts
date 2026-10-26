@@ -198,6 +198,7 @@ export interface UsStockFundamentals {
   upsidePercent: number | null;
   recommendationKey: string | null;
   recommendationMean: number | null; // 1.0 (Strong Buy) - 5.0 (Sell)
+  numberOfAnalystOpinions?: number | null;
   pe: number | null;
   forwardPe: number | null;
   peg: number | null;

@@ -209,7 +209,7 @@ export default function SelectedCompanyPreview({
       )}
 
       {data && (
-        <div className="mt-4 grid gap-3 border-t border-zinc-800/80 pt-4 sm:grid-cols-2">
+        <div className={`mt-4 grid gap-3 border-t border-zinc-800/80 pt-4 sm:grid-cols-2 ${data.usStockFundamentals?.targetMeanPrice != null ? "lg:grid-cols-3" : ""}`}>
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               Öne Çıkan Teknik Sinyaller
@@ -256,6 +256,49 @@ export default function SelectedCompanyPreview({
               </p>
             )}
           </div>
+
+          {data.usStockFundamentals?.targetMeanPrice != null && (
+            <div className="rounded-xl border border-sky-500/30 bg-sky-950/20 p-3 sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-400">
+                  🎯 Analist Konsensüsü
+                </h4>
+                {data.usStockFundamentals.numberOfAnalystOpinions ? (
+                  <span className="text-[10px] font-mono text-zinc-400">
+                    {data.usStockFundamentals.numberOfAnalystOpinions} Analist
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-2 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Görüş:</span>
+                  <span className="font-bold text-emerald-400 uppercase text-[11px]">
+                    {data.usStockFundamentals.recommendationKey?.replace(/_/g, " ") || "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Ort. Hedef Fiyat:</span>
+                  <strong className="font-mono text-zinc-100">
+                    {formatPrice(data.usStockFundamentals.targetMeanPrice, data.currency)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Potansiyel:</span>
+                  <span
+                    className={`font-mono font-bold ${
+                      (data.usStockFundamentals.upsidePercent ?? 0) > 0
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {(data.usStockFundamentals.upsidePercent ?? 0) > 0 ? "+" : ""}
+                    {data.usStockFundamentals.upsidePercent}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

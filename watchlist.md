@@ -10,7 +10,7 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 - **Emtia & FX Takip Sıklığı:** 15m
 - **ABD Borsası Takip Sıklığı:** 30m
 - **Yalnızca Seans İçi:** Evet
-- **Son Kontrol:** 2026-10-26T16:13:36.574Z
+- **Son Kontrol:** 2026-10-26T16:43:48.764Z
 - **Son Sinyal Değişimi:** —
 
 | Sembol | Tür | Ad | Periyot |
