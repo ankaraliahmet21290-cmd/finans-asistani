@@ -391,11 +391,11 @@ export default function MobileNavigation() {
               className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around border-t border-zinc-800/90 bg-zinc-950/95 px-2 py-1.5 backdrop-blur-xl md:hidden shadow-[0_-4px_24px_rgba(0,0,0,0.7)] pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))]"
               aria-label="Mobil alt gezinme"
             >
-              {/* Tab 1: Ana Sayfa / Arama */}
+              {/* Tab 1: Ana Sayfa */}
               <button
                 onClick={() => handleNavClick("search-section", "home", "/")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
-                  activeSection === "home"
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                  pathname === "/" && activeSection === "home"
                     ? "text-sky-400 font-bold"
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
@@ -407,8 +407,8 @@ export default function MobileNavigation() {
               {/* Tab 2: Portföy */}
               <button
                 onClick={() => handleNavClick("portfolio-section", "portfolio", "/pozisyonlar")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
-                  activeSection === "portfolio"
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                  pathname === "/pozisyonlar" || (pathname === "/" && activeSection === "portfolio")
                     ? "text-emerald-400 font-bold"
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
@@ -417,7 +417,7 @@ export default function MobileNavigation() {
                 <span>Portföy</span>
               </button>
 
-              {/* Tab 3: Quick Search Trigger */}
+              {/* Tab 3: Quick Search Trigger (Glowing FAB) */}
               <button
                 onClick={() => setIsSearchOpen(true)}
                 className="flex -mt-5 flex-col items-center justify-center group"
@@ -436,30 +436,31 @@ export default function MobileNavigation() {
                 <span className="mt-0.5 text-[9px] font-semibold text-sky-400">Ara</span>
               </button>
 
-              {/* Tab 4: Sinyaller */}
-              <button
-                onClick={() => handleNavClick("signals-section", "signals", "/#signals-section")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
-                  activeSection === "signals"
-                    ? "text-sky-400 font-bold"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <span className="text-base">⚡</span>
-                <span>Sinyaller</span>
-              </button>
-
-              {/* Tab 5: Takip Listesi */}
+              {/* Tab 4: Takip Listesi */}
               <button
                 onClick={() => handleNavClick("watchlist-section", "watchlist", "/takip")}
-                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[10px] font-medium transition active:scale-95 ${
-                  activeSection === "watchlist"
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                  pathname === "/takip" || (pathname === "/" && activeSection === "watchlist")
                     ? "text-amber-400 font-bold"
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
                 <span className="text-base">⭐</span>
                 <span>Takip</span>
+              </button>
+
+              {/* Tab 5: Menü Drawer Trigger */}
+              <button
+                onClick={() => setIsMenuOpen(true)}
+                className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1 text-[10px] font-medium transition active:scale-95 ${
+                  isMenuOpen || ["/ayarlar", "/analitik", "/kullanim-kilavuzu", "/teknik-detay-klavuzu", "/kripto", "/emtia-doviz", "/abd-borsasi"].includes(pathname)
+                    ? "text-violet-400 font-bold"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+                title="Tüm Menüyü ve Piyasaları Aç"
+              >
+                <span className="text-base">☰</span>
+                <span>Menü</span>
               </button>
             </nav>
           </>,

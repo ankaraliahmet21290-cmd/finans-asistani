@@ -74,6 +74,7 @@ export default function CommoditiesForexDashboard() {
   const [selectedTicker, setSelectedTicker] = useState<string>("GC=F");
   const [selectedCompany, setSelectedCompany] = useState<BistCompany | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(60);
+  const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
 
   const loadData = async (tf: TimeframeKey) => {
     setLoading(true);
@@ -391,6 +392,34 @@ export default function CommoditiesForexDashboard() {
               İstediğiniz varlığa tıklayarak yukarıdaki Pivot Destek/Direnç panelini güncelleyebilir veya detay grafiğine gidebilirsiniz.
             </p>
           </div>
+
+          {/* View Mode Toggle (Mobile / Desktop) */}
+          <div className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-950/80 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode(viewMode === "cards" ? "auto" : "cards")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                viewMode === "cards"
+                  ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Kart Görünümü"
+            >
+              📱 Kart
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode(viewMode === "table" ? "auto" : "table")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                viewMode === "table"
+                  ? "bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Geniş Tablo Görünümü"
+            >
+              💻 Tablo
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -398,78 +427,45 @@ export default function CommoditiesForexDashboard() {
             Emtia ve döviz verileri taranıyor...
           </div>
         ) : (
-          <div className="mt-4 overflow-x-auto touch-scroll scrollbar-none">
-            <table className="w-full min-w-[700px] text-left text-xs">
-              <thead className="border-b border-zinc-800 bg-zinc-950/60 font-medium text-zinc-400">
-                <tr>
-                  <th className="px-3 py-3">Varlık / Parite</th>
-                  <th className="px-3 py-3 text-right">Son Fiyat</th>
-                  <th className="px-3 py-3 text-right">Değişim</th>
-                  <th className="px-3 py-3 text-center">Sinyal ({timeframe.toUpperCase()})</th>
-                  <th className="px-3 py-3 text-right">RSI (14)</th>
-                  <th className="px-3 py-3 text-center">Pivot Rejimi</th>
-                  <th className="px-3 py-3">Öne Çıkan Gerekçe</th>
-                  <th className="px-3 py-3 text-right">İşlem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60 font-medium">
-                {data.map((item) => {
-                  const isSelected = item.ticker === selectedTicker;
-                  const isPivotBull = item.pivots ? item.price >= item.pivots.pivot : null;
+          <>
+            {/* ============================================================== */}
+            {/* 1. MOBILE RESPONSIVE CARDS VIEW                                */}
+            {/* Displayed on mobile (< md) or when user toggles cards view      */}
+            {/* ============================================================== */}
+            <div
+              className={`${
+                viewMode === "table" ? "hidden" : viewMode === "cards" ? "grid" : "grid md:hidden"
+              } mt-4 grid-cols-1 sm:grid-cols-2 gap-3`}
+            >
+              {data.map((item) => {
+                const isSelected = item.ticker === selectedTicker;
+                const isPivotBull = item.pivots ? item.price >= item.pivots.pivot : null;
+                const isUp = item.changePercent >= 0;
 
-                  return (
-                    <tr
-                      key={item.ticker}
-                      onClick={() => setSelectedTicker(item.ticker)}
-                      className={`cursor-pointer transition ${
-                        isSelected
-                          ? "bg-amber-500/10 border-l-2 border-amber-500"
-                          : "hover:bg-zinc-800/40"
-                      }`}
-                    >
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">{item.icon}</span>
-                          <div>
-                            <div className="font-bold text-zinc-100">{item.name}</div>
-                            <div className="font-mono text-[10px] text-zinc-500">{item.ticker}</div>
-                          </div>
+                return (
+                  <div
+                    key={item.ticker}
+                    onClick={() => setSelectedTicker(item.ticker)}
+                    className={`cursor-pointer rounded-2xl border p-3.5 shadow-md backdrop-blur-md transition ${
+                      isSelected
+                        ? "border-amber-500 bg-amber-950/20 shadow-amber-950/30"
+                        : "border-zinc-800/90 bg-zinc-900/70 hover:border-zinc-700"
+                    }`}
+                  >
+                    {/* Header: Icon, Name, Ticker, Signal */}
+                    <div className="flex items-start justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-2xl flex-shrink-0">{item.icon}</span>
+                        <div className="min-w-0">
+                          <div className="font-bold text-sm text-zinc-100 truncate">{item.name}</div>
+                          <div className="font-mono text-[10px] text-zinc-500">{item.ticker}</div>
                         </div>
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono font-bold text-zinc-100">
-                        {formatPrice(item.price, item.currency)}
-                      </td>
-                      <td
-                        className={`px-3 py-3 text-right font-mono font-bold ${
-                          item.changePercent >= 0 ? "text-emerald-400" : "text-red-400"
-                        }`}
-                      >
-                        {formatSigned(item.changePercent, 2)}%
-                      </td>
-                      <td className="px-3 py-3 text-center">
+                      </div>
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         <SignalBadge signal={item.signal} size="sm" />
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono">
-                        {item.indicators?.rsi != null ? (
+                        {isPivotBull != null && (
                           <span
-                            className={
-                              item.indicators.rsi >= 70
-                                ? "text-amber-400 font-bold"
-                                : item.indicators.rsi <= 30
-                                ? "text-emerald-400 font-bold"
-                                : "text-zinc-300"
-                            }
-                          >
-                            {formatNumber(item.indicators.rsi, 1)}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        {isPivotBull != null ? (
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            className={`rounded-full px-2 py-0.2 text-[9px] font-semibold ${
                               isPivotBull
                                 ? "bg-emerald-500/20 text-emerald-300"
                                 : "bg-red-500/20 text-red-300"
@@ -477,28 +473,188 @@ export default function CommoditiesForexDashboard() {
                           >
                             {isPivotBull ? "▲ Pivot Üstü" : "▼ Pivot Altı"}
                           </span>
-                        ) : (
-                          "—"
                         )}
-                      </td>
-                      <td className="px-3 py-3 text-[11px] text-zinc-400 max-w-xs truncate">
-                        {item.reasons[0] || "Dengeli piyasa koşulları"}
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <Link
-                          href={`/symbol/${encodeURIComponent(item.ticker)}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:border-zinc-500 hover:text-white transition"
+                      </div>
+                    </div>
+
+                    {/* Price & Change Banner */}
+                    <div className="mt-2.5 grid grid-cols-2 gap-2 rounded-xl bg-zinc-950/70 p-2.5 border border-zinc-800/60">
+                      <div>
+                        <span className="block text-[10px] uppercase font-semibold text-zinc-500">Son Fiyat</span>
+                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                          <span className="font-mono text-base font-bold text-zinc-100">
+                            {formatPrice(item.price, item.currency)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] uppercase font-semibold text-zinc-500">Değişim</span>
+                        <span className={`block font-mono text-base font-bold mt-0.5 ${isUp ? "text-emerald-400" : "text-red-400"}`}>
+                          {formatSigned(item.changePercent, 2)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* RSI and Reason */}
+                    <div className="mt-2.5 flex items-center justify-between text-xs border-t border-zinc-800/40 pt-2 font-mono">
+                      <div className="flex items-center gap-1.5 text-zinc-400">
+                        <span className="text-[10px] text-zinc-500 font-sans">RSI (14):</span>
+                        <strong
+                          className={
+                            item.indicators?.rsi != null && item.indicators.rsi >= 70
+                              ? "text-amber-400 font-bold"
+                              : item.indicators?.rsi != null && item.indicators.rsi <= 30
+                              ? "text-emerald-400 font-bold"
+                              : "text-zinc-200"
+                          }
                         >
-                          Detay →
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                          {item.indicators?.rsi != null ? formatNumber(item.indicators.rsi, 1) : "—"}
+                        </strong>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 font-sans truncate max-w-[150px]">
+                        {item.reasons[0] || "Piyasa koşulları"}
+                      </span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="mt-2.5 pt-2 border-t border-zinc-800/40 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTicker(item.ticker);
+                        }}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition ${
+                          isSelected
+                            ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                            : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white"
+                        }`}
+                      >
+                        {isSelected ? "✓ Pivot Seçili" : "Pivot İncele"}
+                      </button>
+                      <Link
+                        href={`/symbol/${encodeURIComponent(item.ticker)}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 py-1.5 text-xs font-bold text-center rounded-lg border border-zinc-700 bg-zinc-800 text-sky-400 hover:text-sky-300 hover:bg-zinc-750 transition"
+                      >
+                        Grafik →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ============================================================== */}
+            {/* 2. DESKTOP FULL TABLE VIEW                                     */}
+            {/* Displayed on desktop (>= md) or when user toggles table view   */}
+            {/* ============================================================== */}
+            <div
+              className={`${
+                viewMode === "cards" ? "hidden" : viewMode === "table" ? "block" : "hidden md:block"
+              } mt-4 overflow-x-auto touch-scroll scrollbar-none rounded-xl border border-zinc-800/80`}
+            >
+              <table className="w-full min-w-[700px] text-left text-xs">
+                <thead className="border-b border-zinc-800 bg-zinc-950/60 font-medium text-zinc-400">
+                  <tr>
+                    <th className="px-3 py-3">Varlık / Parite</th>
+                    <th className="px-3 py-3 text-right">Son Fiyat</th>
+                    <th className="px-3 py-3 text-right">Değişim</th>
+                    <th className="px-3 py-3 text-center">Sinyal ({timeframe.toUpperCase()})</th>
+                    <th className="px-3 py-3 text-right">RSI (14)</th>
+                    <th className="px-3 py-3 text-center">Pivot Rejimi</th>
+                    <th className="px-3 py-3">Öne Çıkan Gerekçe</th>
+                    <th className="px-3 py-3 text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60 font-medium">
+                  {data.map((item) => {
+                    const isSelected = item.ticker === selectedTicker;
+                    const isPivotBull = item.pivots ? item.price >= item.pivots.pivot : null;
+
+                    return (
+                      <tr
+                        key={item.ticker}
+                        onClick={() => setSelectedTicker(item.ticker)}
+                        className={`cursor-pointer transition ${
+                          isSelected
+                            ? "bg-amber-500/10 border-l-2 border-amber-500"
+                            : "hover:bg-zinc-800/40"
+                        }`}
+                      >
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{item.icon}</span>
+                            <div>
+                              <div className="font-bold text-zinc-100">{item.name}</div>
+                              <div className="font-mono text-[10px] text-zinc-500">{item.ticker}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono font-bold text-zinc-100">
+                          {formatPrice(item.price, item.currency)}
+                        </td>
+                        <td
+                          className={`px-3 py-3 text-right font-mono font-bold ${
+                            item.changePercent >= 0 ? "text-emerald-400" : "text-red-400"
+                          }`}
+                        >
+                          {formatSigned(item.changePercent, 2)}%
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <SignalBadge signal={item.signal} size="sm" />
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono">
+                          {item.indicators?.rsi != null ? (
+                            <span
+                              className={
+                                item.indicators.rsi >= 70
+                                  ? "text-amber-400 font-bold"
+                                  : item.indicators.rsi <= 30
+                                  ? "text-emerald-400 font-bold"
+                                  : "text-zinc-300"
+                              }
+                            >
+                              {formatNumber(item.indicators.rsi, 1)}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {isPivotBull != null ? (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                isPivotBull
+                                  ? "bg-emerald-500/20 text-emerald-300"
+                                  : "bg-red-500/20 text-red-300"
+                              }`}
+                            >
+                              {isPivotBull ? "▲ Pivot Üstü" : "▼ Pivot Altı"}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-[11px] text-zinc-400 max-w-xs truncate">
+                          {item.reasons[0] || "Dengeli piyasa koşulları"}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <Link
+                            href={`/symbol/${encodeURIComponent(item.ticker)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:border-zinc-500 hover:text-white transition"
+                          >
+                            Detay →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 

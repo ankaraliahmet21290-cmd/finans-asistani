@@ -63,8 +63,10 @@ export default function PriceChart({ candles, sma50, sma200, bb, timeframe }: Pr
       candleTimeByIndex.set(i, t);
     }
 
+    const initialHeight = el.clientHeight || (typeof window !== "undefined" && window.innerWidth < 640 ? 300 : 420);
+
     const chart: IChartApi = createChart(el, {
-      height: 420,
+      height: initialHeight,
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
@@ -79,6 +81,17 @@ export default function PriceChart({ candles, sma50, sma200, bb, timeframe }: Pr
         borderColor: "rgba(120,130,150,0.25)",
         timeVisible: isIntraday,
         secondsVisible: false,
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false, // Allows natural vertical page scroll on mobile
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true, // Multi-touch pinch-to-zoom on mobile
       },
     });
 
@@ -143,9 +156,12 @@ export default function PriceChart({ candles, sma50, sma200, bb, timeframe }: Pr
 
     const resizeObserver = new ResizeObserver((entries) => {
       if (!entries[0]) return;
-      const { width } = entries[0].contentRect;
+      const { width, height } = entries[0].contentRect;
       if (width > 0) {
-        chart.applyOptions({ width });
+        chart.applyOptions({
+          width,
+          ...(height > 0 ? { height } : {}),
+        });
       }
     });
     resizeObserver.observe(el);

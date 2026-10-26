@@ -171,6 +171,7 @@ export default function BistValuationTable({
   const [signalFilter, setSignalFilter] = useState<"ALL" | "AL" | "TUT" | "SAT">("ALL");
   const [sortBy, setSortBy] = useState<SortKey>("upside");
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(60);
+  const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
 
   // Load saved default sector and refresh setting on mount
   useEffect(() => {
@@ -489,6 +490,34 @@ export default function BistValuationTable({
               <option value="ticker">🔤 Sembol (A-Z)</option>
             </select>
           </div>
+
+          {/* View Mode Toggle (Mobile / Desktop) */}
+          <div className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/80 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode(viewMode === "cards" ? "auto" : "cards")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                viewMode === "cards"
+                  ? "bg-sky-500/20 text-sky-300 font-bold border border-sky-500/30 shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Kart Görünümü"
+            >
+              📱 Kart
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode(viewMode === "table" ? "auto" : "table")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                viewMode === "table"
+                  ? "bg-sky-500/20 text-sky-300 font-bold border border-sky-500/30 shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Geniş Tablo Görünümü"
+            >
+              💻 Tablo
+            </button>
+          </div>
         </div>
       </div>
 
@@ -511,138 +540,271 @@ export default function BistValuationTable({
           )}
         </div>
       ) : (
-        <div className="mt-4 overflow-x-auto touch-scroll scrollbar-none">
-          <table className="w-full min-w-[950px] text-left text-xs">
-            <thead className="border-b border-zinc-800 bg-zinc-950/60 font-medium text-zinc-400">
-              <tr>
-                <th className="px-3 py-3">Şirket / Sembol</th>
-                <th className="px-3 py-3">Endeks / Sektör</th>
-                <th className="px-3 py-3 text-right">Son Fiyat</th>
-                <th className="px-3 py-3 text-right">Değişim</th>
-                <th className="px-3 py-3 text-center">Sinyal ({timeframe.toUpperCase()})</th>
-                <th className="px-3 py-3 text-center">Analist Görüşü</th>
-                <th className="px-3 py-3 text-right">Hedef Fiyat</th>
-                <th className="px-3 py-3 text-right">Yükseliş (%)</th>
-                <th className="px-3 py-3 text-right">F/K (P/E)</th>
-                <th className="px-3 py-3 text-right">PD/DD</th>
-                <th className="px-3 py-3 text-right">ROE</th>
-                <th className="px-3 py-3 text-right">İşlem</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/60 font-medium">
-              {filteredData.map((item) => {
-                const icon = BIST_ICONS[item.code] || "🇹🇷";
-                const upside = item.usStock?.upsidePercent;
-                const inBist30 = isBist30(item.ticker);
-                const inBist100 = isBist100(item.ticker);
-                const sectorLabel = getBistSectorLabel(getBistSector(item.ticker, item.code));
+        <>
+          {/* ============================================================== */}
+          {/* 1. MOBILE RESPONSIVE CARDS VIEW                                */}
+          {/* Displayed on mobile (< md) or when user toggles cards view      */}
+          {/* ============================================================== */}
+          <div
+            className={`${
+              viewMode === "table" ? "hidden" : viewMode === "cards" ? "grid" : "grid md:hidden"
+            } mt-4 grid-cols-1 sm:grid-cols-2 gap-3`}
+          >
+            {filteredData.map((item) => {
+              const icon = BIST_ICONS[item.code] || "🇹🇷";
+              const upside = item.usStock?.upsidePercent;
+              const inBist30 = isBist30(item.ticker);
+              const inBist100 = isBist100(item.ticker);
+              const sectorLabel = getBistSectorLabel(getBistSector(item.ticker, item.code));
+              const isUp = item.changePercent >= 0;
 
-                return (
-                  <tr key={item.ticker} className="transition hover:bg-zinc-800/40">
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-lg" role="img" aria-label={item.code}>
-                          {icon}
-                        </span>
-                        <div>
-                          <div className="font-bold text-zinc-100">{item.name}</div>
-                          <div className="font-mono text-[10px] text-zinc-500">
+              return (
+                <div
+                  key={item.ticker}
+                  className="rounded-2xl border border-zinc-800/90 bg-zinc-900/70 p-3.5 shadow-md backdrop-blur-md transition hover:border-zinc-700"
+                >
+                  {/* Top Header: Icon, Code, Name, Badges, Signal */}
+                  <div className="flex items-start justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-2xl flex-shrink-0" role="img" aria-label={item.code}>
+                        {icon}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href={`/symbol/${encodeURIComponent(item.ticker)}?tf=${timeframe}`}
+                            className="font-mono text-sm font-bold text-sky-400 hover:text-sky-300 transition"
+                          >
                             {item.code}
-                            <span className="text-zinc-600">.IS</span>
+                          </Link>
+                          {inBist30 ? (
+                            <span className="rounded bg-sky-500/10 border border-sky-500/30 px-1.5 py-0.2 text-[9px] font-bold text-sky-400">
+                              BIST 30
+                            </span>
+                          ) : inBist100 ? (
+                            <span className="rounded bg-indigo-500/10 border border-indigo-500/30 px-1.5 py-0.2 text-[9px] font-bold text-indigo-400">
+                              BIST 100
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="text-xs text-zinc-400 truncate max-w-[200px]">{item.name}</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <SignalBadge signal={item.signal} size="sm" />
+                      <span className="text-[10px] text-zinc-500">{sectorLabel}</span>
+                    </div>
+                  </div>
+
+                  {/* Middle: Price, Change, Target & Upside */}
+                  <div className="mt-2.5 grid grid-cols-2 gap-2 rounded-xl bg-zinc-950/70 p-2.5 border border-zinc-800/60">
+                    <div>
+                      <span className="block text-[10px] uppercase font-semibold text-zinc-500">Son Fiyat</span>
+                      <div className="flex items-baseline gap-1.5 mt-0.5">
+                        <span className="font-mono text-base font-bold text-zinc-100">
+                          {formatPrice(item.price, "TRY")}
+                        </span>
+                        <span className={`text-xs font-bold tabular-nums ${isUp ? "text-emerald-400" : "text-red-400"}`}>
+                          {formatSigned(item.changePercent, 2)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-[10px] uppercase font-semibold text-zinc-500">12A Hedef / Getiri</span>
+                      <div className="mt-0.5">
+                        {item.usStock?.targetMeanPrice ? (
+                          <div className="flex items-baseline justify-end gap-1">
+                            <span className="font-mono text-xs font-semibold text-zinc-200">
+                              ₺{formatNumber(item.usStock.targetMeanPrice, 1)}
+                            </span>
+                            {upside != null && (
+                              <span className={`font-mono text-xs font-bold ${upside > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                ({upside > 0 ? `+${upside}%` : `${upside}%`})
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-zinc-500 font-mono">—</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Analyst Recommendation & Valuation Multiples */}
+                  <div className="mt-2.5 flex items-center justify-between text-xs border-t border-zinc-800/40 pt-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-zinc-500">Analist:</span>
+                      {getRecommendationBadge(item.usStock?.recommendationKey, item.usStock?.numberOfAnalystOpinions)}
+                    </div>
+                    <div className="flex items-center gap-2.5 font-mono text-[11px] text-zinc-400">
+                      <span title="Fiyat / Kazanç (P/E)">
+                        F/K: <strong className="text-zinc-200">{item.usStock?.pe != null && item.usStock.pe > 0 ? formatNumber(item.usStock.pe, 1) : "—"}</strong>
+                      </span>
+                      <span title="Piyasa Değeri / Defter Değeri (P/B)">
+                        PD/DD: <strong className={item.usStock?.pb != null && item.usStock.pb < 2 ? "text-emerald-400 font-bold" : "text-zinc-200"}>{item.usStock?.pb != null && item.usStock.pb > 0 ? formatNumber(item.usStock.pb, 2) : "—"}</strong>
+                      </span>
+                      <span title="Özsermaye Kârlılığı (ROE)">
+                        ROE: <strong className="text-zinc-200">{item.usStock?.roe != null ? `%${(item.usStock.roe * 100).toFixed(0)}` : "—"}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Link */}
+                  <div className="mt-2.5 pt-2 border-t border-zinc-800/40">
+                    <Link
+                      href={`/symbol/${encodeURIComponent(item.ticker)}?tf=${timeframe}`}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 py-2 text-xs font-bold text-sky-400 hover:text-sky-300 hover:bg-zinc-800 active:scale-95 transition"
+                    >
+                      <span>Detaylı Grafik & Analiz</span>
+                      <span>→</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ============================================================== */}
+          {/* 2. DESKTOP FULL TABLE VIEW                                     */}
+          {/* Displayed on desktop (>= md) or when user toggles table view   */}
+          {/* ============================================================== */}
+          <div
+            className={`${
+              viewMode === "cards" ? "hidden" : viewMode === "table" ? "block" : "hidden md:block"
+            } mt-4 overflow-x-auto touch-scroll scrollbar-none rounded-xl border border-zinc-800/80`}
+          >
+            <table className="w-full min-w-[950px] text-left text-xs">
+              <thead className="border-b border-zinc-800 bg-zinc-950/60 font-medium text-zinc-400">
+                <tr>
+                  <th className="px-3 py-3">Şirket / Sembol</th>
+                  <th className="px-3 py-3">Endeks / Sektör</th>
+                  <th className="px-3 py-3 text-right">Son Fiyat</th>
+                  <th className="px-3 py-3 text-right">Değişim</th>
+                  <th className="px-3 py-3 text-center">Sinyal ({timeframe.toUpperCase()})</th>
+                  <th className="px-3 py-3 text-center">Analist Görüşü</th>
+                  <th className="px-3 py-3 text-right">Hedef Fiyat</th>
+                  <th className="px-3 py-3 text-right">Yükseliş (%)</th>
+                  <th className="px-3 py-3 text-right">F/K (P/E)</th>
+                  <th className="px-3 py-3 text-right">PD/DD</th>
+                  <th className="px-3 py-3 text-right">ROE</th>
+                  <th className="px-3 py-3 text-right">İşlem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60 font-medium">
+                {filteredData.map((item) => {
+                  const icon = BIST_ICONS[item.code] || "🇹🇷";
+                  const upside = item.usStock?.upsidePercent;
+                  const inBist30 = isBist30(item.ticker);
+                  const inBist100 = isBist100(item.ticker);
+                  const sectorLabel = getBistSectorLabel(getBistSector(item.ticker, item.code));
+
+                  return (
+                    <tr key={item.ticker} className="transition hover:bg-zinc-800/40">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-lg" role="img" aria-label={item.code}>
+                            {icon}
+                          </span>
+                          <div>
+                            <div className="font-bold text-zinc-100">{item.name}</div>
+                            <div className="font-mono text-[10px] text-zinc-500">
+                              {item.code}
+                              <span className="text-zinc-600">.IS</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="text-zinc-300 text-[11px] font-medium flex items-center gap-1.5 flex-wrap">
-                        <span>{sectorLabel}</span>
-                        {inBist30 ? (
-                          <span className="rounded bg-sky-500/10 border border-sky-500/30 px-1 py-0.2 text-[9px] font-bold text-sky-400">
-                            BIST 30
-                          </span>
-                        ) : inBist100 ? (
-                          <span className="rounded bg-indigo-500/10 border border-indigo-500/30 px-1 py-0.2 text-[9px] font-bold text-indigo-400">
-                            BIST 100
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono font-bold text-zinc-100">
-                      {formatPrice(item.price, "TRY")}
-                    </td>
-                    <td
-                      className={`px-3 py-3 text-right font-mono font-bold ${
-                        item.changePercent >= 0 ? "text-emerald-400" : "text-red-400"
-                      }`}
-                    >
-                      {formatSigned(item.changePercent, 2)}%
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <SignalBadge signal={item.signal} size="sm" />
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      {getRecommendationBadge(
-                        item.usStock?.recommendationKey,
-                        item.usStock?.numberOfAnalystOpinions
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-zinc-200">
-                      {item.usStock?.targetMeanPrice
-                        ? `₺${formatNumber(item.usStock.targetMeanPrice, 1)}`
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono">
-                      {upside != null ? (
-                        <span
-                          className={
-                            upside > 0 ? "text-emerald-400 font-bold" : "text-red-400 font-bold"
-                          }
-                        >
-                          {upside > 0 ? `+${upside}%` : `${upside}%`}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-zinc-300">
-                      {item.usStock?.pe != null && item.usStock.pe > 0
-                        ? formatNumber(item.usStock.pe, 1)
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono">
-                      {item.usStock?.pb != null && item.usStock.pb > 0 ? (
-                        <span
-                          className={
-                            item.usStock.pb < 2.0
-                              ? "text-emerald-400 font-bold"
-                              : "text-zinc-300"
-                          }
-                        >
-                          {formatNumber(item.usStock.pb, 2)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-zinc-300">
-                      {item.usStock?.roe != null
-                        ? `%${(item.usStock.roe * 100).toFixed(1)}`
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <Link
-                        href={`/symbol/${encodeURIComponent(item.ticker)}?tf=${timeframe}`}
-                        className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:border-sky-500 hover:text-white transition"
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="text-zinc-300 text-[11px] font-medium flex items-center gap-1.5 flex-wrap">
+                          <span>{sectorLabel}</span>
+                          {inBist30 ? (
+                            <span className="rounded bg-sky-500/10 border border-sky-500/30 px-1 py-0.2 text-[9px] font-bold text-sky-400">
+                              BIST 30
+                            </span>
+                          ) : inBist100 ? (
+                            <span className="rounded bg-indigo-500/10 border border-indigo-500/30 px-1 py-0.2 text-[9px] font-bold text-indigo-400">
+                              BIST 100
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono font-bold text-zinc-100">
+                        {formatPrice(item.price, "TRY")}
+                      </td>
+                      <td
+                        className={`px-3 py-3 text-right font-mono font-bold ${
+                          item.changePercent >= 0 ? "text-emerald-400" : "text-red-400"
+                        }`}
                       >
-                        Detay →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                        {formatSigned(item.changePercent, 2)}%
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <SignalBadge signal={item.signal} size="sm" />
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {getRecommendationBadge(
+                          item.usStock?.recommendationKey,
+                          item.usStock?.numberOfAnalystOpinions
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-zinc-200">
+                        {item.usStock?.targetMeanPrice
+                          ? `₺${formatNumber(item.usStock.targetMeanPrice, 1)}`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono">
+                        {upside != null ? (
+                          <span
+                            className={
+                              upside > 0 ? "text-emerald-400 font-bold" : "text-red-400 font-bold"
+                            }
+                          >
+                            {upside > 0 ? `+${upside}%` : `${upside}%`}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-zinc-300">
+                        {item.usStock?.pe != null && item.usStock.pe > 0
+                          ? formatNumber(item.usStock.pe, 1)
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono">
+                        {item.usStock?.pb != null && item.usStock.pb > 0 ? (
+                          <span
+                            className={
+                              item.usStock.pb < 2.0
+                                ? "text-emerald-400 font-bold"
+                                : "text-zinc-300"
+                            }
+                          >
+                            {formatNumber(item.usStock.pb, 2)}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-zinc-300">
+                        {item.usStock?.roe != null
+                          ? `%${(item.usStock.roe * 100).toFixed(1)}`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <Link
+                          href={`/symbol/${encodeURIComponent(item.ticker)}?tf=${timeframe}`}
+                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:border-sky-500 hover:text-white transition"
+                        >
+                          Detay →
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </section>
   );

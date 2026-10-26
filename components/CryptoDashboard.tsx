@@ -150,6 +150,7 @@ export default function CryptoDashboard() {
   const [signalFilter, setSignalFilter] = useState<"ALL" | "AL" | "SAT" | "TUT">("ALL");
   const [sortBy, setSortBy] = useState<SortKey>("mcap");
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(15);
+  const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
 
   // Load saved default category from crypto-settings.md via API and localStorage
   useEffect(() => {
@@ -730,6 +731,34 @@ export default function CryptoDashboard() {
                 <option value="ath">52H Zirveye En Yakın</option>
               </select>
             </div>
+
+            {/* View Mode Toggle (Mobile / Desktop) */}
+            <div className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-950/80 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode(viewMode === "cards" ? "auto" : "cards")}
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                  viewMode === "cards"
+                    ? "bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+                title="Kart Görünümü"
+              >
+                📱 Kart
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode(viewMode === "table" ? "auto" : "table")}
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                  viewMode === "table"
+                    ? "bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+                title="Geniş Tablo Görünümü"
+              >
+                💻 Tablo
+              </button>
+            </div>
           </div>
         </div>
 
@@ -743,62 +772,51 @@ export default function CryptoDashboard() {
             Arama kriterine uygun kripto varlık bulunamadı.
           </div>
         ) : (
-          <div className="mt-4 overflow-x-auto touch-scroll scrollbar-none">
-            <table className="w-full min-w-[850px] text-left text-xs">
-              <thead className="border-b border-zinc-800 bg-zinc-950/60 font-medium text-zinc-400">
-                <tr>
-                  <th className="px-3 py-3">Kripto Varlık</th>
-                  <th className="px-3 py-3 text-right">Fiyat (USD)</th>
-                  <th className="px-3 py-3 text-right">24s Değişim</th>
-                  <th className="px-3 py-3 text-center">Sinyal ({timeframe.toUpperCase()})</th>
-                  <th className="px-3 py-3 text-center">Skor</th>
-                  <th className="px-3 py-3 text-right">Piyasa Değeri</th>
-                  <th className="px-3 py-3 text-right">24s Hacim/MCap</th>
-                  <th className="px-3 py-3 text-right">52H Zirveden</th>
-                  <th className="px-3 py-3 text-right">RSI (14)</th>
-                  <th className="px-3 py-3">Teknik Durum</th>
-                  <th className="px-3 py-3 text-right">İşlem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60 font-medium">
-                {filteredData.map((item) => {
-                  const volMcap = item.crypto?.volumeToMarketCap;
-                  const isHighLiquidity = volMcap != null && volMcap > 0.08;
+          <>
+            {/* ============================================================== */}
+            {/* 1. MOBILE RESPONSIVE CARDS VIEW                                */}
+            {/* Displayed on mobile (< md) or when user toggles cards view      */}
+            {/* ============================================================== */}
+            <div
+              className={`${
+                viewMode === "table" ? "hidden" : viewMode === "cards" ? "grid" : "grid md:hidden"
+              } mt-4 grid-cols-1 sm:grid-cols-2 gap-3`}
+            >
+              {filteredData.map((item) => {
+                const isUp = item.changePercent >= 0;
+                const volMcap = item.crypto?.volumeToMarketCap;
+                const isHighLiquidity = volMcap != null && volMcap > 0.08;
 
-                  return (
-                    <tr key={item.ticker} className="transition hover:bg-zinc-800/40">
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-xl flex-shrink-0">{item.icon}</span>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-zinc-100">{item.name}</span>
-                              {item.code && (
-                                <span className="rounded bg-zinc-800 px-1.5 py-0.2 text-[10px] font-mono font-semibold text-zinc-400 border border-zinc-700/60">
-                                  {item.code}
-                                </span>
-                              )}
-                            </div>
-                            <div className="font-mono text-[10px] text-zinc-500">{item.ticker}</div>
+                return (
+                  <div
+                    key={item.ticker}
+                    className="rounded-2xl border border-zinc-800/90 bg-zinc-900/70 p-3.5 shadow-md backdrop-blur-md transition hover:border-zinc-700"
+                  >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-2xl flex-shrink-0">{item.icon}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Link
+                              href={`/symbol/${encodeURIComponent(item.ticker)}`}
+                              className="font-mono text-sm font-bold text-emerald-400 hover:text-emerald-300 transition"
+                            >
+                              {item.name}
+                            </Link>
+                            {item.code && (
+                              <span className="rounded bg-zinc-800 px-1.5 py-0.2 text-[10px] font-mono font-semibold text-zinc-400 border border-zinc-700/60">
+                                {item.code}
+                              </span>
+                            )}
                           </div>
+                          <div className="font-mono text-[10px] text-zinc-500">{item.ticker}</div>
                         </div>
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono font-bold text-zinc-100 whitespace-nowrap">
-                        {formatPrice(item.price, "USD")}
-                      </td>
-                      <td
-                        className={`px-3 py-3 text-right font-mono font-bold whitespace-nowrap ${
-                          item.changePercent >= 0 ? "text-emerald-400" : "text-red-400"
-                        }`}
-                      >
-                        {formatSigned(item.changePercent, 2)}%
-                      </td>
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
+                      </div>
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         <SignalBadge signal={item.signal} size="sm" />
-                      </td>
-                      <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
                         <span
-                          className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
+                          className={`rounded px-1.5 py-0.2 text-[10px] font-mono font-bold ${
                             item.score > 0.3
                               ? "bg-emerald-500/20 text-emerald-400"
                               : item.score < -0.3
@@ -806,58 +824,207 @@ export default function CryptoDashboard() {
                               : "bg-zinc-800 text-zinc-300"
                           }`}
                         >
-                          {formatSigned(item.score, 2)}
+                          Skor: {formatSigned(item.score, 2)}
                         </span>
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-zinc-300 whitespace-nowrap">
-                        {formatCryptoCap(item.crypto?.marketCap)}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono whitespace-nowrap">
-                        {volMcap != null ? (
-                          <span className={isHighLiquidity ? "text-emerald-400 font-bold" : "text-zinc-400"}>
-                            %{(volMcap * 100).toFixed(1)}
+                      </div>
+                    </div>
+
+                    {/* Price & Change Banner */}
+                    <div className="mt-2.5 grid grid-cols-2 gap-2 rounded-xl bg-zinc-950/70 p-2.5 border border-zinc-800/60">
+                      <div>
+                        <span className="block text-[10px] uppercase font-semibold text-zinc-500">Fiyat (USD)</span>
+                        <div className="flex items-baseline gap-1.5 mt-0.5">
+                          <span className="font-mono text-base font-bold text-zinc-100">
+                            {formatPrice(item.price, "USD")}
                           </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-amber-400/90 font-semibold whitespace-nowrap">
-                        {item.crypto?.athDropPercent != null ? `${item.crypto.athDropPercent.toFixed(1)}%` : "—"}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono whitespace-nowrap">
-                        {item.indicators?.rsi != null ? (
-                          <span
-                            className={
-                              item.indicators.rsi >= 70
-                                ? "text-amber-400 font-bold"
-                                : item.indicators.rsi <= 30
-                                ? "text-emerald-400 font-bold"
-                                : "text-zinc-300"
-                            }
-                          >
-                            {formatNumber(item.indicators.rsi, 1)}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-[11px] text-zinc-400 max-w-xs truncate">
-                        {item.reasons[0] || "7/24 Kesintisiz Piyasa"}
-                      </td>
-                      <td className="px-3 py-3 text-right whitespace-nowrap">
-                        <Link
-                          href={`/symbol/${encodeURIComponent(item.ticker)}`}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:border-zinc-500 hover:text-white transition inline-block"
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] uppercase font-semibold text-zinc-500">24s Değişim</span>
+                        <span className={`block font-mono text-base font-bold mt-0.5 ${isUp ? "text-emerald-400" : "text-red-400"}`}>
+                          {formatSigned(item.changePercent, 2)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stats 4-box */}
+                    <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs border-t border-zinc-800/40 pt-2 font-mono">
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] text-zinc-500 font-sans">Piyasa Değeri:</span>
+                        <strong className="text-zinc-200">{formatCryptoCap(item.crypto?.marketCap)}</strong>
+                      </div>
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] text-zinc-500 font-sans">24s Hacim/MCap:</span>
+                        <strong className={isHighLiquidity ? "text-emerald-400 font-bold" : "text-zinc-200"}>
+                          {volMcap != null ? `%${(volMcap * 100).toFixed(1)}` : "—"}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] text-zinc-500 font-sans">RSI (14):</span>
+                        <strong
+                          className={
+                            item.indicators?.rsi != null && item.indicators.rsi >= 70
+                              ? "text-amber-400 font-bold"
+                              : item.indicators?.rsi != null && item.indicators.rsi <= 30
+                              ? "text-emerald-400 font-bold"
+                              : "text-zinc-200"
+                          }
                         >
-                          Detay →
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                          {item.indicators?.rsi != null ? formatNumber(item.indicators.rsi, 1) : "—"}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] text-zinc-500 font-sans">52H Zirveden:</span>
+                        <strong className="text-amber-400/90">
+                          {item.crypto?.athDropPercent != null ? `${item.crypto.athDropPercent.toFixed(1)}%` : "—"}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Reasoning Tag */}
+                    <div className="mt-2 text-[11px] text-zinc-400 truncate bg-zinc-950/40 rounded-lg px-2 py-1 border border-zinc-800/40">
+                      💡 {item.reasons[0] || "7/24 Kesintisiz Piyasa"}
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="mt-2.5 pt-2 border-t border-zinc-800/40">
+                      <Link
+                        href={`/symbol/${encodeURIComponent(item.ticker)}`}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 py-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800 active:scale-95 transition"
+                      >
+                        <span>Detaylı Kripto Grafik & Göstergeler</span>
+                        <span>→</span>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ============================================================== */}
+            {/* 2. DESKTOP FULL TABLE VIEW                                     */}
+            {/* Displayed on desktop (>= md) or when user toggles table view   */}
+            {/* ============================================================== */}
+            <div
+              className={`${
+                viewMode === "cards" ? "hidden" : viewMode === "table" ? "block" : "hidden md:block"
+              } mt-4 overflow-x-auto touch-scroll scrollbar-none rounded-xl border border-zinc-800/80`}
+            >
+              <table className="w-full min-w-[850px] text-left text-xs">
+                <thead className="border-b border-zinc-800 bg-zinc-950/60 font-medium text-zinc-400">
+                  <tr>
+                    <th className="px-3 py-3">Kripto Varlık</th>
+                    <th className="px-3 py-3 text-right">Fiyat (USD)</th>
+                    <th className="px-3 py-3 text-right">24s Değişim</th>
+                    <th className="px-3 py-3 text-center">Sinyal ({timeframe.toUpperCase()})</th>
+                    <th className="px-3 py-3 text-center">Skor</th>
+                    <th className="px-3 py-3 text-right">Piyasa Değeri</th>
+                    <th className="px-3 py-3 text-right">24s Hacim/MCap</th>
+                    <th className="px-3 py-3 text-right">52H Zirveden</th>
+                    <th className="px-3 py-3 text-right">RSI (14)</th>
+                    <th className="px-3 py-3">Teknik Durum</th>
+                    <th className="px-3 py-3 text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60 font-medium">
+                  {filteredData.map((item) => {
+                    const volMcap = item.crypto?.volumeToMarketCap;
+                    const isHighLiquidity = volMcap != null && volMcap > 0.08;
+
+                    return (
+                      <tr key={item.ticker} className="transition hover:bg-zinc-800/40">
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xl flex-shrink-0">{item.icon}</span>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-zinc-100">{item.name}</span>
+                                {item.code && (
+                                  <span className="rounded bg-zinc-800 px-1.5 py-0.2 text-[10px] font-mono font-semibold text-zinc-400 border border-zinc-700/60">
+                                    {item.code}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-mono text-[10px] text-zinc-500">{item.ticker}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono font-bold text-zinc-100 whitespace-nowrap">
+                          {formatPrice(item.price, "USD")}
+                        </td>
+                        <td
+                          className={`px-3 py-3 text-right font-mono font-bold whitespace-nowrap ${
+                            item.changePercent >= 0 ? "text-emerald-400" : "text-red-400"
+                          }`}
+                        >
+                          {formatSigned(item.changePercent, 2)}%
+                        </td>
+                        <td className="px-3 py-3 text-center whitespace-nowrap">
+                          <SignalBadge signal={item.signal} size="sm" />
+                        </td>
+                        <td className="px-3 py-3 text-center font-mono whitespace-nowrap">
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
+                              item.score > 0.3
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : item.score < -0.3
+                                ? "bg-red-500/20 text-red-400"
+                                : "bg-zinc-800 text-zinc-300"
+                            }`}
+                          >
+                            {formatSigned(item.score, 2)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-zinc-300 whitespace-nowrap">
+                          {formatCryptoCap(item.crypto?.marketCap)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono whitespace-nowrap">
+                          {volMcap != null ? (
+                            <span className={isHighLiquidity ? "text-emerald-400 font-bold" : "text-zinc-400"}>
+                              %{(volMcap * 100).toFixed(1)}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-amber-400/90 font-semibold whitespace-nowrap">
+                          {item.crypto?.athDropPercent != null ? `${item.crypto.athDropPercent.toFixed(1)}%` : "—"}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono whitespace-nowrap">
+                          {item.indicators?.rsi != null ? (
+                            <span
+                              className={
+                                item.indicators.rsi >= 70
+                                  ? "text-amber-400 font-bold"
+                                  : item.indicators.rsi <= 30
+                                  ? "text-emerald-400 font-bold"
+                                  : "text-zinc-300"
+                              }
+                            >
+                              {formatNumber(item.indicators.rsi, 1)}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-[11px] text-zinc-400 max-w-xs truncate">
+                          {item.reasons[0] || "7/24 Kesintisiz Piyasa"}
+                        </td>
+                        <td className="px-3 py-3 text-right whitespace-nowrap">
+                          <Link
+                            href={`/symbol/${encodeURIComponent(item.ticker)}`}
+                            className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:border-zinc-500 hover:text-white transition inline-block"
+                          >
+                            Detay →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 
