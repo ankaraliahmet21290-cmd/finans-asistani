@@ -20,6 +20,7 @@ export interface MarketConfig {
 }
 
 import { ALL_CRYPTO_TICKERS, CRYPTO_ASSETS, findCryptoAsset } from "./crypto-assets";
+import { ALL_US_STOCK_TICKERS, US_STOCK_ASSETS, findUsStockAsset } from "./us-stock-assets";
 
 export const MARKETS: readonly MarketConfig[] = [
   {
@@ -60,7 +61,7 @@ export const MARKETS: readonly MarketConfig[] = [
     icon: "🇺🇸",
     tradingHours: "16:30 - 23:00 TSİ",
     description: "S&P 500 & Nasdaq devleri: Nvidia, Apple, Microsoft, Tesla ve Wall Street analist hedef fiyatları.",
-    featuredTickers: ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD", "NFLX", "PLTR"],
+    featuredTickers: ALL_US_STOCK_TICKERS,
   },
 ] as const;
 
@@ -92,17 +93,20 @@ export const CURATED_MARKET_ITEMS: Record<string, MarketItem> = {
     ])
   ),
 
-  // --- ABD Borsası ---
-  "NVDA": { ticker: "NVDA", name: "NVIDIA Corp.", category: "us_stock", currency: "USD", description: "Yapay zeka & yarı iletken devi", icon: "🟢" },
-  "AAPL": { ticker: "AAPL", name: "Apple Inc.", category: "us_stock", currency: "USD", description: "Tüketici teknolojisi & donanım", icon: "🍎" },
-  "MSFT": { ticker: "MSFT", name: "Microsoft Corp.", category: "us_stock", currency: "USD", description: "Bulut bilişim & yazılım", icon: "🪟" },
-  "AMZN": { ticker: "AMZN", name: "Amazon.com Inc.", category: "us_stock", currency: "USD", description: "E-ticaret & AWS bulut", icon: "📦" },
-  "GOOGL": { ticker: "GOOGL", name: "Alphabet (Google)", category: "us_stock", currency: "USD", description: "Arama motoru & yapay zeka", icon: "🔍" },
-  "META": { ticker: "META", name: "Meta Platforms", category: "us_stock", currency: "USD", description: "Sosyal medya & metaverse", icon: "♾️" },
-  "TSLA": { ticker: "TSLA", name: "Tesla Inc.", category: "us_stock", currency: "USD", description: "Elektrikli araç & otonom sürüş", icon: "⚡" },
-  "AMD": { ticker: "AMD", name: "Advanced Micro Devices", category: "us_stock", currency: "USD", description: "Yarı iletken & işlemci", icon: "🔴" },
-  "NFLX": { ticker: "NFLX", name: "Netflix Inc.", category: "us_stock", currency: "USD", description: "Yayıncılık & eğlence", icon: "🎬" },
-  "PLTR": { ticker: "PLTR", name: "Palantir Tech.", category: "us_stock", currency: "USD", description: "Büyük veri & savunma yazılımı", icon: "🎯" },
+  // --- ABD Borsası (Tüm S&P 500 & Nasdaq Ekosistemi: 100+ Varlık) ---
+  ...Object.fromEntries(
+    US_STOCK_ASSETS.map((s) => [
+      s.ticker,
+      {
+        ticker: s.ticker,
+        name: s.name,
+        category: "us_stock" as const,
+        currency: s.currency,
+        description: s.description,
+        icon: s.icon,
+      },
+    ])
+  ),
 };
 
 /**
@@ -115,9 +119,10 @@ export function detectAssetCategory(ticker: string): "stock" | "gold" | "commodi
   if (upper.endsWith("=X") || upper === "DX-Y.NYB" || upper === "^TNX") return "forex";
   if (findCryptoAsset(upper) || upper.endsWith("-USD") || upper.endsWith("-TRY") || upper.endsWith("-USDT")) return "crypto";
   if (upper.endsWith(".IS")) return "stock";
+  if (findUsStockAsset(upper)) return "us_stock";
   if (CURATED_MARKET_ITEMS[upper]?.category === "us_stock") return "us_stock";
-  if (upper.match(/^[A-Z]{1,5}$/)) {
-    // 1-5 harfli nokta içermeyen semboller ABD hissesi kabul edilir (AAPL, MSFT vb.)
+  if (upper.match(/^[A-Z]{1,5}(-[A-Z])?$/)) {
+    // 1-5 harfli nokta içermeyen semboller ABD hissesi kabul edilir (AAPL, MSFT, BRK-B vb.)
     return "us_stock";
   }
   return "stock";

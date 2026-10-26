@@ -65,7 +65,7 @@ export default function AnalyticsDashboard() {
   const [autoRefreshSec, setAutoRefreshSec] = useState<number>(5);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"screens" | "ips" | "locations" | "live">("ips");
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const fetchStats = useCallback(async (selectedTf = timeframe) => {
@@ -532,7 +532,7 @@ export default function AnalyticsDashboard() {
                 : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            <span>🌐 Kullanıcı IP'leri & Konum</span>
+            <span>{"🌐 Kullanıcı IP'leri & Konum"}</span>
             <span className="rounded-full bg-zinc-800 px-1.5 py-0.2 text-[10px] text-zinc-300">
               {filteredIps.length}
             </span>
@@ -657,7 +657,7 @@ export default function AnalyticsDashboard() {
 
                           {isCurrent && (
                             <span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                              SİZİN IP'NİZ
+                              {"SİZİN IP'NİZ"}
                             </span>
                           )}
 

@@ -14,7 +14,7 @@ import SelectedCompanyPreview from "./SelectedCompanyPreview";
 import MailScheduleControl from "./MailScheduleControl";
 import MailRecipientsControl from "./MailRecipientsControl";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
-import { formatNumber, formatPercent, formatPrice, formatSigned } from "@/lib/format";
+import { formatNumber, formatPrice, formatSigned } from "@/lib/format";
 import { CURATED_MARKET_ITEMS } from "@/lib/markets";
 import type { BistCompany } from "@/lib/bist";
 import type { TimeframeKey } from "@/lib/types";
@@ -70,7 +70,6 @@ interface MarketItemData {
 export default function CommoditiesForexDashboard() {
   const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
   const [data, setData] = useState<MarketItemData[]>([]);
-  const [usdTry, setUsdTry] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTicker, setSelectedTicker] = useState<string>("GC=F");
   const [selectedCompany, setSelectedCompany] = useState<BistCompany | null>(null);
@@ -83,7 +82,6 @@ export default function CommoditiesForexDashboard() {
       if (res.ok) {
         const json = await res.json();
         setData(json.items || []);
-        if (json.usdTry) setUsdTry(json.usdTry);
       }
     } catch (e) {
       console.error("[CommoditiesForexDashboard] Veri çekilemedi:", e);
@@ -106,11 +104,9 @@ export default function CommoditiesForexDashboard() {
   }, [refreshInterval, timeframe]);
 
   const goldItem = data.find((d) => d.ticker === "GC=F");
-  const silverItem = data.find((d) => d.ticker === "SI=F");
   const dxyItem = data.find((d) => d.ticker === "DX-Y.NYB");
   const usdItem = data.find((d) => d.ticker === "USDTRY=X");
   const eurItem = data.find((d) => d.ticker === "EURTRY=X");
-  const brentItem = data.find((d) => d.ticker === "BZ=F");
 
   const selectedItem = data.find((d) => d.ticker === selectedTicker) || data[0];
 

@@ -503,6 +503,74 @@ if (isDue) {
         </p>
       </Section>
 
+      {/* 8. Sinyallerden Maksimum Kazanç ve Doğruluk Almak İçin 3 Tavsiye */}
+      <Section id="basari-tavsiyeleri" title="8. Sinyallerden Maksimum Kazanç ve Doğruluk Almak İçin 3 Tavsiye">
+        <p>
+          Finansal piyasaların dinamik yapısında hiçbir algoritma geleceği %100 garanti edemez. 
+          Ancak nicel karar destek sistemini kurumsal disiplinle kullanarak başarı olasılığını en üst seviyeye çıkarmak için 
+          şu 3 temel kuralı rehber edinin:
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-3 my-2">
+          {/* Tavsiye 1 */}
+          <div className="rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-950/30 to-zinc-950/60 p-4 flex flex-col justify-between shadow-sm">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/20 text-sm font-bold text-sky-400 border border-sky-500/40">
+                  1
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wider text-sky-300">Zamanlama & Vade</span>
+              </div>
+              <h4 className="text-sm font-bold text-zinc-100">Ana Trend İçin Günlük (1d) veya 4h Kullanın</h4>
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+                Günlük periyotta gelen bir AL sinyali haftalarca sürecek ana yükseliş dalgasını temsil eder ve başarı oranı kısa periyotlara göre çok daha yüksektir.
+              </p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-zinc-800/80 text-[11px] text-sky-400 font-medium">
+              💡 Gürültüden uzak ana trend rehberliği
+            </div>
+          </div>
+
+          {/* Tavsiye 2 */}
+          <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 to-zinc-950/60 p-4 flex flex-col justify-between shadow-sm">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-sm font-bold text-emerald-400 border border-emerald-500/40">
+                  2
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">Temel & Teknik Filtre</span>
+              </div>
+              <h4 className="text-sm font-bold text-zinc-100">&quot;Çift Onay&quot; Arayın</h4>
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+                Hisse detayına tıkladığınızda <strong className="text-emerald-300">&quot;Güçlü Uyum (Teknik & Temel AL)&quot;</strong> yazan şirketlere öncelik verin. Hem bilançosu güçlü hem grafiği kuvvetli olan hisseler en güvenli limanlardır.
+              </p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-zinc-800/80 text-[11px] text-emerald-400 font-medium">
+              🛡️ Çift teyitli yüksek olasılıklı işlemler
+            </div>
+          </div>
+
+          {/* Tavsiye 3 */}
+          <div className="rounded-xl border border-rose-500/30 bg-gradient-to-b from-rose-950/30 to-zinc-950/60 p-4 flex flex-col justify-between shadow-sm">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/20 text-sm font-bold text-rose-400 border border-rose-500/40">
+                  3
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-300">Sermaye Koruma</span>
+              </div>
+              <h4 className="text-sm font-bold text-zinc-100">Sinyal SAT&apos;a Döndüğünde Disiplinli Olun</h4>
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+                Bir hisse AL verdikten sonra piyasa şartları bozulup SAT sinyaline geçtiğinde zararla inatlaşmamak (stop-loss mantığı), portföyünüzü büyük çöküşlerden korur.
+              </p>
+            </div>
+            <div className="mt-3 pt-2.5 border-t border-zinc-800/80 text-[11px] text-rose-400 font-medium">
+              ⚔️ Disiplinli sermaye ve risk yönetimi
+            </div>
+          </div>
+        </div>
+      </Section>
+
       {/* Footer navigation */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 text-xs text-zinc-400">
         <div>

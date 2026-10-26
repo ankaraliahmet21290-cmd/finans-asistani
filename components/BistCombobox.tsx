@@ -127,7 +127,21 @@ export default function BistCombobox({
       }
     }
 
-    return [...exactCodes, ...prefixCodes, ...prefixNames, ...containsMatches].slice(0, 30);
+    const matches = [...exactCodes, ...prefixCodes, ...prefixNames, ...containsMatches].slice(0, 30);
+    const cleanRaw = query.trim().toUpperCase();
+    if (
+      cleanRaw.match(/^[A-Z]{1,5}(-[A-Z])?$/) &&
+      !matches.some((m) => m.code.toUpperCase() === cleanRaw || m.ticker.toUpperCase() === cleanRaw)
+    ) {
+      matches.push({
+        code: cleanRaw,
+        ticker: cleanRaw,
+        name: `🔍 ${cleanRaw} (ABD Borsası / Wall Street Hissesi)`,
+        city: "🇺🇸 ABD",
+      });
+    }
+
+    return matches;
   }, [market, query]);
 
   // Click outside listener

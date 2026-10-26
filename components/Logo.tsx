@@ -29,42 +29,42 @@ export default function Logo({ size = 32, className = "", withGlow = true }: Log
         <defs>
           {/* Background Gradient */}
           <linearGradient id="logoBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#0f172a" />
-            <stop offset="50%" stop-color="#080e1a" />
-            <stop offset="100%" stop-color="#020617" />
+            <stop offset="0%" stopColor="#0f172a" />
+            <stop offset="50%" stopColor="#080e1a" />
+            <stop offset="100%" stopColor="#020617" />
           </linearGradient>
 
           {/* Border Ring Gradient */}
           <linearGradient id="logoRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.85" />
-            <stop offset="50%" stop-color="#6366f1" stop-opacity="0.45" />
-            <stop offset="100%" stop-color="#a855f7" stop-opacity="0.85" />
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.85" />
+            <stop offset="50%" stopColor="#6366f1" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.85" />
           </linearGradient>
 
           {/* Main Trend Surge Gradient */}
           <linearGradient id="logoSurgeGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#38bdf8" />
-            <stop offset="45%" stop-color="#6366f1" />
-            <stop offset="85%" stop-color="#10b981" />
-            <stop offset="100%" stop-color="#34d399" />
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="45%" stopColor="#6366f1" />
+            <stop offset="85%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#34d399" />
           </linearGradient>
 
           {/* Bar 1 Gradient */}
           <linearGradient id="logoBar1Grad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
-            <stop offset="100%" stop-color="#0284c7" stop-opacity="0.3" />
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#0284c7" stopOpacity="0.3" />
           </linearGradient>
 
           {/* Bar 2 Gradient */}
           <linearGradient id="logoBar2Grad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#818cf8" stop-opacity="0.95" />
-            <stop offset="100%" stop-color="#4f46e5" stop-opacity="0.35" />
+            <stop offset="0%" stopColor="#818cf8" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.35" />
           </linearGradient>
 
           {/* Bar 3 Gradient */}
           <linearGradient id="logoBar3Grad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#c084fc" />
-            <stop offset="100%" stop-color="#7e22ce" stop-opacity="0.4" />
+            <stop offset="0%" stopColor="#c084fc" />
+            <stop offset="100%" stopColor="#7e22ce" stopOpacity="0.4" />
           </linearGradient>
 
           {/* Glow Effect */}

@@ -378,7 +378,7 @@ async function checkPositionTrackerTick() {
       const marketInterval = settings.markets?.[m] || settings.checkInterval || "5m";
       if (marketInterval === "off") continue;
 
-      const minutes = getMinutesForInterval(marketInterval as any) || 5;
+      const minutes = getMinutesForInterval(marketInterval as MailIntervalKey) || 5;
       const intervalMs = minutes * 60 * 1000;
       const lastCheck = positionMarketLastScannedMap.get(m) ?? 0;
 
@@ -540,7 +540,7 @@ async function checkWatchlistTrackerTick() {
       const marketInterval = settings.markets?.[m] || settings.checkInterval || "15m";
       if (marketInterval === "off") continue;
 
-      const minutes = getMinutesForInterval(marketInterval as any) || 15;
+      const minutes = getMinutesForInterval(marketInterval as MailIntervalKey) || 15;
       const intervalMs = minutes * 60 * 1000;
       const lastCheck = watchlistMarketLastScannedMap.get(m) ?? 0;
 

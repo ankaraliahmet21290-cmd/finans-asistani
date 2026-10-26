@@ -1,6 +1,6 @@
 import { computeIndicators } from "./indicators";
 import { finalSignal, fundamentalScore, technicalScore } from "./scoring";
-import { getCandles, getFundamentals } from "./data";
+import { getCandles, getFundamentals, resolveTickerSymbol } from "./data";
 import { findBistCompany, isFinancialOrBank } from "./bist";
 import { mapWithLimit } from "./concurrency";
 import { getIndexTickers, getIndexTypeSettingsFromFile } from "./index-type-storage";
@@ -118,20 +118,22 @@ export function setCachedScan(data: CategorizedSignals, customKey?: string): voi
 }
 
 export async function getTimeframeCandles(
-  ticker: string,
+  rawTicker: string,
   tf: TimeframeKey,
   preferDirect?: boolean
 ): Promise<Candle[]> {
+  const ticker = resolveTickerSymbol(rawTicker);
   const res = await getCandles(ticker, tf, { preferDirect });
   return res.candles;
 }
 
 export async function analyzeTimeframe(
-  ticker: string,
+  rawTicker: string,
   tf: TimeframeKey,
   preloadedFund?: { score: number | null; signal: Signal | null },
   preferDirect?: boolean
 ): Promise<TimeframeStockSignal | null> {
+  const ticker = resolveTickerSymbol(rawTicker);
   try {
     const candles = await getTimeframeCandles(ticker, tf, preferDirect);
     if (candles.length < 20) return null;

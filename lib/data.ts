@@ -10,13 +10,20 @@ import type {
   UsStockFundamentals,
 } from "./types";
 import { getActiveRefreshConfig } from "./refresh-settings-storage";
+import { US_STOCK_ALIASES } from "./us-stock-assets";
+
+export function resolveTickerSymbol(ticker: string): string {
+  if (!ticker) return ticker;
+  const upper = ticker.toUpperCase().trim();
+  return US_STOCK_ALIASES[upper] || ticker;
+}
 
 const yf = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
   versionCheck: false,
   queue: {
-    concurrency: 4,
-    interval: 100,
+    concurrency: 8,
+    interval: 20,
   },
 });
 
@@ -63,6 +70,9 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 3, initialDelay
     } catch (err: unknown) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("delisted") || msg.includes("No data found")) {
+        throw err;
+      }
       const isRateLimit = msg.includes("Too Many Requests") || msg.includes("429");
       if (attempt < retries) {
         const delay = isRateLimit
@@ -193,47 +203,53 @@ interface RawChartData {
  * Böylece Yahoo istek sayısı %70 oranında azalır ve rate-limit engellenir.
  */
 async function fetchBaseChart(ticker: string, base: "5m" | "1h" | "1d"): Promise<RawChartData> {
-  return cached(`base_chart:${ticker}:${base}`, async () => {
-    // 5m: 30 gün (yeterli bar derinliği), 1h: 180 gün (SMA200 için >200 bar), 1d: 1500 gün (haftalık SMA200 için >200 hafta)
-    const days = base === "5m" ? 30 : base === "1h" ? 180 : 1500;
-    const period1 = new Date(Date.now() - days * 24 * 3600 * 1000);
+  const actualTicker = resolveTickerSymbol(ticker);
+  const chartTtl = base === "1d" ? 120_000 : base === "1h" ? 60_000 : 30_000;
+  return cached(
+    `base_chart:${actualTicker}:${base}`,
+    async () => {
+      // 5m: 30 gün (yeterli bar derinliği), 1h: 180 gün (SMA200 için >200 bar), 1d: 1500 gün (haftalık SMA200 için >200 hafta)
+      const days = base === "5m" ? 30 : base === "1h" ? 180 : 1500;
+      const period1 = new Date(Date.now() - days * 24 * 3600 * 1000);
 
-    const res = await fetchWithRetry(() => yf.chart(ticker, { period1, interval: base }));
+      const res = await fetchWithRetry(() => yf.chart(actualTicker, { period1, interval: base }));
 
-    const rawCandles: Candle[] = [];
-    const quotes = res.quotes;
-    for (let i = 0; i < quotes.length; i++) {
-      const q = quotes[i];
-      let close = q.close;
-      if (close == null && i === quotes.length - 1 && res.meta.regularMarketPrice != null) {
-        close = res.meta.regularMarketPrice;
+      const rawCandles: Candle[] = [];
+      const quotes = res.quotes;
+      for (let i = 0; i < quotes.length; i++) {
+        const q = quotes[i];
+        let close = q.close;
+        if (close == null && i === quotes.length - 1 && res.meta.regularMarketPrice != null) {
+          close = res.meta.regularMarketPrice;
+        }
+        if (close == null || q.open == null || q.high == null || q.low == null) continue;
+        rawCandles.push({
+          date: q.date.toISOString(),
+          open: q.open,
+          high: Math.max(q.high, close),
+          low: Math.min(q.low, close),
+          close,
+          volume: q.volume ?? 0,
+        });
       }
-      if (close == null || q.open == null || q.high == null || q.low == null) continue;
-      rawCandles.push({
-        date: q.date.toISOString(),
-        open: q.open,
-        high: Math.max(q.high, close),
-        low: Math.min(q.low, close),
-        close,
-        volume: q.volume ?? 0,
-      });
-    }
 
-    if (rawCandles.length === 0) {
-      throw new Error(`${ticker} için ${base} periyodunda fiyat verisi boş`);
-    }
+      if (rawCandles.length === 0) {
+        throw new Error(`${ticker} için ${base} periyodunda fiyat verisi boş`);
+      }
 
-    return {
-      meta: {
-        longName: res.meta.longName,
-        shortName: res.meta.shortName,
-        currency: res.meta.currency,
-        regularMarketPrice: res.meta.regularMarketPrice ?? null,
-        previousClose: res.meta.previousClose ?? res.meta.chartPreviousClose ?? null,
-      },
-      candles: rawCandles,
-    };
-  });
+      return {
+        meta: {
+          longName: res.meta.longName,
+          shortName: res.meta.shortName,
+          currency: res.meta.currency,
+          regularMarketPrice: res.meta.regularMarketPrice ?? null,
+          previousClose: res.meta.previousClose ?? res.meta.chartPreviousClose ?? null,
+        },
+        candles: rawCandles,
+      };
+    },
+    chartTtl
+  );
 }
 
 /**
@@ -245,9 +261,10 @@ async function fetchDirectChart(
   interval: "5m" | "15m" | "30m" | "1h" | "1d" | "1wk" | "1mo",
   days: number
 ): Promise<RawChartData> {
-  return cached(`direct_chart:${ticker}:${interval}:${days}`, async () => {
+  const actualTicker = resolveTickerSymbol(ticker);
+  return cached(`direct_chart:${actualTicker}:${interval}:${days}`, async () => {
     const period1 = new Date(Date.now() - days * 24 * 3600 * 1000);
-    const res = await fetchWithRetry(() => yf.chart(ticker, { period1, interval }));
+    const res = await fetchWithRetry(() => yf.chart(actualTicker, { period1, interval }));
 
     const rawCandles: Candle[] = [];
     const quotes = res.quotes;
@@ -300,16 +317,17 @@ export async function getCandles(
   tf: TimeframeKey = "1d",
   options?: GetCandlesOptions
 ): Promise<CandleResult> {
+  const actualTicker = resolveTickerSymbol(ticker);
   const preferDirect = options?.preferDirect ?? true;
 
-  return cached(`candles:${ticker}:${tf}:${preferDirect ? "direct" : "derived"}`, async () => {
+  return cached(`candles:${actualTicker}:${tf}:${preferDirect ? "direct" : "derived"}`, async () => {
     // 1. Orijinal Yahoo uç noktalarından doğrudan çekme modu (Tekil analizler ve BIST 30)
     if (preferDirect) {
       if (tf === "15m") {
-        const raw = await fetchDirectChart(ticker, "15m", 30);
+        const raw = await fetchDirectChart(actualTicker, "15m", 30);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -486,15 +504,27 @@ export async function getCandles(
 
 const FUNDAMENTALS_TTL_MS = 60 * 60 * 1000; // 1 saat önbellek (bilançolar dakikada bir değişmez)
 
-export async function getFundamentals(ticker: string): Promise<Fundamentals> {
+export async function getRawQuoteSummary(ticker: string) {
+  const actualTicker = resolveTickerSymbol(ticker);
   return cached(
-    `fundamentals:${ticker}`,
+    `raw_quote_summary:${actualTicker}`,
     async () => {
-      const s = await fetchWithRetry(() =>
-        yf.quoteSummary(ticker, {
+      return await fetchWithRetry(() =>
+        yf.quoteSummary(actualTicker, {
           modules: ["summaryDetail", "defaultKeyStatistics", "financialData"],
         })
       );
+    },
+    FUNDAMENTALS_TTL_MS
+  );
+}
+
+export async function getFundamentals(ticker: string): Promise<Fundamentals> {
+  const actualTicker = resolveTickerSymbol(ticker);
+  return cached(
+    `fundamentals:${actualTicker}`,
+    async () => {
+      const s = await getRawQuoteSummary(actualTicker);
 
       const pe =
         (s.summaryDetail?.trailingPE as number | undefined) ??
@@ -631,7 +661,6 @@ export async function getForexCommodityMetrics(
       let atr: number | null = null;
 
       if (candles.length >= 2) {
-        const lastCandle = candles[candles.length - 1];
         const prevCandle = candles[candles.length - 2];
         pivotPoints = calculatePivotPoints(prevCandle.high, prevCandle.low, prevCandle.close);
 
@@ -741,15 +770,13 @@ export async function getUsStockFundamentals(
   ticker: string,
   currentPrice?: number
 ): Promise<UsStockFundamentals> {
-  return cached(`us_stock_fund:${ticker}`, async () => {
-    try {
-      const s = await fetchWithRetry(() =>
-        yf.quoteSummary(ticker, {
-          modules: ["summaryDetail", "defaultKeyStatistics", "financialData"],
-        })
-      );
+  return cached(
+    `us_stock_fund:${ticker}`,
+    async () => {
+      try {
+        const s = await getRawQuoteSummary(ticker);
 
-      const targetMeanPrice = (s.financialData?.targetMeanPrice as number | undefined) ?? null;
+        const targetMeanPrice = (s.financialData?.targetMeanPrice as number | undefined) ?? null;
       const price = currentPrice ?? (s.financialData?.currentPrice as number | undefined) ?? 0;
       const upsidePercent =
         targetMeanPrice && price > 0
@@ -817,16 +844,34 @@ export async function getUsStockFundamentals(
 export async function getBatchQuotes(tickers: string[]) {
   return cached(`batch_quotes:${tickers.sort().join(",")}`, async () => {
     try {
-      const quotes = await yf.quote(tickers);
+      const aliasMap = new Map<string, string>();
+      const resolvedTickers = Array.from(
+        new Set(
+          tickers.map((t) => {
+            const resolved = resolveTickerSymbol(t);
+            if (resolved !== t) {
+              aliasMap.set(resolved, t);
+            }
+            return resolved;
+          })
+        )
+      );
+
+      const quotes = await yf.quote(resolvedTickers);
       const res: Record<string, { price: number; change: number; changePercent: number; name: string }> = {};
       for (const q of quotes) {
         if (!q.symbol) continue;
-        res[q.symbol] = {
+        const entry = {
           price: q.regularMarketPrice ?? 0,
           change: q.regularMarketChange ?? 0,
           changePercent: q.regularMarketChangePercent ?? 0,
           name: q.shortName || q.longName || q.symbol,
         };
+        res[q.symbol] = entry;
+        const originalAlias = aliasMap.get(q.symbol);
+        if (originalAlias) {
+          res[originalAlias] = entry;
+        }
 
         // Kripto varlıklar için fundamentals önbelleğini doğrudan tohumla (ekstra istekleri %100 önler)
         if (q.marketCap != null || q.circulatingSupply != null || q.symbol.includes("-USD") || q.quoteType === "CRYPTOCURRENCY") {

@@ -252,7 +252,7 @@ export default function TopSignals({
     return () => {
       active = false;
     };
-  }, [fetchSignals]);
+  }, [fetchSignals, market]);
 
   // Periodic auto-refresh
   useEffect(() => {

@@ -5,9 +5,13 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 
 ## Sinyal Değişim Kontrol Ayarları
 - **Tarama Sıklığı:** 15m
+- **BIST Takip Sıklığı:** 15m
+- **Kripto Takip Sıklığı:** 5m
+- **Emtia & FX Takip Sıklığı:** 15m
+- **ABD Borsası Takip Sıklığı:** 30m
 - **Yalnızca Seans İçi:** Evet
-- **Son Kontrol:** 2026-10-25T17:37:23.377Z
-- **Son Sinyal Değişimi:** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** —
+- **Son Kontrol:** 2026-10-26T16:13:36.574Z
+- **Son Sinyal Değişimi:** —
 
 | Sembol | Tür | Ad | Periyot |
 | --- | --- | --- | --- |

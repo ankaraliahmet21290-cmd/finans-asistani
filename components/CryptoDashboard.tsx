@@ -14,7 +14,7 @@ import SelectedCompanyPreview from "./SelectedCompanyPreview";
 import MailScheduleControl from "./MailScheduleControl";
 import MailRecipientsControl from "./MailRecipientsControl";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
-import { formatNumber, formatPercent, formatPrice, formatSigned } from "@/lib/format";
+import { formatNumber, formatPrice, formatSigned } from "@/lib/format";
 import { CURATED_MARKET_ITEMS } from "@/lib/markets";
 import type { BistCompany } from "@/lib/bist";
 import type { TimeframeKey } from "@/lib/types";

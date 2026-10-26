@@ -9,15 +9,16 @@ import {
   type MailIntervalOption,
   type MailScheduleConfig,
 } from "@/lib/mail-settings-types";
-import { REFRESH_INTERVAL_OPTIONS, type RefreshInterval } from "@/lib/refresh-settings-types";
+import { REFRESH_INTERVAL_OPTIONS } from "@/lib/refresh-settings-types";
 import {
   WATCHLIST_INTERVAL_OPTIONS,
   type WatchlistCheckInterval,
   type WatchlistSettings,
 } from "@/lib/watchlist-settings-types";
 import { INDEX_TYPES, type IndexTypeKey } from "@/lib/index-types";
-import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import type { TimeframeKey } from "@/lib/timeframes";
 import type { PositionCheckInterval, PositionSettings } from "@/lib/position-types";
+import { VALID_US_STOCK_SECTORS } from "@/lib/us-stock-settings-types";
 
 const POSITION_INTERVAL_OPTIONS: Array<{ key: PositionCheckInterval; label: string; desc: string }> = [
   { key: "1m", label: "1 Dakika", desc: "Çok hızlı canlı takip" },
@@ -99,6 +100,7 @@ export default function GeneralSettingsDashboard() {
     watchlist: 30,
   });
   const [cryptoCategory, setCryptoCategory] = useState<string>("major");
+  const [usStockSector, setUsStockSector] = useState<string>("tech");
 
   // Loading & action states
   const [loading, setLoading] = useState<boolean>(true);
@@ -129,7 +131,6 @@ export default function GeneralSettingsDashboard() {
 
   // Watchlist signal settings state
   const [watchlistSettings, setWatchlistSettings] = useState<WatchlistSettings | null>(null);
-  const [watchlistMarketTab, setWatchlistMarketTab] = useState<MarketScope>("bist");
 
   // BIST Index Type state (endeks-tip.md)
   const [indexTypeSettings, setIndexTypeSettings] = useState<{
@@ -146,7 +147,6 @@ export default function GeneralSettingsDashboard() {
 
   // Positions settings state (portfoy-takip.md)
   const [positionSettings, setPositionSettings] = useState<PositionSettings | null>(null);
-  const [positionMarketTab, setPositionMarketTab] = useState<MarketScope>("bist");
 
   // Market section filter for Section 2 (Piyasa ve Kategori Bazlı Görünüm)
   const [marketSectionFilter, setMarketSectionFilter] = useState<"all" | "bist" | "crypto" | "commodity_forex" | "us_stocks">("all");
@@ -160,6 +160,7 @@ export default function GeneralSettingsDashboard() {
         mailRes,
         refreshRes,
         cryptoRes,
+        usStocksRes,
         watchlistRes,
         indexTypeRes,
         timeframeRes,
@@ -169,6 +170,7 @@ export default function GeneralSettingsDashboard() {
         fetch("/api/mail/settings", { cache: "no-store" }),
         fetch("/api/settings/refresh", { cache: "no-store" }),
         fetch("/api/settings/crypto", { cache: "no-store" }),
+        fetch("/api/settings/us-stocks", { cache: "no-store" }),
         fetch("/api/watchlist/settings", { cache: "no-store" }),
         fetch("/api/index-type/settings", { cache: "no-store" }),
         fetch("/api/timeframe/settings", { cache: "no-store" }),
@@ -196,6 +198,12 @@ export default function GeneralSettingsDashboard() {
         const data = await cryptoRes.json();
         if (data.settings?.defaultCategory) {
           setCryptoCategory(data.settings.defaultCategory);
+        }
+      }
+      if (usStocksRes.ok) {
+        const data = await usStocksRes.json();
+        if (data.settings?.defaultSector) {
+          setUsStockSector(data.settings.defaultSector);
         }
       }
       if (watchlistRes.ok) {
@@ -486,6 +494,30 @@ export default function GeneralSettingsDashboard() {
     }
   };
 
+  // Save US stocks default sector
+  const handleUsStockSectorChange = async (sector: string) => {
+    setSavingAction("usStockSector");
+    try {
+      const res = await fetch("/api/settings/us-stocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sector }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setUsStockSector(sector);
+        setFeedback({
+          text: `✓ ABD borsası varsayılan sektörü "${VALID_US_STOCK_SECTORS[sector] || sector}" olarak kaydedildi.`,
+          type: "success",
+        });
+      }
+    } catch {
+      setFeedback({ text: "ABD borsası sektör ayarı kaydedilemedi.", type: "error" });
+    } finally {
+      setSavingAction(null);
+    }
+  };
+
   // Save market-specific scan interval
   const handleMarketScanIntervalChange = async (market: MarketScope, intervalKey: MailIntervalKey) => {
     setSavingAction(`scan-${market}`);
@@ -539,32 +571,6 @@ export default function GeneralSettingsDashboard() {
     }
   };
 
-  // Save watchlist signal check interval
-  const handleWatchlistCheckIntervalChange = async (interval: WatchlistCheckInterval) => {
-    setSavingAction("watchlistInterval");
-    try {
-      const res = await fetch("/api/watchlist/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkInterval: interval }),
-      });
-      const data = await res.json();
-      if (data.ok && data.settings) {
-        setWatchlistSettings(data.settings);
-        const opt = WATCHLIST_INTERVAL_OPTIONS.find((o) => o.key === interval);
-        setFeedback({
-          text: `✓ İzleme / Takip listesi sinyal kontrol sıklığı "${opt?.label || interval}" olarak güncellendi ve watchlist.md dosyasına kaydedildi.`,
-          type: "success",
-        });
-      } else {
-        setFeedback({ text: data.error || "Takip listesi ayarı kaydedilemedi.", type: "error" });
-      }
-    } catch {
-      setFeedback({ text: "Takip listesi ayarı kaydedilemedi.", type: "error" });
-    } finally {
-      setSavingAction(null);
-    }
-  };
 
   // Change watchlist interval per market (BIST, Kripto, Emtia, ABD)
   const handleWatchlistMarketIntervalChange = async (market: MarketScope, interval: WatchlistCheckInterval) => {
@@ -689,32 +695,6 @@ export default function GeneralSettingsDashboard() {
     }
   };
 
-  // Change position alert check interval (portfoy-takip.md)
-  const handlePositionIntervalChange = async (interval: PositionCheckInterval) => {
-    setSavingAction("posInterval");
-    try {
-      const res = await fetch("/api/positions/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkInterval: interval }),
-      });
-      const data = await res.json();
-      if (data.ok && data.settings) {
-        setPositionSettings(data.settings);
-        const opt = POSITION_INTERVAL_OPTIONS.find((p) => p.key === interval);
-        setFeedback({
-          text: `✓ Portföy pozisyon alarm kontrol sıklığı "${opt?.label || interval}" olarak kaydedildi (portfoy-takip.md).`,
-          type: "success",
-        });
-      } else {
-        setFeedback({ text: data.error || "Pozisyon kontrol ayarı kaydedilemedi.", type: "error" });
-      }
-    } catch {
-      setFeedback({ text: "Pozisyon kontrol ayarı kaydedilemedi.", type: "error" });
-    } finally {
-      setSavingAction(null);
-    }
-  };
 
   // Change position alarm interval per market (BIST, Kripto, Emtia, ABD)
   const handlePositionMarketIntervalChange = async (market: MarketScope, interval: PositionCheckInterval) => {
@@ -2780,7 +2760,7 @@ export default function GeneralSettingsDashboard() {
                   </div>
                 </div>
                 <Link
-                  href="/amerikan-borsasi"
+                  href="/abd-borsasi"
                   className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition self-start sm:self-auto"
                 >
                   <span>ABD Borsası Ekranını Aç</span>
@@ -2860,11 +2840,11 @@ export default function GeneralSettingsDashboard() {
                           <div className="font-bold text-xs sm:text-sm text-zinc-100">
                             ABD Borsası Analiz Masası
                           </div>
-                          <div className="text-[10px] text-zinc-500">Nvidia, Apple, Microsoft, Tesla & S&P 500</div>
+                          <div className="text-[10px] text-zinc-500">100+ S&P 500 & Nasdaq Hissesi</div>
                         </div>
                       </div>
                       <Link
-                        href="/amerikan-borsasi"
+                        href="/abd-borsasi"
                         className="rounded-lg bg-zinc-900 border border-zinc-800 p-1 text-[11px] text-zinc-400 hover:text-indigo-300 transition"
                         title="ABD Borsası Ekranını Aç"
                       >
@@ -2873,6 +2853,34 @@ export default function GeneralSettingsDashboard() {
                     </div>
 
                     <div className="space-y-3">
+                      {/* Varsayılan Sektör Filtresi */}
+                      <div className="space-y-1">
+                        <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>💻</span>
+                            <span>Varsayılan Sektör:</span>
+                          </span>
+                          {savingAction === "usStockSector" && (
+                            <span className="text-[10px] text-indigo-400 animate-pulse">Kaydediliyor...</span>
+                          )}
+                        </label>
+                        <select
+                          value={usStockSector}
+                          onChange={(e) => handleUsStockSectorChange(e.target.value)}
+                          disabled={savingAction === "usStockSector"}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+                        >
+                          {Object.entries(VALID_US_STOCK_SECTORS).map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-zinc-500">
+                          ABD ekranı açıldığında varsayılan olarak filtrelenecek hisse sektörü (us-stock-settings.md)
+                        </p>
+                      </div>
+
                       {/* Bülten Tarama Sıklığı */}
                       <div className="space-y-1">
                         <label className="flex items-center justify-between text-xs font-semibold text-zinc-300">
@@ -2899,7 +2907,7 @@ export default function GeneralSettingsDashboard() {
                           ))}
                         </select>
                         <p className="text-[10px] text-zinc-500">
-                          ABD seansında mega-cap ve teknoloji hisseleri tarama ve e-posta bülten gönderim periyodu
+                          ABD seansında hisseleri tarama ve e-posta bülten gönderim periyodu
                         </p>
                       </div>
 
@@ -2927,7 +2935,7 @@ export default function GeneralSettingsDashboard() {
                           ))}
                         </select>
                         <p className="text-[10px] text-zinc-500">
-                          Ekranda ABD mega-cap hisse fiyatlarının otomatik yenilenme süresi
+                          Ekranda ABD hisse fiyatlarının otomatik yenilenme süresi
                         </p>
                       </div>
 
@@ -2961,7 +2969,7 @@ export default function GeneralSettingsDashboard() {
                     </div>
                   </div>
                   <div className="mt-3 pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-mono flex items-center justify-between">
-                    <span>mail-settings.md</span>
+                    <span>us-stock-settings.md</span>
                     <span className="text-indigo-400">✓ Wall Street Masası</span>
                   </div>
                 </div>
@@ -3216,7 +3224,7 @@ export default function GeneralSettingsDashboard() {
             {/* Crypto Default Landing Category */}
             <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
               <div>
-                <div className="text-xs font-bold text-zinc-200">Varsayılan Kategori / Sekme</div>
+                <div className="text-xs font-bold text-zinc-200">Kripto Varsayılan Kategori / Sekme</div>
                 <div className="text-[11px] text-zinc-500">
                   Kripto ekranı açıldığında doğrudan seçilecek kategori (crypto-settings.md)
                 </div>
@@ -3228,6 +3236,27 @@ export default function GeneralSettingsDashboard() {
               >
                 {Object.entries(VALID_CRYPTO_CATEGORIES).map(([catKey, label]) => (
                   <option key={catKey} value={catKey}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* US Stocks Default Landing Sector */}
+            <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-zinc-800 bg-zinc-950/50">
+              <div>
+                <div className="text-xs font-bold text-zinc-200">ABD Borsası Varsayılan Sektör / Sekme</div>
+                <div className="text-[11px] text-zinc-500">
+                  ABD borsası ekranı açıldığında doğrudan seçilecek hisse sektörü (us-stock-settings.md)
+                </div>
+              </div>
+              <select
+                value={usStockSector}
+                onChange={(e) => handleUsStockSectorChange(e.target.value)}
+                className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 font-semibold focus:border-indigo-500 focus:outline-none"
+              >
+                {Object.entries(VALID_US_STOCK_SECTORS).map(([secKey, label]) => (
+                  <option key={secKey} value={secKey}>
                     {label}
                   </option>
                 ))}

@@ -290,7 +290,7 @@ export async function saveMailSettingsToFile(
     }
   }
 
-  let intervalOpt = MAIL_INTERVAL_OPTIONS.find((o) => o.key === nextIntervalKey) ?? MAIL_INTERVAL_OPTIONS[2];
+  const intervalOpt = MAIL_INTERVAL_OPTIONS.find((o) => o.key === nextIntervalKey) ?? MAIL_INTERVAL_OPTIONS[2];
 
   const enabled =
     nextIntervalKey === "off"

@@ -9,7 +9,6 @@ import {
 import type {
   PositionCheckInterval,
   PositionMarketScope,
-  PositionMarketIntervals,
 } from "@/lib/position-types";
 
 export const dynamic = "force-dynamic";

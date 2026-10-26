@@ -129,7 +129,7 @@ export async function sendSignalMail(
   recipients?: string[],
   timeframeLabel?: string
 ): Promise<boolean> {
-  const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = (process.env.APP_URL ?? "https://finans-asistanim.ilanbul.tech").replace(/\/$/, "");
   const tfSuffix = timeframeLabel ? ` [${timeframeLabel}]` : "";
   const subject = `Sinyal Değişimi${tfSuffix}: ${items.map((i) => `${i.ticker} ${i.signal}`).join(", ")}`;
 
@@ -177,7 +177,7 @@ export async function sendCategorizedTimeframeMail(
   frequencyLabel = "15 Dakikalık",
   recipients?: string[]
 ): Promise<boolean> {
-  const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = (process.env.APP_URL ?? "https://finans-asistanim.ilanbul.tech").replace(/\/$/, "");
   const scanTime = new Date(data.scannedAt).toLocaleTimeString("tr-TR", {
     hour: "2-digit",
     minute: "2-digit",
@@ -427,7 +427,7 @@ export async function sendPositionAlarmMail(
   recipients?: string[]
 ): Promise<boolean> {
   const { type, position } = alarm;
-  const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const baseUrl = (process.env.APP_URL ?? "https://finans-asistanim.ilanbul.tech").replace(/\/$/, "");
   const isStop = type === "stop_loss";
   const nowTime = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
   const nowDate = new Date().toLocaleDateString("tr-TR");
