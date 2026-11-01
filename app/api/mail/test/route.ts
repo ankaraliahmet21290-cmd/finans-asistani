@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getMailProvider, isMailConfigured, sendSignalMail, resolveRecipients } from "@/lib/mail";
+import { registerAppUrl } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  registerAppUrl(req, true);
   const provider = getMailProvider();
   if (!provider || !isMailConfigured()) {
     return NextResponse.json(

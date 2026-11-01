@@ -11,15 +11,18 @@ import {
 } from "@/lib/scheduler";
 import { isMailConfigured, getMailProvider } from "@/lib/mail";
 import { getRecipientsFromFile } from "@/lib/mail-recipients-storage";
+import { registerAppUrl, resolveAppBaseUrl, extractAppUrlFromRequest } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   ensureSchedulerStarted();
+  registerAppUrl(req, true);
   const config = await syncSchedulerWithConfig();
   const scheduler = getSchedulerState();
   const recipients = await getRecipientsFromFile();
   const activeRecipients = recipients.filter((r) => r.enabled).map((r) => r.email);
+  const resolvedUrl = await resolveAppBaseUrl(req);
 
   const { searchParams } = new URL(req.url);
   const market = searchParams.get("market") as "bist" | "crypto" | "commodity_forex" | "us_stocks" | null;
@@ -36,6 +39,8 @@ export async function GET(req: Request) {
     scheduler,
     market: market ?? null,
     effectiveIntervalKey,
+    appUrl: resolvedUrl,
+    detectedUrl: extractAppUrlFromRequest(req),
     mail: {
       configured: isMailConfigured(),
       provider: getMailProvider(),
@@ -50,33 +55,44 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     ensureSchedulerStarted();
+    registerAppUrl(req, true);
     const body = await req.json();
 
-    const { intervalKey, enabled, onlyTradingHours, market } = body as {
+    const { intervalKey, enabled, onlyTradingHours, market, appUrl } = body as {
       intervalKey?: MailIntervalKey;
       enabled?: boolean;
       onlyTradingHours?: boolean;
       market?: "bist" | "crypto" | "commodity_forex" | "us_stocks";
+      appUrl?: string;
     };
+
+    if (appUrl) {
+      registerAppUrl(appUrl, true);
+    }
 
     const updatedConfig = await saveMailSettingsToFile({
       intervalKey,
       enabled,
       onlyTradingHours,
       market,
+      appUrl,
     });
 
     await syncSchedulerWithConfig();
     const scheduler = getSchedulerState();
+    const resolvedUrl = await resolveAppBaseUrl(req);
 
     return NextResponse.json({
       ok: true,
       message: market
         ? `${market.toUpperCase()} tarama sıklığı kaydedildi.`
+        : appUrl
+        ? `Uygulama adresi "${resolvedUrl}" olarak güncellendi.`
         : `E-posta sıklığı "${updatedConfig.label}" olarak güncellendi ve mail-settings.md dosyasına kaydedildi.`,
       config: updatedConfig,
       scheduler,
       market,
+      appUrl: resolvedUrl,
     });
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);

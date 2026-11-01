@@ -65,6 +65,8 @@ interface MailSettingsResponse {
     lastStatus: string | null;
     isWithinHours: boolean;
   };
+  appUrl?: string;
+  detectedUrl?: string | null;
   mail: {
     configured: boolean;
     provider: string | null;
@@ -86,6 +88,8 @@ export default function GeneralSettingsDashboard() {
   // Data states
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [mailSettings, setMailSettings] = useState<MailSettingsResponse | null>(null);
+  const [customAppUrl, setCustomAppUrl] = useState<string>("");
+  const [isEditingAppUrl, setIsEditingAppUrl] = useState<boolean>(false);
   const [refreshInterval, setRefreshInterval] = useState<number>(30);
   const [marketRefresh, setMarketRefresh] = useState<{
     bist: number;
@@ -197,6 +201,9 @@ export default function GeneralSettingsDashboard() {
       if (mailRes.ok) {
         const data = await mailRes.json();
         setMailSettings(data);
+        if (data.appUrl) {
+          setCustomAppUrl(data.appUrl);
+        }
       }
       if (refreshRes.ok) {
         const data = await refreshRes.json();
@@ -415,6 +422,36 @@ export default function GeneralSettingsDashboard() {
       setFeedback({ text: "Test maili gönderilirken bağlantı hatası oluştu.", type: "error" });
     } finally {
       setTestingEmail(null);
+    }
+  };
+
+  // Save app URL (domain) setting
+  const handleSaveAppUrl = async (urlToSave?: string) => {
+    const targetUrl = (urlToSave ?? customAppUrl).trim();
+    if (!targetUrl) return;
+    setSavingAction("appUrl");
+    try {
+      const res = await fetch("/api/mail/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appUrl: targetUrl }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setMailSettings((prev) => (prev ? { ...prev, config: data.config, appUrl: data.appUrl } : null));
+        setCustomAppUrl(data.appUrl || targetUrl);
+        setIsEditingAppUrl(false);
+        setFeedback({
+          text: `✓ E-posta uygulama adresi "${data.appUrl || targetUrl}" olarak kaydedildi. Periyodik mailler bu domaini kullanacak.`,
+          type: "success",
+        });
+      } else {
+        setFeedback({ text: data.error || "Uygulama adresi kaydedilemedi.", type: "error" });
+      }
+    } catch {
+      setFeedback({ text: "Uygulama adresi kaydedilirken bağlantı hatası oluştu.", type: "error" });
+    } finally {
+      setSavingAction(null);
     }
   };
 
@@ -1006,6 +1043,111 @@ export default function GeneralSettingsDashboard() {
           <p className="mt-2 text-[10px] text-zinc-500">
             Alıcıları ve önbelleği doğrudan test edin
           </p>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* DOMAIN / APP_URL SECTION: Periyodik E-Posta Alan Adı Yapılandırması       */}
+      {/* ========================================================================= */}
+      <div className="rounded-3xl border border-sky-500/25 bg-gradient-to-r from-sky-950/30 via-zinc-900/60 to-indigo-950/30 p-5 sm:p-6 backdrop-blur-xl shadow-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 font-bold">
+                🌐
+              </span>
+              <h3 className="text-sm sm:text-base font-bold text-zinc-100 flex items-center gap-2">
+                <span>E-Posta Uygulama Alan Adı (APP_URL / Domain)</span>
+                <span className="rounded-full bg-sky-500/15 border border-sky-500/30 px-2 py-0.5 text-[10px] font-semibold text-sky-300">
+                  Otomatik Algılanır &amp; Kaydedilir
+                </span>
+              </h3>
+            </div>
+            <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+              Periyodik rapor ve anlık sinyal e-postalarındaki canlı ekran ve hisse detay linkleri (ör. <em>&quot;Canlı Sinyal Masasını Aç&quot;</em>, <em>&quot;Grafiği Gör&quot;</em>) bu adresi kullanır. Uygulamanın çalıştığı domain ne ise otomatik algılanır veya aşağıdan kaydedilebilir. Asla <code>localhost</code> olarak gitmez.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+            {/* Auto-detect button from window.location.origin */}
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  const currentOrigin = window.location.origin;
+                  setCustomAppUrl(currentOrigin);
+                  handleSaveAppUrl(currentOrigin);
+                }
+              }}
+              disabled={savingAction === "appUrl"}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 active:scale-95 disabled:opacity-50 transition"
+              title="Şu an tarayıcınızda açık olan alan adını tek tıkla kaydeder"
+            >
+              <span>🔄</span>
+              <span>Bu Alan Adını Kullan ({typeof window !== "undefined" ? window.location.host : "Algıla"})</span>
+            </button>
+
+            {!isEditingAppUrl ? (
+              <button
+                type="button"
+                onClick={() => setIsEditingAppUrl(true)}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700 transition"
+              >
+                <span>✏️</span>
+                <span>Düzenle</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Current Active Domain Display / Edit Box */}
+        <div className="mt-4 pt-3 border-t border-zinc-800/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="text-xs font-semibold text-zinc-400">Aktif Domain:</span>
+            {!isEditingAppUrl ? (
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs sm:text-sm font-bold text-sky-300 bg-sky-950/60 border border-sky-500/30 px-3 py-1 rounded-xl">
+                  {mailSettings?.appUrl || customAppUrl || "https://finans-asistanim.ilanbul.tech"}
+                </span>
+                <span className="text-[11px] text-zinc-500 font-mono">
+                  (mail-settings.md ile senkronize)
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-1 max-w-lg">
+                <input
+                  type="url"
+                  value={customAppUrl}
+                  onChange={(e) => setCustomAppUrl(e.target.value)}
+                  placeholder="https://senin-alan-adin.com"
+                  className="flex-1 rounded-xl border border-sky-500 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSaveAppUrl()}
+                  disabled={savingAction === "appUrl" || !customAppUrl.trim()}
+                  className="rounded-xl border border-emerald-500/50 bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 transition"
+                >
+                  {savingAction === "appUrl" ? "Kaydediliyor..." : "Kaydet"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingAppUrl(false);
+                    setCustomAppUrl(mailSettings?.appUrl || "");
+                  }}
+                  className="rounded-xl border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-white transition"
+                >
+                  İptal
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="text-[11px] text-zinc-500 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span>Periyodik e-postalarda asla <code>localhost</code> yazmaz, doğrudan yukarıdaki domain kullanılır.</span>
+          </div>
         </div>
       </div>
 
@@ -3637,7 +3779,7 @@ export default function GeneralSettingsDashboard() {
             <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800/80 text-zinc-300 text-[11px]">
               GMAIL_USER=hesabiniz@gmail.com<br />
               GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx<br />
-              APP_URL=http://localhost:3000
+              APP_URL=https://finans-asistanim.ilanbul.tech
             </div>
           </div>
 
@@ -3652,7 +3794,7 @@ export default function GeneralSettingsDashboard() {
             <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800/80 text-zinc-300 text-[11px]">
               RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx<br />
               MAIL_FROM=onboarding@resend.dev<br />
-              APP_URL=http://localhost:3000
+              APP_URL=https://finans-asistanim.ilanbul.tech
             </div>
           </div>
         </div>

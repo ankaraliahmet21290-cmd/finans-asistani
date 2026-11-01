@@ -69,6 +69,7 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
   let parsedEnabled = true;
   let parsedOnlyTradingHours = true;
   let parsedUpdatedAt = new Date().toISOString();
+  let parsedAppUrl: string | undefined = undefined;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -112,6 +113,8 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
         parsedOnlyTradingHours = lower === "true" || lower === "evet" || lower === "1";
       } else if (key.includes("güncelleme") || key.includes("guncelleme") || key.includes("updated")) {
         parsedUpdatedAt = val;
+      } else if (key === "uygulamaadresi" || key === "appurl" || key === "domain" || key === "siteurl" || key === "url" || key.includes("alanad")) {
+        parsedAppUrl = val;
       }
       continue;
     }
@@ -138,6 +141,8 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
       } else if (key === "aktif" || key === "enabled") {
         const lower = val.toLowerCase();
         parsedEnabled = lower === "true" || lower === "evet" || lower === "aktif" || lower === "1";
+      } else if (key === "uygulamaadresi" || key === "appurl" || key === "domain" || key === "siteurl" || key === "url" || key.includes("alanad")) {
+        parsedAppUrl = val;
       }
     }
   }
@@ -162,6 +167,7 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
     onlyTradingHours: parsedOnlyTradingHours,
     updatedAt: parsedUpdatedAt,
     markets,
+    appUrl: parsedAppUrl || undefined,
   };
 }
 
@@ -174,6 +180,7 @@ export function formatMailSettingsMarkdown(config: MailScheduleConfig): string {
   const cryptoOpt = normalizeIntervalKey(config.markets?.crypto ?? "5m");
   const commOpt = normalizeIntervalKey(config.markets?.commodity_forex ?? "15m");
   const usOpt = normalizeIntervalKey(config.markets?.us_stocks ?? "30m");
+  const activeAppUrl = config.appUrl || process.env.APP_URL || "https://finans-asistanim.ilanbul.tech";
 
   return `# E-Posta Gönderim Ayarları
 
@@ -191,6 +198,7 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Dakika | ${opt.minutes} | Sayısal dakika karşılığı (0 = devre dışı, 1440 = günlük) |
 | Aktif | ${config.enabled && opt.key !== "off" ? "Evet" : "Hayır"} | Otomatik gönderim açık/kapalı |
 | Yalnızca Seans İçi | ${config.onlyTradingHours ? "Evet" : "Hayır"} | 09:50 - 18:00 seans saatlerinde çalıştır |
+| Uygulama Adresi | ${activeAppUrl} | E-posta linkleri için kullanılan alan adı (domain) |
 | Son Güncelleme | ${config.updatedAt || new Date().toISOString()} | Son güncelleme zamanı |
 
 ---
@@ -299,6 +307,8 @@ export async function saveMailSettingsToFile(
       ? update.enabled
       : current.enabled;
 
+  const appUrl = update.appUrl !== undefined ? update.appUrl : current.appUrl;
+
   const merged: MailScheduleConfig = {
     intervalKey: intervalOpt.key,
     intervalMinutes: intervalOpt.minutes,
@@ -309,6 +319,7 @@ export async function saveMailSettingsToFile(
     onlyTradingHours: update.onlyTradingHours !== undefined ? update.onlyTradingHours : current.onlyTradingHours,
     updatedAt: new Date().toISOString(),
     markets: nextMarkets,
+    appUrl,
   };
 
   const content = formatMailSettingsMarkdown(merged);

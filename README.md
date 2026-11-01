@@ -28,7 +28,7 @@ APP_URL=https://senin-alan-adin.com
 | `RESEND_API_KEY` | Hayır | Yoksa e-posta atlanır, analiz çalışmaya devam eder |
 | `MAIL_TO` | Hayır | Sinyal e-postasının alıcısı |
 | `CRON_SECRET` | Evet | `/api/cron` için `Bearer` token'ı |
-| `APP_URL` | Hayır | E-postadaki "Uygulamada aç" linki (varsayılan `http://localhost:3000`) |
+| `APP_URL` | Hayır | E-postadaki linkler ve butonlar için uygulama adresi (otomatik algılanır, varsayılan `https://finans-asistanim.ilanbul.tech`) |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Hayır | Vercel KV / Upstash Redis; yoksa bellek içi depolama |
 
 ## Komutlar

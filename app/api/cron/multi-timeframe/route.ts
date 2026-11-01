@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { ensureSchedulerStarted, getSchedulerState, runScheduledScan } from "@/lib/scheduler";
+import { registerAppUrl } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  registerAppUrl(req, true);
   const { searchParams } = new URL(req.url);
   const action = searchParams.get("action");
   const force = searchParams.get("force") === "true";

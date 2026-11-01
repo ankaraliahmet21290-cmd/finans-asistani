@@ -18,6 +18,7 @@ export function getMailProvider(): "gmail" | "resend" | null {
 
 import { getActiveRecipientEmails, type RecipientFilterOptions } from "./mail-recipients-storage";
 import { detectAssetCategory } from "./markets";
+import { resolveAppBaseUrl } from "./app-url";
 
 export function isMailConfigured(): boolean {
   const provider = getMailProvider();
@@ -127,9 +128,10 @@ function normalizeMarketScope(scopeOrCategory?: string): "bist" | "crypto" | "co
 export async function sendSignalMail(
   items: SignalMailItem[],
   recipients?: string[],
-  timeframeLabel?: string
+  timeframeLabel?: string,
+  baseUrlOverride?: string
 ): Promise<boolean> {
-  const baseUrl = (process.env.APP_URL ?? "https://finans-asistanim.ilanbul.tech").replace(/\/$/, "");
+  const baseUrl = (baseUrlOverride || (await resolveAppBaseUrl())).replace(/\/$/, "");
   const tfSuffix = timeframeLabel ? ` [${timeframeLabel}]` : "";
   const subject = `Sinyal Değişimi${tfSuffix}: ${items.map((i) => `${i.ticker} ${i.signal}`).join(", ")}`;
 
@@ -175,9 +177,10 @@ export async function sendSignalMail(
 export async function sendCategorizedTimeframeMail(
   data: CategorizedSignals,
   frequencyLabel = "15 Dakikalık",
-  recipients?: string[]
+  recipients?: string[],
+  baseUrlOverride?: string
 ): Promise<boolean> {
-  const baseUrl = (process.env.APP_URL ?? "https://finans-asistanim.ilanbul.tech").replace(/\/$/, "");
+  const baseUrl = (baseUrlOverride || (await resolveAppBaseUrl())).replace(/\/$/, "");
   const scanTime = new Date(data.scannedAt).toLocaleTimeString("tr-TR", {
     hour: "2-digit",
     minute: "2-digit",
@@ -424,10 +427,11 @@ export interface PositionAlarmNotification {
 
 export async function sendPositionAlarmMail(
   alarm: PositionAlarmNotification,
-  recipients?: string[]
+  recipients?: string[],
+  baseUrlOverride?: string
 ): Promise<boolean> {
   const { type, position } = alarm;
-  const baseUrl = (process.env.APP_URL ?? "https://finans-asistanim.ilanbul.tech").replace(/\/$/, "");
+  const baseUrl = (baseUrlOverride || (await resolveAppBaseUrl())).replace(/\/$/, "");
   const isStop = type === "stop_loss";
   const nowTime = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
   const nowDate = new Date().toLocaleDateString("tr-TR");

@@ -33333,5 +33333,50 @@
     "id": "evt-1793046787994-cqbvq3",
     "timestamp": 1793046787994,
     "isoTime": "2026-10-26T20:33:07.994Z"
+  },
+  {
+    "ip": "::1",
+    "city": "Yerel (Localhost)",
+    "country": "Türkiye",
+    "countryCode": "TR",
+    "screen": "BIST Hisseleri (Ana Sayfa)",
+    "path": "/",
+    "action": "page_view",
+    "label": "Sayfa Ziyareti: BIST Hisseleri (Ana Sayfa)",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "device": "Masaüstü",
+    "id": "evt-1793292918195-lo4zjz",
+    "timestamp": 1793292918195,
+    "isoTime": "2026-10-29T16:55:18.195Z"
+  },
+  {
+    "ip": "::1",
+    "city": "Yerel (Localhost)",
+    "country": "Türkiye",
+    "countryCode": "TR",
+    "screen": "BIST Hisseleri (Ana Sayfa)",
+    "path": "/",
+    "action": "page_view",
+    "label": "Sayfa Ziyareti: BIST Hisseleri (Ana Sayfa)",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "device": "Masaüstü",
+    "id": "evt-1793301436538-0hble4",
+    "timestamp": 1793301436538,
+    "isoTime": "2026-10-29T19:17:16.538Z"
+  },
+  {
+    "ip": "::1",
+    "city": "Yerel (Localhost)",
+    "country": "Türkiye",
+    "countryCode": "TR",
+    "screen": "BIST Hisseleri (Ana Sayfa)",
+    "path": "/",
+    "action": "page_view",
+    "label": "Sayfa Ziyareti: BIST Hisseleri (Ana Sayfa)",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "device": "Masaüstü",
+    "id": "evt-1793303333923-vatadr",
+    "timestamp": 1793303333923,
+    "isoTime": "2026-10-29T19:48:53.923Z"
   }
 ]

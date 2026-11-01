@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClientIp, parseDevice, recordAnalyticsEvent, resolveGeoIp } from "@/lib/analytics-storage";
 import type { AnalyticsAction } from "@/lib/analytics-types";
+import { registerAppUrl } from "@/lib/app-url";
 
 export async function POST(req: NextRequest) {
   try {
+    registerAppUrl(req, true);
     const body = await req.json().catch(() => ({}));
     const ip = getClientIp(req.headers);
     const userAgent = req.headers.get("user-agent") || undefined;

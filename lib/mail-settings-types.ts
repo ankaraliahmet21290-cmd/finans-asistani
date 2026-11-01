@@ -117,6 +117,7 @@ export interface MailScheduleConfig {
   onlyTradingHours: boolean;
   updatedAt: string;
   markets: MarketMailIntervals;
+  appUrl?: string;
 }
 
 export const DEFAULT_MAIL_SETTINGS: MailScheduleConfig = {
@@ -129,4 +130,5 @@ export const DEFAULT_MAIL_SETTINGS: MailScheduleConfig = {
   onlyTradingHours: true,
   updatedAt: new Date().toISOString(),
   markets: { ...DEFAULT_MARKET_MAIL_INTERVALS },
+  appUrl: process.env.APP_URL || "https://finans-asistanim.ilanbul.tech",
 };

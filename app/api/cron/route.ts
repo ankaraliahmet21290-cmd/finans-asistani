@@ -6,10 +6,12 @@ import { getWatchlistFromFile } from "@/lib/watchlist-storage";
 import { getTimeframeSettingsFromFile } from "@/lib/timeframe-settings-storage";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
 import type { SignalMailItem } from "@/lib/types";
+import { registerAppUrl } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  registerAppUrl(req, true);
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return new NextResponse("Unauthorized", { status: 401 });

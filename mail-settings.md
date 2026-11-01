@@ -14,7 +14,8 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 | Dakika | 15 | Sayısal dakika karşılığı (0 = devre dışı, 1440 = günlük) |
 | Aktif | Evet | Otomatik gönderim açık/kapalı |
 | Yalnızca Seans İçi | Evet | 09:50 - 18:00 seans saatlerinde çalıştır |
-| Son Güncelleme | 2026-10-25T18:40:51.387Z | Son güncelleme zamanı |
+| Uygulama Adresi | https://finans-asistanim.ilanbul.tech | E-posta linkleri için kullanılan alan adı (domain) |
+| Son Güncelleme | 2026-11-01T18:12:08.398Z | Son güncelleme zamanı |
 
 ---
 
