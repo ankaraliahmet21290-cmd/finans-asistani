@@ -53,6 +53,30 @@ export const REFRESH_INTERVAL_OPTIONS: RefreshIntervalOption[] = [
   },
 ];
 
+export interface MarketRefreshSettings {
+  bist: RefreshInterval;
+  crypto: RefreshInterval;
+  commodity_forex: RefreshInterval;
+  us_stocks: RefreshInterval;
+  watchlist?: RefreshInterval;
+  bist_analyst?: RefreshInterval;
+  bist_valuation?: RefreshInterval;
+  us_stocks_analyst?: RefreshInterval;
+  us_stocks_valuation?: RefreshInterval;
+}
+
+export const DEFAULT_MARKET_REFRESH_SETTINGS: MarketRefreshSettings = {
+  bist: 30,
+  crypto: 15,
+  commodity_forex: 60,
+  us_stocks: 30,
+  watchlist: 30,
+  bist_analyst: 60,
+  bist_valuation: 60,
+  us_stocks_analyst: 30,
+  us_stocks_valuation: 30,
+};
+
 export interface RefreshSettingsConfig {
   seconds: RefreshInterval;
   key: string;
@@ -61,6 +85,7 @@ export interface RefreshSettingsConfig {
   enabled: boolean;
   cacheTtlMs: number;
   updatedAt: string;
+  markets: MarketRefreshSettings;
 }
 
 export const DEFAULT_REFRESH_SETTINGS: RefreshSettingsConfig = {
@@ -71,6 +96,7 @@ export const DEFAULT_REFRESH_SETTINGS: RefreshSettingsConfig = {
   enabled: true,
   cacheTtlMs: 30_000,
   updatedAt: new Date().toISOString(),
+  markets: { ...DEFAULT_MARKET_REFRESH_SETTINGS },
 };
 
 /**

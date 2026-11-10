@@ -19,6 +19,12 @@ export const DEFAULT_POSITION_SETTINGS: PositionSettings = {
   lastCheckAt: null,
   lastAlarmSentAt: null,
   totalAlarmsSent: 0,
+  markets: {
+    bist: "5m",
+    crypto: "1m",
+    commodity_forex: "5m",
+    us_stocks: "15m",
+  },
 };
 
 export const INTERVAL_TO_MINUTES: Record<PositionCheckInterval, number> = {
@@ -76,7 +82,10 @@ export function parsePositionsMarkdown(content: string): {
   settings: PositionSettings;
   positions: PositionEntry[];
 } {
-  const settings: PositionSettings = { ...DEFAULT_POSITION_SETTINGS };
+  const settings: PositionSettings = {
+    ...DEFAULT_POSITION_SETTINGS,
+    markets: { ...DEFAULT_POSITION_SETTINGS.markets! },
+  };
   const positions: PositionEntry[] = [];
   const lines = content.split(/\r?\n/);
 
@@ -87,26 +96,53 @@ export function parsePositionsMarkdown(content: string): {
     if (!line) continue;
 
     // Parse Settings block
-    if (line.startsWith("- **Tarama Aralığı:**") || line.startsWith("- **Tarama:**")) {
-      const val = line.split(":")[1]?.trim() || "";
-      settings.checkInterval = normalizeCheckInterval(val);
-      settings.intervalMinutes = INTERVAL_TO_MINUTES[settings.checkInterval];
-      continue;
-    }
-    if (line.startsWith("- **Sadece Seans İçi:**")) {
-      const val = line.split(":")[1]?.trim().toLowerCase() || "";
-      settings.onlyTradingHours = val.includes("evet") || val.includes("true");
-      continue;
-    }
-    if (line.startsWith("- **Son Kontrol:**")) {
-      const val = line.split(":")[1]?.trim() || "";
-      settings.lastCheckAt = val === "—" || !val ? null : val;
-      continue;
-    }
-    if (line.startsWith("- **Son Alarm:**")) {
-      const val = line.split(":")[1]?.trim() || "";
-      settings.lastAlarmSentAt = val === "—" || !val ? null : val;
-      continue;
+    const cleanLine = line.replace(/^\s*[-*]\s*/, "");
+    const colonIdx = cleanLine.indexOf(":");
+    if (colonIdx > 0 && !inTable && !cleanLine.startsWith("|")) {
+      const key = cleanLine.slice(0, colonIdx).replace(/\*/g, "").trim().toLowerCase();
+      const val = cleanLine.slice(colonIdx + 1).replace(/\*/g, "").trim();
+
+      if (key.includes("bist") && (key.includes("alarm") || key.includes("tarama") || key.includes("aralık") || key.includes("sıklık"))) {
+        settings.markets!.bist = normalizeCheckInterval(val);
+        continue;
+      }
+      if (key.includes("kripto") && (key.includes("alarm") || key.includes("tarama") || key.includes("aralık") || key.includes("sıklık"))) {
+        settings.markets!.crypto = normalizeCheckInterval(val);
+        continue;
+      }
+      if (
+        (key.includes("emtia") || key.includes("fx") || key.includes("döviz") || key.includes("doviz")) &&
+        (key.includes("alarm") || key.includes("tarama") || key.includes("aralık") || key.includes("sıklık"))
+      ) {
+        settings.markets!.commodity_forex = normalizeCheckInterval(val);
+        continue;
+      }
+      if (
+        (key.includes("abd") || key.includes("us")) &&
+        (key.includes("alarm") || key.includes("tarama") || key.includes("aralık") || key.includes("sıklık"))
+      ) {
+        settings.markets!.us_stocks = normalizeCheckInterval(val);
+        continue;
+      }
+      if (key.includes("tarama aralığı") || key.includes("tarama araligi") || key.includes("tarama") || key.includes("alarm sıklığı")) {
+        settings.checkInterval = normalizeCheckInterval(val);
+        settings.intervalMinutes = INTERVAL_TO_MINUTES[settings.checkInterval];
+        continue;
+      }
+      if (key.includes("seans")) {
+        settings.onlyTradingHours = val.toLowerCase().includes("evet") || val.toLowerCase().includes("true");
+        continue;
+      }
+      if (key.includes("son kontrol")) {
+        const cleanVal = val.replace(/[*—\s]/g, "");
+        settings.lastCheckAt = cleanVal && cleanVal !== "-" ? val.replace(/\*/g, "").trim() : null;
+        continue;
+      }
+      if (key.includes("son alarm")) {
+        const cleanVal = val.replace(/[*—\s]/g, "");
+        settings.lastAlarmSentAt = cleanVal && cleanVal !== "-" ? val.replace(/\*/g, "").trim() : null;
+        continue;
+      }
     }
 
     // Table detection
@@ -191,16 +227,24 @@ export function formatPositionsMarkdown(
       ? "30 dk"
       : "1 saat";
 
+  const mk = settings.markets ?? DEFAULT_POSITION_SETTINGS.markets!;
+  const cleanLastCheck = (settings.lastCheckAt || "—").replace(/\*/g, "").trim() || "—";
+  const cleanLastAlarm = (settings.lastAlarmSentAt || "—").replace(/\*/g, "").trim() || "—";
+
   let md = `# Portföy Pozisyon Takibi & Alarm Masası
 
 Bu dosya, aldığınız hisseleri, alış periyotlarını, dinamik Stop-Loss ve Kâr Al seviyelerini takip eder.
 Fiyat Stop-Loss veya Kâr Al seviyesine ulaştığında otomatik e-posta alarmı gönderilir.
 
 ## Ayarlar
-- **Tarama Aralığı:** ${checkLabel}
+- **Genel Tarama Aralığı:** ${checkLabel}
+- **BIST Alarm Sıklığı:** ${mk.bist}
+- **Kripto Alarm Sıklığı:** ${mk.crypto}
+- **Emtia & FX Alarm Sıklığı:** ${mk.commodity_forex}
+- **ABD Borsası Alarm Sıklığı:** ${mk.us_stocks}
 - **Sadece Seans İçi:** ${settings.onlyTradingHours ? "Evet" : "Hayır"}
-- **Son Kontrol:** ${settings.lastCheckAt ?? "—"}
-- **Son Alarm:** ${settings.lastAlarmSentAt ?? "—"}
+- **Son Kontrol:** ${cleanLastCheck}
+- **Son Alarm:** ${cleanLastAlarm}
 
 ## Aktif Pozisyonlar
 

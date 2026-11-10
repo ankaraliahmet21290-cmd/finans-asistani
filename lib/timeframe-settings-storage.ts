@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { TIMEFRAMES, type TimeframeKey } from "./timeframes";
+export type { TimeframeKey };
 
 export interface TimeframeSettingsConfig {
   watchlist: TimeframeKey;

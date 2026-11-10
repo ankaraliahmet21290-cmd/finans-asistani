@@ -65,21 +65,20 @@ type TabType = "hybrid" | "tech" | "fund" | "tradingview";
 export default function SymbolDetail({ ticker, type }: { ticker: string; type: AssetType }) {
   const [selectedTf, setSelectedTf] = useState<TimeframeKey>("1d");
   const [activeTab, setActiveTab] = useState<TabType>("hybrid");
+
   const [chartMode, setChartMode] = useState<"internal" | "tradingview">("internal");
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(() => {
+
     try {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("symbol_refresh_interval");
-        if (saved != null) {
-          const parsed = Number(saved) as RefreshInterval;
-          if ([0, 15, 30, 60, 120, 300].includes(parsed)) return parsed;
-        }
+      const saved = localStorage.getItem("symbol_refresh_interval");
+      if (saved != null) {
+        const parsed = Number(saved) as RefreshInterval;
+        if ([0, 15, 30, 60, 120, 300].includes(parsed)) setRefreshInterval(parsed);
       }
     } catch {
       // ignore
     }
-    return 30;
-  });
+  }, []);
   const [cache, setCache] = useState<Partial<Record<TimeframeKey, AnalysisResult>>>({});
   const [loadingTf, setLoadingTf] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +200,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll scrollbar-none pb-1 sm:pb-0">
             {TIMEFRAME_OPTIONS.map((tf) => {
               const active = selectedTf === tf.key;
               return (
@@ -209,18 +208,16 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   key={tf.key}
                   id={`tf-btn-${tf.key}`}
                   onClick={() => handleTfChange(tf.key)}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                    active
+                  className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${active
                       ? "border-sky-500 bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-500/20"
                       : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-                  }`}
+                    }`}
                   title={tf.desc}
                 >
                   <span>{tf.label}</span>
                   <span
-                    className={`rounded px-1 text-[10px] font-mono ${
-                      active ? "bg-white/20 text-white" : "bg-zinc-800 text-zinc-500"
-                    }`}
+                    className={`rounded px-1 text-[10px] font-mono ${active ? "bg-white/20 text-white" : "bg-zinc-800 text-zinc-500"
+                      }`}
                   >
                     {tf.short}
                   </span>
@@ -249,11 +246,10 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             <button
               id="tab-btn-hybrid"
               onClick={() => setActiveTab("hybrid")}
-              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
-                activeTab === "hybrid"
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${activeTab === "hybrid"
                   ? "border-violet-500 bg-violet-500/20 text-violet-200 shadow-md shadow-violet-500/10 ring-1 ring-violet-500/30"
                   : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-              }`}
+                }`}
             >
               <span className="text-sm">🔀</span>
               <span className="truncate">Karma Sinyal</span>
@@ -266,11 +262,10 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             <button
               id="tab-btn-tech"
               onClick={() => setActiveTab("tech")}
-              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
-                activeTab === "tech"
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${activeTab === "tech"
                   ? "border-sky-500 bg-sky-500/20 text-sky-200 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/30"
                   : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-              }`}
+                }`}
             >
               <span className="text-sm">📈</span>
               <span className="truncate">Teknik Sinyal</span>
@@ -283,11 +278,10 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             <button
               id="tab-btn-fund"
               onClick={() => setActiveTab("fund")}
-              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
-                activeTab === "fund"
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${activeTab === "fund"
                   ? "border-amber-500 bg-amber-500/20 text-amber-200 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/30"
                   : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-              }`}
+                }`}
             >
               <span className="text-sm">🏢</span>
               <span className="truncate">Temel Sinyal</span>
@@ -300,11 +294,10 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             <button
               id="tab-btn-tradingview"
               onClick={() => setActiveTab("tradingview")}
-              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
-                activeTab === "tradingview"
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${activeTab === "tradingview"
                   ? "border-emerald-500 bg-emerald-500/20 text-emerald-200 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/30"
                   : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-              }`}
+                }`}
             >
               <span className="text-sm">⚡</span>
               <span className="truncate">TradingView</span>
@@ -343,13 +336,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <div className="text-center">
                     <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Teknik Skor</span>
                     <span
-                      className={`font-mono font-bold text-sm ${
-                        currentResult.tech.score > 0
+                      className={`font-mono font-bold text-sm ${currentResult.tech.score > 0
                           ? "text-emerald-400"
                           : currentResult.tech.score < 0
-                          ? "text-red-400"
-                          : "text-zinc-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}
                     >
                       {formatSigned(currentResult.tech.score)}
                     </span>
@@ -358,13 +350,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <div className="text-center">
                     <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Temel Skor</span>
                     <span
-                      className={`font-mono font-bold text-sm ${
-                        (currentResult.fund?.score ?? 0) > 0
+                      className={`font-mono font-bold text-sm ${(currentResult.fund?.score ?? 0) > 0
                           ? "text-emerald-400"
                           : (currentResult.fund?.score ?? 0) < 0
-                          ? "text-red-400"
-                          : "text-zinc-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}
                     >
                       {currentResult.fund?.score != null ? formatSigned(currentResult.fund.score) : "—"}
                     </span>
@@ -373,13 +364,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <div className="text-center">
                     <span className="text-violet-400 block text-[10px] uppercase font-semibold">Karma Skor</span>
                     <span
-                      className={`font-mono font-bold text-sm ${
-                        currentResult.score > 0
+                      className={`font-mono font-bold text-sm ${currentResult.score > 0
                           ? "text-emerald-400"
                           : currentResult.score < 0
-                          ? "text-red-400"
-                          : "text-zinc-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}
                     >
                       {formatSigned(currentResult.score)}
                     </span>
@@ -418,8 +408,8 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   {currentResult.tech.trendStrength?.regime === "strong_trend"
                     ? "🔥 Güçlü Trend"
                     : currentResult.tech.trendStrength?.regime === "ranging"
-                    ? "⚡ Yatay Piyasa"
-                    : "📈 Ilımlı Trend"}
+                      ? "⚡ Yatay Piyasa"
+                      : "📈 Ilımlı Trend"}
                   {currentResult.tech.trendStrength?.adx != null ? ` (${currentResult.tech.trendStrength.adx})` : ""}
                 </span>
               </div>
@@ -445,8 +435,8 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   {currentResult.fundamentals?.peg != null
                     ? `${currentResult.fundamentals.peg.toFixed(2)} (${currentResult.fundamentals.peg <= 1.0 ? "İskontolu" : "Primli"})`
                     : currentResult.fundamentals?.pe != null
-                    ? `F/K ${currentResult.fundamentals.pe.toFixed(1)}`
-                    : "Makro"}
+                      ? `F/K ${currentResult.fundamentals.pe.toFixed(1)}`
+                      : "Makro"}
                 </span>
               </div>
             </div>
@@ -481,22 +471,20 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <button
                     type="button"
                     onClick={() => setChartMode("internal")}
-                    className={`rounded px-2.5 py-1 font-semibold transition ${
-                      chartMode === "internal"
+                    className={`rounded px-2.5 py-1 font-semibold transition ${chartMode === "internal"
                         ? "bg-zinc-800 text-zinc-100 shadow-sm"
                         : "text-zinc-400 hover:text-zinc-200"
-                    }`}
+                      }`}
                   >
                     Yerel Grafik
                   </button>
                   <button
                     type="button"
                     onClick={() => setChartMode("tradingview")}
-                    className={`flex items-center gap-1 rounded px-2.5 py-1 font-semibold transition ${
-                      chartMode === "tradingview"
+                    className={`flex items-center gap-1 rounded px-2.5 py-1 font-semibold transition ${chartMode === "tradingview"
                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                         : "text-zinc-400 hover:text-zinc-200"
-                    }`}
+                      }`}
                   >
                     <span>⚡ TradingView</span>
                   </button>
@@ -648,13 +636,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-right">
                 <span className="text-[10px] uppercase font-bold text-zinc-500 block">Ağırlıklı Skor</span>
                 <span
-                  className={`font-mono text-base font-extrabold tabular-nums ${
-                    currentResult.tech.score > 0
+                  className={`font-mono text-base font-extrabold tabular-nums ${currentResult.tech.score > 0
                       ? "text-emerald-400"
                       : currentResult.tech.score < 0
-                      ? "text-red-400"
-                      : "text-zinc-300"
-                  }`}
+                        ? "text-red-400"
+                        : "text-zinc-300"
+                    }`}
                 >
                   {formatSigned(currentResult.tech.score)}
                 </span>
@@ -672,13 +659,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <div className="mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-zinc-200">SMA200 & EMA20/50</span>
                 <span
-                  className={`font-mono text-xs font-bold ${
-                    (currentResult.tech.categoryScores?.trend ?? 0) > 0
+                  className={`font-mono text-xs font-bold ${(currentResult.tech.categoryScores?.trend ?? 0) > 0
                       ? "text-emerald-400"
                       : (currentResult.tech.categoryScores?.trend ?? 0) < 0
-                      ? "text-red-400"
-                      : "text-zinc-400"
-                  }`}
+                        ? "text-red-400"
+                        : "text-zinc-400"
+                    }`}
                 >
                   {currentResult.tech.categoryScores?.trend != null
                     ? formatSigned(currentResult.tech.categoryScores.trend)
@@ -695,13 +681,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <div className="mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-zinc-200">ADX(14) Filtresi</span>
                 <span
-                  className={`font-mono text-xs font-bold ${
-                    (currentResult.tech.categoryScores?.regime ?? 0) > 0
+                  className={`font-mono text-xs font-bold ${(currentResult.tech.categoryScores?.regime ?? 0) > 0
                       ? "text-emerald-400"
                       : (currentResult.tech.categoryScores?.regime ?? 0) < 0
-                      ? "text-red-400"
-                      : "text-zinc-400"
-                  }`}
+                        ? "text-red-400"
+                        : "text-zinc-400"
+                    }`}
                 >
                   {currentResult.tech.categoryScores?.regime != null
                     ? formatSigned(currentResult.tech.categoryScores.regime)
@@ -718,13 +703,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <div className="mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-zinc-200">MACD, RSI, Stoch</span>
                 <span
-                  className={`font-mono text-xs font-bold ${
-                    (currentResult.tech.categoryScores?.momentum ?? 0) > 0
+                  className={`font-mono text-xs font-bold ${(currentResult.tech.categoryScores?.momentum ?? 0) > 0
                       ? "text-emerald-400"
                       : (currentResult.tech.categoryScores?.momentum ?? 0) < 0
-                      ? "text-red-400"
-                      : "text-zinc-400"
-                  }`}
+                        ? "text-red-400"
+                        : "text-zinc-400"
+                    }`}
                 >
                   {currentResult.tech.categoryScores?.momentum != null
                     ? formatSigned(currentResult.tech.categoryScores.momentum)
@@ -741,13 +725,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <div className="mt-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-zinc-200">Hacim & Bollinger</span>
                 <span
-                  className={`font-mono text-xs font-bold ${
-                    (currentResult.tech.categoryScores?.volume ?? 0) > 0
+                  className={`font-mono text-xs font-bold ${(currentResult.tech.categoryScores?.volume ?? 0) > 0
                       ? "text-emerald-400"
                       : (currentResult.tech.categoryScores?.volume ?? 0) < 0
-                      ? "text-red-400"
-                      : "text-zinc-400"
-                  }`}
+                        ? "text-red-400"
+                        : "text-zinc-400"
+                    }`}
                 >
                   {currentResult.tech.categoryScores?.volume != null
                     ? formatSigned(currentResult.tech.categoryScores.volume)
@@ -776,19 +759,18 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Piyasa Rejimi:</span>
                   <span
-                    className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
-                      currentResult.tech.trendStrength?.regime === "strong_trend"
+                    className={`font-semibold px-2 py-0.5 rounded text-[11px] ${currentResult.tech.trendStrength?.regime === "strong_trend"
                         ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                         : currentResult.tech.trendStrength?.regime === "ranging"
-                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                        : "bg-sky-500/15 text-sky-400 border border-sky-500/30"
-                    }`}
+                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                          : "bg-sky-500/15 text-sky-400 border border-sky-500/30"
+                      }`}
                   >
                     {currentResult.tech.trendStrength?.regime === "strong_trend"
                       ? "🔥 Güçlü Trend (ADX ≥ 25)"
                       : currentResult.tech.trendStrength?.regime === "ranging"
-                      ? "⚡ Yatay / Testere Piyasası (ADX < 20)"
-                      : "📈 Gelişen Trend (ADX 20-25)"}
+                        ? "⚡ Yatay / Testere Piyasası (ADX < 20)"
+                        : "📈 Gelişen Trend (ADX 20-25)"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -874,22 +856,20 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <button
                     type="button"
                     onClick={() => setChartMode("internal")}
-                    className={`rounded px-2.5 py-1 font-semibold transition ${
-                      chartMode === "internal"
+                    className={`rounded px-2.5 py-1 font-semibold transition ${chartMode === "internal"
                         ? "bg-zinc-800 text-zinc-100 shadow-sm"
                         : "text-zinc-400 hover:text-zinc-200"
-                    }`}
+                      }`}
                   >
                     Yerel Grafik
                   </button>
                   <button
                     type="button"
                     onClick={() => setChartMode("tradingview")}
-                    className={`flex items-center gap-1 rounded px-2.5 py-1 font-semibold transition ${
-                      chartMode === "tradingview"
+                    className={`flex items-center gap-1 rounded px-2.5 py-1 font-semibold transition ${chartMode === "tradingview"
                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                         : "text-zinc-400 hover:text-zinc-200"
-                    }`}
+                      }`}
                   >
                     <span>⚡ TradingView</span>
                   </button>
@@ -1078,13 +1058,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-2 text-right">
                 <span className="text-[10px] uppercase font-bold text-zinc-500 block">Ağırlıklı Skor</span>
                 <span
-                  className={`font-mono text-base font-extrabold tabular-nums ${
-                    (currentResult.fund?.score ?? 0) > 0
+                  className={`font-mono text-base font-extrabold tabular-nums ${(currentResult.fund?.score ?? 0) > 0
                       ? "text-emerald-400"
                       : (currentResult.fund?.score ?? 0) < 0
-                      ? "text-red-400"
-                      : "text-zinc-300"
-                  }`}
+                        ? "text-red-400"
+                        : "text-zinc-300"
+                    }`}
                 >
                   {currentResult.fund?.score != null ? formatSigned(currentResult.fund.score) : "—"}
                 </span>
@@ -1104,13 +1083,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <div className="mt-1 flex items-baseline justify-between">
                     <span className="text-xs font-semibold text-zinc-200">Net/Faal. Marj & ROE</span>
                     <span
-                      className={`font-mono text-xs font-bold ${
-                        (currentResult.fund?.categoryScores?.profitability ?? 0) > 0
+                      className={`font-mono text-xs font-bold ${(currentResult.fund?.categoryScores?.profitability ?? 0) > 0
                           ? "text-emerald-400"
                           : (currentResult.fund?.categoryScores?.profitability ?? 0) < 0
-                          ? "text-red-400"
-                          : "text-zinc-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}
                     >
                       {currentResult.fund?.categoryScores?.profitability != null
                         ? formatSigned(currentResult.fund.categoryScores.profitability)
@@ -1127,13 +1105,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <div className="mt-1 flex items-baseline justify-between">
                     <span className="text-xs font-semibold text-zinc-200">PEG, F/K, PD/DD</span>
                     <span
-                      className={`font-mono text-xs font-bold ${
-                        (currentResult.fund?.categoryScores?.valuation ?? 0) > 0
+                      className={`font-mono text-xs font-bold ${(currentResult.fund?.categoryScores?.valuation ?? 0) > 0
                           ? "text-emerald-400"
                           : (currentResult.fund?.categoryScores?.valuation ?? 0) < 0
-                          ? "text-red-400"
-                          : "text-zinc-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}
                     >
                       {currentResult.fund?.categoryScores?.valuation != null
                         ? formatSigned(currentResult.fund.categoryScores.valuation)
@@ -1150,13 +1127,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <div className="mt-1 flex items-baseline justify-between">
                     <span className="text-xs font-semibold text-zinc-200">Cari Oran & Borç/Öz</span>
                     <span
-                      className={`font-mono text-xs font-bold ${
-                        (currentResult.fund?.categoryScores?.solvency ?? 0) > 0
+                      className={`font-mono text-xs font-bold ${(currentResult.fund?.categoryScores?.solvency ?? 0) > 0
                           ? "text-emerald-400"
                           : (currentResult.fund?.categoryScores?.solvency ?? 0) < 0
-                          ? "text-red-400"
-                          : "text-zinc-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}
                     >
                       {currentResult.fund?.categoryScores?.solvency != null
                         ? formatSigned(currentResult.fund.categoryScores.solvency)
@@ -1173,13 +1149,12 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   <div className="mt-1 flex items-baseline justify-between">
                     <span className="text-xs font-semibold text-zinc-200">Gelir & Kâr Payı</span>
                     <span
-                      className={`font-mono text-xs font-bold ${
-                        (currentResult.fund?.categoryScores?.growth ?? 0) > 0
+                      className={`font-mono text-xs font-bold ${(currentResult.fund?.categoryScores?.growth ?? 0) > 0
                           ? "text-emerald-400"
                           : (currentResult.fund?.categoryScores?.growth ?? 0) < 0
-                          ? "text-red-400"
-                          : "text-zinc-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}
                     >
                       {currentResult.fund?.categoryScores?.growth != null
                         ? formatSigned(currentResult.fund.categoryScores.growth)
@@ -1188,6 +1163,73 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                   </div>
                 </div>
               </div>
+
+              {/* Kurumsal Analist Konsensüsü & 12 Aylık Hedef Fiyat Paneli */}
+              {currentResult.usStockFundamentals?.targetMeanPrice != null && (
+                <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-950/40 via-zinc-900/80 to-zinc-900/60 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">🎯</span>
+                      <div>
+                        <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                          Kurumsal Analist Konsensüsü & 12 Aylık Hedef Fiyat
+                          {currentResult.usStockFundamentals.numberOfAnalystOpinions ? (
+                            <span className="rounded-full bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 text-[10px] font-mono font-semibold text-sky-400">
+                              {currentResult.usStockFundamentals.numberOfAnalystOpinions} Analist
+                            </span>
+                          ) : null}
+                        </h3>
+                        <p className="text-xs text-zinc-400">
+                          Yatırım bankaları ve aracı kurum analistlerinin konsensüs ortalama hedef fiyatı ve getiri potansiyeli.
+                        </p>
+                      </div>
+                    </div>
+                    {currentResult.usStockFundamentals.recommendationKey && (
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">
+                        Konsensüs: {currentResult.usStockFundamentals.recommendationKey.toUpperCase().replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">Ortalama Hedef Fiyat</span>
+                      <div className="mt-1 font-mono text-lg font-black text-zinc-100">
+                        {formatPrice(currentResult.usStockFundamentals.targetMeanPrice, currentResult.currency)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">12 Aylık Getiri Potansiyeli</span>
+                      <div
+                        className={`mt-1 font-mono text-lg font-black ${(currentResult.usStockFundamentals.upsidePercent ?? 0) > 0
+                            ? "text-emerald-400"
+                            : "text-red-400"
+                          }`}
+                      >
+                        {(currentResult.usStockFundamentals.upsidePercent ?? 0) > 0 ? "+" : ""}
+                        {currentResult.usStockFundamentals.upsidePercent}%
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">Güncel Piyasa Fiyatı</span>
+                      <div className="mt-1 font-mono text-lg font-bold text-zinc-300">
+                        {formatPrice(currentResult.price, currentResult.currency)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
+                      <span className="text-[11px] text-zinc-400">İleri F/K (Forward P/E)</span>
+                      <div className="mt-1 font-mono text-lg font-bold text-zinc-300">
+                        {currentResult.usStockFundamentals.forwardPe != null
+                          ? currentResult.usStockFundamentals.forwardPe.toFixed(1)
+                          : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 4-Category Institutional Breakdown */}
               <div className="grid gap-5 md:grid-cols-2">
@@ -1381,6 +1423,195 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 />
               </Panel>
             </>
+          ) : currentResult.cryptoFundamentals ? (
+            <>
+              {/* Crypto Fundamentals & Ecosystem View */}
+              <Panel
+                title="🪙 Kripto Para Temel & Likidite Göstergeleri"
+                subtitle="Kripto varlıklar için şirket bilançosu yerine piyasa değeri, likidite oranı ve ATH döngüsü incelenir"
+              >
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* Market Cap */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">Piyasa Değeri (Market Cap)</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-zinc-100 block">
+                      {currentResult.cryptoFundamentals.marketCap != null
+                        ? `$${formatNumber(currentResult.cryptoFundamentals.marketCap, 0)}`
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">Toplam ağ sermayesi</span>
+                  </div>
+
+                  {/* 24h Volume / Market Cap */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">24s Hacim / Piyasa Değeri</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-emerald-400 block">
+                      {currentResult.cryptoFundamentals.volumeToMarketCap != null
+                        ? `%${(currentResult.cryptoFundamentals.volumeToMarketCap * 100).toFixed(2)}`
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">
+                      {currentResult.cryptoFundamentals.volumeToMarketCap != null && currentResult.cryptoFundamentals.volumeToMarketCap > 0.08
+                        ? "🔥 Yüksek likidite & işlem aktivitesi"
+                        : "Dengeli likidite"}
+                    </span>
+                  </div>
+
+                  {/* Dolaşımdaki Arz */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">Dolaşımdaki Arz</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-zinc-200 block">
+                      {currentResult.cryptoFundamentals.circulatingSupply != null
+                        ? formatNumber(currentResult.cryptoFundamentals.circulatingSupply, 0)
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">Aktif dolaşım adedi</span>
+                  </div>
+
+                  {/* 52 Haftalık Zirveden Düşüş */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium block">52H Zirveden Uzaklık</span>
+                    <span className="mt-1 font-mono text-lg font-bold text-amber-400 block">
+                      {currentResult.cryptoFundamentals.athDropPercent != null
+                        ? `${currentResult.cryptoFundamentals.athDropPercent.toFixed(1)}%`
+                        : "—"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5 block">
+                      52H Zirve: ${formatNumber(currentResult.cryptoFundamentals.fiftyTwoWeekHigh, 2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3.5 text-xs text-zinc-400 leading-relaxed">
+                  💡 <strong>Kripto Varlıklarda Temel Analiz Nasıl Yorumlanır?</strong>
+                  <ul className="mt-1.5 space-y-1 list-disc list-inside text-zinc-300">
+                    <li><strong>24s Hacim/MCap:</strong> %10&apos;un üzerindeki oranlar güçlü sermaye girişi ve volatilite habercisidir.</li>
+                    <li><strong>ATH Uzaklığı:</strong> Zirveden %60-%80 düşüşler döngüsel dip ve akümülasyon fırsatı barındırabilir.</li>
+                    <li><strong>7/24 Kesintisiz Piyasa:</strong> Hafta sonu gap riski yoktur, indikatörler 7/24 sürekli veri ile hesaplanır.</li>
+                  </ul>
+                </div>
+              </Panel>
+
+              {/* Price Chart */}
+              <Panel
+                title={`Kripto Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                subtitle="Hareketli ortalamalar ve volatilite bantları"
+              >
+                <PriceChart
+                  candles={currentResult.candles}
+                  sma50={currentResult.ind.sma50}
+                  sma200={currentResult.ind.sma200}
+                  bb={currentResult.ind.bb}
+                  timeframe={selectedTf}
+                />
+              </Panel>
+            </>
+          ) : currentResult.forexCommodityMetrics ? (
+            <>
+              {/* Forex / Commodity Pivot & Macro View */}
+              <Panel
+                title="🥇 Pivot Destek / Direnç & Makro Göstergeler"
+                subtitle="Emtia ve döviz işlemlerinde kurumsal destek/direnç seviyeleri ve küresel makro rasyolar"
+              >
+                {/* Pivot Level Matrix */}
+                {currentResult.forexCommodityMetrics.pivotPoints && (
+                  <div className="mb-4">
+                    <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider block mb-2">
+                      Klasik Pivot Noktaları (Giriş / Çıkış Hedefleri)
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                      <div className="rounded-xl border border-red-950 bg-red-950/20 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-red-400 uppercase">S3</span>
+                        <p className="font-mono text-xs font-bold text-zinc-300 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.s3}</p>
+                      </div>
+                      <div className="rounded-xl border border-red-900/60 bg-red-950/30 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-red-400 uppercase">S2</span>
+                        <p className="font-mono text-xs font-bold text-zinc-200 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.s2}</p>
+                      </div>
+                      <div className="rounded-xl border border-amber-900/60 bg-amber-950/30 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-amber-400 uppercase">S1</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.s1}</p>
+                      </div>
+                      <div className="rounded-xl border-2 border-sky-500/60 bg-sky-950/40 p-2.5 text-center">
+                        <span className="text-[10px] font-extrabold text-sky-300 uppercase">PIVOT (P)</span>
+                        <p className="font-mono text-sm font-black text-white mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.pivot}</p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/30 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase">R1</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.r1}</p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-900/80 bg-emerald-950/40 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-emerald-300 uppercase">R2</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.r2}</p>
+                      </div>
+                      <div className="rounded-xl border border-emerald-800 bg-emerald-950/50 p-2.5 text-center">
+                        <span className="text-[10px] font-bold text-emerald-300 uppercase">R3</span>
+                        <p className="font-mono text-xs font-bold text-zinc-100 mt-0.5">{currentResult.forexCommodityMetrics.pivotPoints.r3}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Macro cards */}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium">🌐 Dolar Endeksi (DXY)</span>
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="font-mono text-lg font-bold text-zinc-100">
+                        {currentResult.forexCommodityMetrics.dxyValue ? formatNumber(currentResult.forexCommodityMetrics.dxyValue, 2) : "—"}
+                      </span>
+                      <span className="text-xs text-zinc-500">Ters Korelasyon</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium">⚖️ Altın/Gümüş Rasyosu</span>
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="font-mono text-lg font-bold text-zinc-100">
+                        {currentResult.forexCommodityMetrics.goldSilverRatio ? formatNumber(currentResult.forexCommodityMetrics.goldSilverRatio, 1) : "—"}
+                      </span>
+                      <span className="text-xs text-zinc-500">XAU/XAG</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3.5">
+                    <span className="text-xs text-zinc-400 font-medium">📈 ABD 10 Yıllık Tahvil</span>
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="font-mono text-lg font-bold text-zinc-100">
+                        {currentResult.forexCommodityMetrics.us10yYield ? `%${formatNumber(currentResult.forexCommodityMetrics.us10yYield, 2)}` : "—"}
+                      </span>
+                      <span className="text-xs text-zinc-500">Reel Faiz</span>
+                    </div>
+                  </div>
+                </div>
+
+                {currentResult.gramGoldTRY != null && (
+                  <div className="mt-4 rounded-xl border border-amber-900/40 bg-amber-950/20 p-3.5 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-amber-300">Gram Altın (TL) Karşılığı</span>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">Ons Altın × USD/TRY ÷ 31.1035</p>
+                    </div>
+                    <span className="font-mono text-xl font-bold text-amber-300 tabular-nums">
+                      {formatNumber(currentResult.gramGoldTRY, 2)} TL
+                    </span>
+                  </div>
+                )}
+              </Panel>
+
+              {/* Price Chart */}
+              <Panel
+                title={`Emtia / Döviz Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                subtitle="Hareketli ortalamalar ve volatilite bantları"
+              >
+                <PriceChart
+                  candles={currentResult.candles}
+                  sma50={currentResult.ind.sma50}
+                  sma200={currentResult.ind.sma200}
+                  bb={currentResult.ind.bb}
+                  timeframe={selectedTf}
+                />
+              </Panel>
+            </>
           ) : (
             <>
               {/* Macro & Gold View */}
@@ -1400,9 +1631,8 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                           {formatNumber(m.value, 3)}
                         </span>
                         <span
-                          className={`font-mono text-xs font-bold ${
-                            (m.changePercent ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"
-                          }`}
+                          className={`font-mono text-xs font-bold ${(m.changePercent ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"
+                            }`}
                         >
                           {formatPercent(m.changePercent)}
                         </span>
@@ -1426,7 +1656,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
               {/* Price Chart */}
               <Panel
-                title={`Altın Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
+                title={`Fiyat Grafiği (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
                 subtitle="Hareketli ortalamalar ve volatilite bantları"
               >
                 <PriceChart
@@ -1512,25 +1742,22 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
                 <div className="grid grid-cols-3 gap-2.5">
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-center">
                     <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Karma Skor</span>
-                    <span className={`font-mono text-base font-bold ${
-                      currentResult.score > 0 ? "text-emerald-400" : currentResult.score < 0 ? "text-red-400" : "text-zinc-400"
-                    }`}>
+                    <span className={`font-mono text-base font-bold ${currentResult.score > 0 ? "text-emerald-400" : currentResult.score < 0 ? "text-red-400" : "text-zinc-400"
+                      }`}>
                       {formatSigned(currentResult.score)}
                     </span>
                   </div>
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-center">
                     <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Teknik Skor</span>
-                    <span className={`font-mono text-base font-bold ${
-                      currentResult.tech.score > 0 ? "text-emerald-400" : currentResult.tech.score < 0 ? "text-red-400" : "text-zinc-400"
-                    }`}>
+                    <span className={`font-mono text-base font-bold ${currentResult.tech.score > 0 ? "text-emerald-400" : currentResult.tech.score < 0 ? "text-red-400" : "text-zinc-400"
+                      }`}>
                       {formatSigned(currentResult.tech.score)}
                     </span>
                   </div>
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-center">
                     <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Temel Skor</span>
-                    <span className={`font-mono text-base font-bold ${
-                      (currentResult.fund?.score ?? 0) > 0 ? "text-emerald-400" : (currentResult.fund?.score ?? 0) < 0 ? "text-red-400" : "text-zinc-400"
-                    }`}>
+                    <span className={`font-mono text-base font-bold ${(currentResult.fund?.score ?? 0) > 0 ? "text-emerald-400" : (currentResult.fund?.score ?? 0) < 0 ? "text-red-400" : "text-zinc-400"
+                      }`}>
                       {currentResult.fund?.score != null ? formatSigned(currentResult.fund.score) : "—"}
                     </span>
                   </div>

@@ -25,6 +25,15 @@ export interface PositionEntry {
   distanceToTargetPercent?: number;
 }
 
+export type PositionMarketScope = "bist" | "crypto" | "commodity_forex" | "us_stocks";
+
+export interface PositionMarketIntervals {
+  bist: PositionCheckInterval;
+  crypto: PositionCheckInterval;
+  commodity_forex: PositionCheckInterval;
+  us_stocks: PositionCheckInterval;
+}
+
 export interface PositionSettings {
   checkInterval: PositionCheckInterval;
   intervalMinutes: number;
@@ -32,6 +41,7 @@ export interface PositionSettings {
   lastCheckAt: string | null;
   lastAlarmSentAt: string | null;
   totalAlarmsSent: number;
+  markets?: PositionMarketIntervals;
 }
 
 export interface PositionTrackerData {

@@ -39,9 +39,10 @@ function useChart(build: (chart: IChartApi, el: HTMLDivElement) => void, deps: u
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const initialHeight = el.clientHeight || (typeof window !== "undefined" && window.innerWidth < 640 ? 150 : 190);
 
     const chart = createChart(el, {
-      height: 190,
+      height: initialHeight,
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
@@ -63,9 +64,12 @@ function useChart(build: (chart: IChartApi, el: HTMLDivElement) => void, deps: u
 
     const resizeObserver = new ResizeObserver((entries) => {
       if (!entries[0]) return;
-      const { width } = entries[0].contentRect;
+      const { width, height } = entries[0].contentRect;
       if (width > 0) {
-        chart.applyOptions({ width });
+        chart.applyOptions({
+          width,
+          ...(height > 0 ? { height } : {}),
+        });
       }
     });
     resizeObserver.observe(el);
@@ -124,7 +128,7 @@ export function RsiChart({ candles, rsi }: Omit<SeriesProps, "macd">) {
     }
   }, [candles, rsi]);
 
-  return <div ref={ref} className="h-[190px] w-full" />;
+  return <div ref={ref} className="h-[150px] sm:h-[190px] w-full" />;
 }
 
 export function MacdChart({ candles, macd }: Omit<SeriesProps, "rsi">) {
@@ -192,5 +196,5 @@ export function MacdChart({ candles, macd }: Omit<SeriesProps, "rsi">) {
     line((p) => p.signal, "#ff6d00");
   }, [candles, macd]);
 
-  return <div ref={ref} className="h-[190px] w-full" />;
+  return <div ref={ref} className="h-[150px] sm:h-[190px] w-full" />;
 }

@@ -63,11 +63,13 @@ export function normalizeIntervalKey(raw: string): MailIntervalOption {
  */
 export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
   const lines = content.split(/\r?\n/);
+  const params: Record<string, string> = {};
   let parsedInterval = "15m";
   let parsedMinutes: number | null = null;
   let parsedEnabled = true;
   let parsedOnlyTradingHours = true;
   let parsedUpdatedAt = new Date().toISOString();
+  let parsedAppUrl: string | undefined = undefined;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -90,7 +92,15 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
         continue;
       }
 
-      if (key === "sıklık" || key === "siklik" || key === "interval" || key === "frequency") {
+      if (key === "bistsıklık" || key === "bistsiklik" || key === "bist") {
+        params["bist"] = val;
+      } else if (key === "kriptosıklık" || key === "kriptosiklik" || key === "kripto" || key === "crypto") {
+        params["crypto"] = val;
+      } else if (key.includes("emtia") || key.includes("forex")) {
+        params["commodity_forex"] = val;
+      } else if (key.includes("abd") || key.includes("usstocks")) {
+        params["us_stocks"] = val;
+      } else if (key === "sıklık" || key === "siklik" || key === "interval" || key === "frequency") {
         parsedInterval = val;
       } else if (key === "dakika" || key === "minutes") {
         const m = parseInt(val, 10);
@@ -103,6 +113,8 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
         parsedOnlyTradingHours = lower === "true" || lower === "evet" || lower === "1";
       } else if (key.includes("güncelleme") || key.includes("guncelleme") || key.includes("updated")) {
         parsedUpdatedAt = val;
+      } else if (key === "uygulamaadresi" || key === "appurl" || key === "domain" || key === "siteurl" || key === "url" || key.includes("alanad")) {
+        parsedAppUrl = val;
       }
       continue;
     }
@@ -113,7 +125,15 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
       const key = kvMatch[1].trim().toLowerCase().replace(/[^a-z0-9ıöüçğş]/gi, "");
       const val = kvMatch[2].trim();
 
-      if (key === "sıklık" || key === "siklik" || key === "interval" || key === "frequency") {
+      if (key === "bistsıklık" || key === "bistsiklik" || key === "bist") {
+        params["bist"] = val;
+      } else if (key === "kriptosıklık" || key === "kriptosiklik" || key === "kripto" || key === "crypto") {
+        params["crypto"] = val;
+      } else if (key.includes("emtia") || key.includes("forex")) {
+        params["commodity_forex"] = val;
+      } else if (key.includes("abd") || key.includes("usstocks")) {
+        params["us_stocks"] = val;
+      } else if (key === "sıklık" || key === "siklik" || key === "interval" || key === "frequency") {
         parsedInterval = val;
       } else if (key === "dakika" || key === "minutes") {
         const m = parseInt(val, 10);
@@ -121,12 +141,21 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
       } else if (key === "aktif" || key === "enabled") {
         const lower = val.toLowerCase();
         parsedEnabled = lower === "true" || lower === "evet" || lower === "aktif" || lower === "1";
+      } else if (key === "uygulamaadresi" || key === "appurl" || key === "domain" || key === "siteurl" || key === "url" || key.includes("alanad")) {
+        parsedAppUrl = val;
       }
     }
   }
 
   const opt = normalizeIntervalKey(parsedInterval);
   const minutes = parsedMinutes != null && parsedMinutes > 0 ? parsedMinutes : opt.minutes;
+
+  const markets = {
+    bist: normalizeIntervalKey(params["bist"] || parsedInterval).key,
+    crypto: normalizeIntervalKey(params["crypto"] || "5m").key,
+    commodity_forex: normalizeIntervalKey(params["commodity_forex"] || "15m").key,
+    us_stocks: normalizeIntervalKey(params["us_stocks"] || "30m").key,
+  };
 
   return {
     intervalKey: opt.key,
@@ -137,6 +166,8 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
     enabled: opt.key === "off" ? false : parsedEnabled,
     onlyTradingHours: parsedOnlyTradingHours,
     updatedAt: parsedUpdatedAt,
+    markets,
+    appUrl: parsedAppUrl || undefined,
   };
 }
 
@@ -145,6 +176,11 @@ export function parseMailSettingsMarkdown(content: string): MailScheduleConfig {
  */
 export function formatMailSettingsMarkdown(config: MailScheduleConfig): string {
   const opt = MAIL_INTERVAL_OPTIONS.find((o) => o.key === config.intervalKey) ?? MAIL_INTERVAL_OPTIONS[2];
+  const bistOpt = normalizeIntervalKey(config.markets?.bist ?? config.intervalKey);
+  const cryptoOpt = normalizeIntervalKey(config.markets?.crypto ?? "5m");
+  const commOpt = normalizeIntervalKey(config.markets?.commodity_forex ?? "15m");
+  const usOpt = normalizeIntervalKey(config.markets?.us_stocks ?? "30m");
+  const activeAppUrl = config.appUrl || process.env.APP_URL || "https://finans-asistanim.ilanbul.tech";
 
   return `# E-Posta Gönderim Ayarları
 
@@ -153,11 +189,16 @@ Arayüz üzerinden seçim yapıldığında bu dosya otomatik güncellenir veya d
 
 | Parametre | Değer | Açıklama |
 | --- | --- | --- |
-| Sıklık | ${opt.key} | Geçerli sıklık: 5m, 10m, 15m, 30m, 1h, 2h, 4h, daily, off |
+| Sıklık | ${opt.key} | Genel varsayılan tarama sıklığı: 5m, 10m, 15m, 30m, 1h, 2h, 4h, daily, off |
+| BIST Sıklık | ${bistOpt.key} | Borsa İstanbul çoklu periyot tarama aralığı |
+| Kripto Sıklık | ${cryptoOpt.key} | Kripto para 7/24 tarama aralığı |
+| Emtia & FX Sıklık | ${commOpt.key} | Altın, döviz, emtia tarama aralığı |
+| ABD Borsası Sıklık | ${usOpt.key} | Amerikan borsası (Nasdaq/S&P) tarama aralığı |
 | Görünen Ad | ${opt.label} | ${opt.desc} |
 | Dakika | ${opt.minutes} | Sayısal dakika karşılığı (0 = devre dışı, 1440 = günlük) |
 | Aktif | ${config.enabled && opt.key !== "off" ? "Evet" : "Hayır"} | Otomatik gönderim açık/kapalı |
 | Yalnızca Seans İçi | ${config.onlyTradingHours ? "Evet" : "Hayır"} | 09:50 - 18:00 seans saatlerinde çalıştır |
+| Uygulama Adresi | ${activeAppUrl} | E-posta linkleri için kullanılan alan adı (domain) |
 | Son Güncelleme | ${config.updatedAt || new Date().toISOString()} | Son güncelleme zamanı |
 
 ---
@@ -208,11 +249,23 @@ export async function getMailSettingsFromFile(forceFresh = false): Promise<MailS
   }
 }
 
+export interface SaveMailSettingsOptions extends Partial<MailScheduleConfig> {
+  market?: "bist" | "crypto" | "commodity_forex" | "us_stocks";
+}
+
+export function getMarketMailInterval(config: MailScheduleConfig, market?: string): MailIntervalKey {
+  if (market === "crypto") return config.markets?.crypto ?? "5m";
+  if (market === "commodity_forex") return config.markets?.commodity_forex ?? "15m";
+  if (market === "us_stocks") return config.markets?.us_stocks ?? "30m";
+  if (market === "bist") return config.markets?.bist ?? "15m";
+  return config.intervalKey;
+}
+
 /**
- * Saves mail settings to mail-settings.md.
+ * Saves mail settings to mail-settings.md with per-market support.
  */
 export async function saveMailSettingsToFile(
-  update: Partial<MailScheduleConfig>
+  update: SaveMailSettingsOptions
 ): Promise<MailScheduleConfig> {
   let current: MailScheduleConfig;
   try {
@@ -221,26 +274,43 @@ export async function saveMailSettingsToFile(
     current = DEFAULT_MAIL_SETTINGS;
   }
 
-  let intervalKey = update.intervalKey ?? current.intervalKey;
-  let intervalOpt = MAIL_INTERVAL_OPTIONS.find((o) => o.key === intervalKey);
-  if (!intervalOpt && update.intervalKey) {
-    intervalOpt = normalizeIntervalKey(update.intervalKey);
-    intervalKey = intervalOpt.key;
-  }
-  if (!intervalOpt) {
-    intervalOpt = MAIL_INTERVAL_OPTIONS[2]; // 15m
-    intervalKey = "15m";
+  const currentMarkets = current.markets
+    ? { ...current.markets }
+    : { bist: "15m" as const, crypto: "5m" as const, commodity_forex: "15m" as const, us_stocks: "30m" as const };
+
+  let nextIntervalKey = current.intervalKey;
+  let nextMarkets = { ...currentMarkets };
+
+  if (update.market) {
+    if (update.intervalKey) {
+      const opt = normalizeIntervalKey(update.intervalKey);
+      if (update.market === "bist") nextMarkets.bist = opt.key;
+      if (update.market === "crypto") nextMarkets.crypto = opt.key;
+      if (update.market === "commodity_forex") nextMarkets.commodity_forex = opt.key;
+      if (update.market === "us_stocks") nextMarkets.us_stocks = opt.key;
+    }
+  } else {
+    if (update.intervalKey) {
+      nextIntervalKey = normalizeIntervalKey(update.intervalKey).key;
+    }
+    if (update.markets) {
+      nextMarkets = { ...nextMarkets, ...update.markets };
+    }
   }
 
+  const intervalOpt = MAIL_INTERVAL_OPTIONS.find((o) => o.key === nextIntervalKey) ?? MAIL_INTERVAL_OPTIONS[2];
+
   const enabled =
-    intervalKey === "off"
+    nextIntervalKey === "off"
       ? false
       : update.enabled !== undefined
       ? update.enabled
-      : true;
+      : current.enabled;
+
+  const appUrl = update.appUrl !== undefined ? update.appUrl : current.appUrl;
 
   const merged: MailScheduleConfig = {
-    intervalKey,
+    intervalKey: intervalOpt.key,
     intervalMinutes: intervalOpt.minutes,
     label: intervalOpt.label,
     emailLabel: intervalOpt.emailLabel,
@@ -248,6 +318,8 @@ export async function saveMailSettingsToFile(
     enabled,
     onlyTradingHours: update.onlyTradingHours !== undefined ? update.onlyTradingHours : current.onlyTradingHours,
     updatedAt: new Date().toISOString(),
+    markets: nextMarkets,
+    appUrl,
   };
 
   const content = formatMailSettingsMarkdown(merged);

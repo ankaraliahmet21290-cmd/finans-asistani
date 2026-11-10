@@ -6,6 +6,7 @@ import SignalBadge from "./SignalBadge";
 import TimeframeSelector from "./TimeframeSelector";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import { detectAssetCategory } from "@/lib/markets";
 import type { AnalysisResult } from "@/lib/types";
 import type { BistCompany } from "@/lib/bist";
 
@@ -27,9 +28,11 @@ export default function SelectedCompanyPreview({
   const [addingTrack, setAddingTrack] = useState(false);
   const [trackNotice, setTrackNotice] = useState<{type: "success" | "error", text: string} | null>(null);
 
-  useEffect(() => {
+  const [prevTimeframe, setPrevTimeframe] = useState(timeframe);
+  if (timeframe !== prevTimeframe) {
+    setPrevTimeframe(timeframe);
     setActiveTimeframe(timeframe);
-  }, [timeframe]);
+  }
 
   const handleTimeframeChange = (newTf: TimeframeKey) => {
     setActiveTimeframe(newTf);
@@ -45,8 +48,9 @@ export default function SelectedCompanyPreview({
       setLoading(true);
       setError(null);
       try {
+        const assetType = detectAssetCategory(company.ticker);
         const res = await fetch(
-          `/api/analyze?ticker=${encodeURIComponent(company.ticker)}&type=stock&timeframe=${activeTimeframe}`,
+          `/api/analyze?ticker=${encodeURIComponent(company.ticker)}&type=${assetType}&timeframe=${activeTimeframe}`,
           { cache: "no-store" }
         );
         const json = await res.json();
@@ -73,12 +77,13 @@ export default function SelectedCompanyPreview({
     setAddingTrack(true);
     setTrackNotice(null);
     try {
+      const assetType = detectAssetCategory(company.ticker);
       const res = await fetch("/api/tracklist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ticker: company.ticker,
-          type: "stock",
+          type: assetType,
           price: data.price,
           signal: data.signal,
           timeframe: activeTimeframe,
@@ -87,7 +92,7 @@ export default function SelectedCompanyPreview({
       if (!res.ok) throw new Error("Eklenemedi");
       setTrackNotice({ type: "success", text: "Takip Listem'e eklendi!" });
       setTimeout(() => setTrackNotice(null), 3000);
-    } catch (err) {
+    } catch {
       setTrackNotice({ type: "error", text: "Eklenirken hata oluştu" });
     } finally {
       setAddingTrack(false);
@@ -160,9 +165,9 @@ export default function SelectedCompanyPreview({
         </div>
 
         {data && (
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="w-full sm:w-auto flex flex-col items-start sm:items-end gap-1.5">
             <SignalBadge signal={data.signal} size="md" />
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <span className="text-xs text-zinc-400">Nihai Skor: </span>
               <span
                 className={`text-sm font-bold tabular-nums ${
@@ -204,7 +209,7 @@ export default function SelectedCompanyPreview({
       )}
 
       {data && (
-        <div className="mt-4 grid gap-3 border-t border-zinc-800/80 pt-4 sm:grid-cols-2">
+        <div className={`mt-4 grid gap-3 border-t border-zinc-800/80 pt-4 sm:grid-cols-2 ${data.usStockFundamentals?.targetMeanPrice != null ? "lg:grid-cols-3" : ""}`}>
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               Öne Çıkan Teknik Sinyaller
@@ -251,26 +256,69 @@ export default function SelectedCompanyPreview({
               </p>
             )}
           </div>
+
+          {data.usStockFundamentals?.targetMeanPrice != null && (
+            <div className="rounded-xl border border-sky-500/30 bg-sky-950/20 p-3 sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-400">
+                  🎯 Analist Konsensüsü
+                </h4>
+                {data.usStockFundamentals.numberOfAnalystOpinions ? (
+                  <span className="text-[10px] font-mono text-zinc-400">
+                    {data.usStockFundamentals.numberOfAnalystOpinions} Analist
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-2 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Görüş:</span>
+                  <span className="font-bold text-emerald-400 uppercase text-[11px]">
+                    {data.usStockFundamentals.recommendationKey?.replace(/_/g, " ") || "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Ort. Hedef Fiyat:</span>
+                  <strong className="font-mono text-zinc-100">
+                    {formatPrice(data.usStockFundamentals.targetMeanPrice, data.currency)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Potansiyel:</span>
+                  <span
+                    className={`font-mono font-bold ${
+                      (data.usStockFundamentals.upsidePercent ?? 0) > 0
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {(data.usStockFundamentals.upsidePercent ?? 0) > 0 ? "+" : ""}
+                    {data.usStockFundamentals.upsidePercent}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/80 pt-3">
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-zinc-800/80 pt-3">
         <span className="text-[11px] text-zinc-500">
           Mum grafiği, Bollinger bantları, RSI & MACD panelleri için detay sayfasına gidin.
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           {data && (
             <button
               onClick={handleTrack}
               disabled={addingTrack}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/50 bg-sky-500/10 px-3.5 py-1.5 text-xs font-semibold text-sky-400 shadow-sm transition hover:bg-sky-500/20 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/50 bg-sky-500/10 px-4 py-2 text-xs font-semibold text-sky-400 shadow-sm transition hover:bg-sky-500/20 active:scale-95 disabled:opacity-50"
             >
               {addingTrack ? "Ekleniyor..." : "Takibe Al"}
             </button>
           )}
           <Link
             href={`/symbol/${encodeURIComponent(company.ticker)}?tf=${activeTimeframe}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-500"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-sky-600/20 transition hover:from-sky-500 hover:to-indigo-500 active:scale-95"
           >
             Tüm Grafikleri ve Detayları Gör →
           </Link>

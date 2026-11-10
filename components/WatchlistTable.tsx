@@ -6,23 +6,60 @@ import SignalBadge from "./SignalBadge";
 import WatchlistCombobox from "./WatchlistCombobox";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import TimeframeSelector from "./TimeframeSelector";
+import MailRecipientsControl from "./MailRecipientsControl";
+import WatchlistScheduleControl from "./WatchlistScheduleControl";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import type { AnalysisResult, AssetType } from "@/lib/types";
 import { DEFAULT_WATCHLIST, type WatchEntry } from "@/lib/watchlist";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import { detectAssetCategory } from "@/lib/markets";
 
 type Row =
   | { status: "loading"; data?: AnalysisResult; error?: string }
   | { status: "ok"; data: AnalysisResult; error?: string }
   | { status: "error"; data?: AnalysisResult; error: string };
 
-const QUICK_SUGGESTIONS = [
-  { ticker: "GARAN.IS", name: "Garanti Bankası", type: "stock" as const },
-  { ticker: "EREGL.IS", name: "Ereğli Demir Çelik", type: "stock" as const },
-  { ticker: "TUPRS.IS", name: "Tüpraş", type: "stock" as const },
-  { ticker: "BIMAS.IS", name: "BİM Mağazalar", type: "stock" as const },
-  { ticker: "GC=F", name: "Ons Altın Vadeli", type: "gold" as const },
-];
+const MARKET_SUGGESTIONS: Record<string, Array<{ ticker: string; name: string; type: AssetType }>> = {
+  crypto: [
+    { ticker: "BTC-USD", name: "Bitcoin", type: "crypto" },
+    { ticker: "ETH-USD", name: "Ethereum", type: "crypto" },
+    { ticker: "SOL-USD", name: "Solana", type: "crypto" },
+    { ticker: "SUI20947-USD", name: "Sui", type: "crypto" },
+    { ticker: "PEPE24478-USD", name: "Pepe", type: "crypto" },
+    { ticker: "TAO22974-USD", name: "Bittensor", type: "crypto" },
+    { ticker: "RENDER-USD", name: "Render", type: "crypto" },
+    { ticker: "AVAX-USD", name: "Avalanche", type: "crypto" },
+    { ticker: "DOGE-USD", name: "Dogecoin", type: "crypto" },
+  ],
+  commodity_forex: [
+    { ticker: "GC=F", name: "Ons Altın Vadeli", type: "gold" },
+    { ticker: "USDTRY=X", name: "Amerikan Doları / TL", type: "forex" },
+    { ticker: "EURTRY=X", name: "Euro / TL", type: "forex" },
+    { ticker: "SI=F", name: "Gümüş Vadeli", type: "commodity" },
+    { ticker: "BZ=F", name: "Brent Petrol", type: "commodity" },
+  ],
+  us_stocks: [
+    { ticker: "NVDA", name: "Nvidia", type: "us_stock" },
+    { ticker: "AAPL", name: "Apple", type: "us_stock" },
+    { ticker: "MSFT", name: "Microsoft", type: "us_stock" },
+    { ticker: "TSLA", name: "Tesla", type: "us_stock" },
+    { ticker: "AMZN", name: "Amazon", type: "us_stock" },
+  ],
+  bist: [
+    { ticker: "GARAN.IS", name: "Garanti Bankası", type: "stock" },
+    { ticker: "EREGL.IS", name: "Ereğli Demir Çelik", type: "stock" },
+    { ticker: "TUPRS.IS", name: "Tüpraş", type: "stock" },
+    { ticker: "BIMAS.IS", name: "BİM Mağazalar", type: "stock" },
+    { ticker: "THYAO.IS", name: "Türk Hava Yolları", type: "stock" },
+  ],
+  all: [
+    { ticker: "THYAO.IS", name: "Türk Hava Yolları", type: "stock" },
+    { ticker: "GC=F", name: "Ons Altın", type: "gold" },
+    { ticker: "BTC-USD", name: "Bitcoin", type: "crypto" },
+    { ticker: "NVDA", name: "Nvidia", type: "us_stock" },
+    { ticker: "USDTRY=X", name: "Dolar/TL", type: "forex" },
+  ],
+};
 
 // Helper to fetch analysis for a single ticker with timeframe
 async function fetchSingleSymbolAnalysis(
@@ -60,8 +97,21 @@ async function fetchAnalysisForEntries(
   return Object.fromEntries(results);
 }
 
-export default function WatchlistTable() {
+export interface WatchlistTableProps {
+  defaultCategory?: "all" | "bist" | "commodity_forex" | "crypto" | "us_stocks";
+  title?: string;
+  subtitle?: string;
+}
+
+export default function WatchlistTable({
+  defaultCategory = "all",
+  title = "İzleme Listesi (Watchlist)",
+  subtitle,
+}: WatchlistTableProps = {}) {
   const [entries, setEntries] = useState<WatchEntry[]>([...DEFAULT_WATCHLIST]);
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "bist" | "commodity_forex" | "crypto" | "us_stocks">(
+    defaultCategory
+  );
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -70,23 +120,20 @@ export default function WatchlistTable() {
   const [removingTicker, setRemovingTicker] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
+  const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
 
-  // Load saved interval preference from localStorage on mount
+  // Client-side only initial load from localStorage to prevent SSR hydration mismatch
   useEffect(() => {
     try {
       const saved = localStorage.getItem("watchlist_refresh_interval");
       if (saved != null) {
         const parsed = Number(saved) as RefreshInterval;
-        if ([0, 15, 30, 60, 120, 300].includes(parsed)) {
-          setRefreshInterval(parsed);
-        }
+        if ([0, 15, 30, 60, 120, 300].includes(parsed)) setRefreshInterval(parsed);
       }
     } catch {
       // ignore
     }
   }, []);
-
-  // Initial mount load: load timeframe settings and watchlist
   useEffect(() => {
     let active = true;
 
@@ -118,13 +165,13 @@ export default function WatchlistTable() {
         if (!active) return;
         setEntries(currentEntries);
 
-        const analyzedRows = await fetchAnalysisForEntries(currentEntries, activeTf);
+        // Fetch analysis
+        const initialRows = await fetchAnalysisForEntries(currentEntries, activeTf);
         if (!active) return;
-        setRows(analyzedRows);
+        setRows(initialRows);
         setUpdatedAt(new Date().toISOString());
-      } catch (err) {
-        if (!active) return;
-        console.error("[WatchlistTable] Yükleme hatası:", err);
+      } catch (e) {
+        console.error("[WatchlistTable] Başlangıç hatası:", e);
       } finally {
         if (active) setIsInitialLoading(false);
       }
@@ -135,148 +182,128 @@ export default function WatchlistTable() {
     };
   }, []);
 
-  // Manual refresh callback
-  const refresh = useCallback(async (tf?: TimeframeKey) => {
-    const targetTf = tf ?? timeframe;
-    setRefreshing(true);
-    try {
-      const res = await fetch("/api/watchlist", { cache: "no-store" });
-      let currentEntries: WatchEntry[] = [...DEFAULT_WATCHLIST];
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.watchlist)) {
-          currentEntries = json.watchlist;
-        }
+  // Refresh handler
+  const refresh = useCallback(
+    async (tf: TimeframeKey = timeframe) => {
+      setRefreshing(true);
+      try {
+        const nextRows = await fetchAnalysisForEntries(entries, tf);
+        setRows(nextRows);
+        setUpdatedAt(new Date().toISOString());
+      } finally {
+        setRefreshing(false);
       }
-      setEntries(currentEntries);
+    },
+    [entries, timeframe]
+  );
 
-      const analyzedRows = await fetchAnalysisForEntries(currentEntries, targetTf);
-      setRows(analyzedRows);
-      setUpdatedAt(new Date().toISOString());
-    } catch (err) {
-      console.error("[WatchlistTable] Yenileme hatası:", err);
-      setNotice({
-        type: "error",
-        text: "Takip listesi yenilenirken bir sorun oluştu.",
-      });
-    } finally {
-      setRefreshing(false);
-    }
-  }, [timeframe]);
-
+  // Auto-refresh interval effect
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+    const timer = setInterval(() => {
+      void refresh(timeframe);
+    }, refreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [refresh, refreshInterval, timeframe]);
   const handleTimeframeChange = async (newTf: TimeframeKey) => {
     setTimeframe(newTf);
     void refresh(newTf);
-
     try {
       await fetch("/api/timeframe/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ panel: "watchlist", timeframe: newTf }),
       });
-      setNotice({
-        type: "success",
-        text: `✓ Takip listesi periyodu ${TIMEFRAMES[newTf]?.label ?? newTf} olarak güncellendi (timeframe-settings.md kaydedildi).`,
-      });
-    } catch (err) {
-      console.error("[WatchlistTable] Periyot kaydedilemedi:", err);
+    } catch (e) {
+      console.error("[WatchlistTable] Periyot kaydedilemedi:", e);
     }
   };
 
-  // Periodic auto-refresh
-  useEffect(() => {
-    if (refreshInterval <= 0) return;
-    const interval = setInterval(() => {
-      void refresh(timeframe);
-    }, refreshInterval * 1000);
-    return () => clearInterval(interval);
-  }, [refresh, refreshInterval, timeframe]);
-
-  // Notice auto-dismiss timer
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 4500);
-    return () => clearTimeout(t);
-  }, [notice]);
-
-  // Add a new stock/asset to watchlist.md via API
-  const handleAdd = async (ticker: string, type: AssetType, name?: string): Promise<boolean> => {
-    const cleanTicker = ticker.trim().toUpperCase();
-    if (entries.some((e) => e.ticker.toUpperCase() === cleanTicker)) {
-      setNotice({
-        type: "error",
-        text: `${cleanTicker} zaten takip listenizde mevcut.`,
-      });
-      return false;
-    }
-
+  // Add symbol handler
+  const handleAdd = async (
+    ticker: string,
+    type: AssetType = "stock",
+    name?: string,
+    customTf?: TimeframeKey
+  ) => {
     try {
+      const tfToAssign = customTf || timeframe;
       const res = await fetch("/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: cleanTicker, type, name }),
+        body: JSON.stringify({ ticker, type, name, timeframe: tfToAssign }),
       });
-
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Eklenemedi");
-      }
-
-      const updatedList: WatchEntry[] = json.watchlist;
-      setEntries(updatedList);
-
-      // Set new item into loading row state
-      setRows((prev) => ({
-        ...prev,
-        [cleanTicker]: { status: "loading" },
-      }));
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
 
       setNotice({
         type: "success",
-        text: `✓ ${cleanTicker} takip listesine ve watchlist.md dosyasına eklendi.`,
+        text: `✓ ${ticker} takip listesine eklendi. (Alarm periyodu: ${TIMEFRAMES[tfToAssign]?.label ?? tfToAssign})`,
       });
 
-      // Analyze the newly added item in background
-      void fetchSingleSymbolAnalysis(cleanTicker, type, timeframe).then((analyzedRow) => {
-        setRows((prev) => ({
-          ...prev,
-          [cleanTicker]: analyzedRow,
-        }));
-      });
+      // Update state
+      const nextEntries = data.watchlist as WatchEntry[];
+      setEntries(nextEntries);
 
-      return true;
+      // Fetch single analysis for newly added ticker with currently viewed timeframe
+      const single = await fetchSingleSymbolAnalysis(ticker, type, timeframe);
+      setRows((prev) => ({ ...prev, [ticker]: single }));
+      setUpdatedAt(new Date().toISOString());
     } catch (err) {
       setNotice({
         type: "error",
         text: err instanceof Error ? err.message : "Sembol eklenirken hata oluştu.",
       });
-      return false;
     }
   };
 
-  // Remove a stock/asset from watchlist.md via API
-  const handleRemove = async (ticker: string) => {
-    const cleanTicker = ticker.trim().toUpperCase();
-    setRemovingTicker(cleanTicker);
+  // Change individual symbol timeframe handler
+  const handleItemTimeframeChange = async (ticker: string, newTf: TimeframeKey) => {
     try {
-      const res = await fetch(`/api/watchlist?ticker=${encodeURIComponent(cleanTicker)}`, {
-        method: "DELETE",
+      const res = await fetch("/api/watchlist", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, timeframe: newTf }),
       });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Silinemedi");
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
 
-      setEntries((prev) => prev.filter((e) => e.ticker.toUpperCase() !== cleanTicker));
-      setRows((prev) => {
-        const next = { ...prev };
-        delete next[cleanTicker];
-        return next;
-      });
+      setEntries((prev) =>
+        prev.map((e) => (e.ticker === ticker ? { ...e, timeframe: newTf } : e))
+      );
 
       setNotice({
         type: "success",
-        text: `✓ ${cleanTicker} takip listesinden (watchlist.md) çıkarıldı.`,
+        text: `✓ ${ticker} için sinyal takip ve mail alarm periyodu "${TIMEFRAMES[newTf]?.label ?? newTf}" olarak kaydedildi.`,
+      });
+    } catch (err) {
+      setNotice({
+        type: "error",
+        text: err instanceof Error ? err.message : "Periyot güncellenemedi.",
+      });
+    }
+  };
+
+  // Remove symbol handler
+  const handleRemove = async (ticker: string) => {
+    setRemovingTicker(ticker);
+    try {
+      const res = await fetch(`/api/watchlist?ticker=${encodeURIComponent(ticker)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+
+      setNotice({
+        type: "success",
+        text: `✓ ${ticker} listeden kaldırıldı.`,
+      });
+
+      setEntries((prev) => prev.filter((e) => e.ticker !== ticker));
+      setRows((prev) => {
+        const next = { ...prev };
+        delete next[ticker];
+        return next;
       });
     } catch (err) {
       setNotice({
@@ -288,55 +315,151 @@ export default function WatchlistTable() {
     }
   };
 
+  const CATEGORY_TABS: Array<{ key: "all" | "bist" | "commodity_forex" | "crypto" | "us_stocks"; label: string }> = [
+    { key: "all", label: "Tümü" },
+    { key: "bist", label: "🇹🇷 BIST" },
+    { key: "commodity_forex", label: "🥇 Emtia & FX" },
+    { key: "crypto", label: "🪙 Kripto" },
+    { key: "us_stocks", label: "🇺🇸 ABD" },
+  ];
+
+  const visibleEntries = entries.filter((e) => {
+    if (categoryFilter === "all") return true;
+    return detectAssetCategory(e.ticker) === categoryFilter;
+  });
+
   const existingTickers = entries.map((e) => e.ticker);
+  const activeSuggestions = MARKET_SUGGESTIONS[categoryFilter] || MARKET_SUGGESTIONS.all;
+
+  const renderAssetBadge = (type: AssetType) => {
+    switch (type) {
+      case "gold":
+        return <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/20">Altın</span>;
+      case "crypto":
+        return <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-400 border border-purple-500/20">Kripto</span>;
+      case "forex":
+        return <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">Döviz</span>;
+      case "commodity":
+        return <span className="rounded bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-400 border border-yellow-500/20">Emtia</span>;
+      case "us_stock":
+        return <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400 border border-blue-500/20">ABD</span>;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="w-full">
       {/* Header section */}
-      <div className="relative z-30 mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="relative z-30 mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-semibold text-zinc-100">Takip Listesi</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">{title}</h2>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-xs font-mono font-medium text-sky-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-              watchlist.md ({entries.length} varlık)
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+              {visibleEntries.length} / {entries.length} varlık
             </span>
             <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-sky-300">
               {TIMEFRAMES[timeframe]?.label ?? timeframe}
             </span>
           </div>
-          <p className="mt-1 text-sm text-zinc-400">
-            Varlıklar doğrudan{" "}
-            <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-xs text-zinc-300">
-              watchlist.md
-            </code>{" "}
-            dosyasından okunur. {TIMEFRAMES[timeframe]?.label ?? "Günlük"} mum ve göstergeleri hesaplanır ·{" "}
-            {updatedAt
-              ? `son güncelleme ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
-              : isInitialLoading
-              ? "yükleniyor…"
-              : "hazır"}
+          <p className="mt-1 text-xs sm:text-sm text-zinc-400">
+            {subtitle ? (
+              subtitle
+            ) : (
+              <>
+                Varlıklar doğrudan{" "}
+                <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-xs text-zinc-300">
+                  watchlist.md
+                </code>{" "}
+                dosyasından okunur · Şu an <strong>{TIMEFRAMES[timeframe]?.label ?? "Günlük"}</strong> mum periyodu inceleniyor (
+                <Link
+                  href="/teknik-detay-klavuzu"
+                  className="font-medium text-sky-400 underline underline-offset-2 transition hover:text-sky-300"
+                >
+                  📊 Sinyal Mantığı
+                </Link>
+                ) · Üstteki periyot butonlarına tıklayarak tüm varlıkların AL/SAT durumunu görebilir, her hissenin yanındaki kutudan bağımsız mail alarm periyodu seçebilirsiniz ·{" "}
+                {updatedAt
+                  ? `son güncelleme ${new Date(updatedAt).toLocaleTimeString("tr-TR")}`
+                  : isInitialLoading
+                  ? "yükleniyor…"
+                  : "hazır"}
+              </>
+            )}
           </p>
         </div>
 
+        {/* Action Controls & View Mode Toggle */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* View Mode Toggle (Mobile / Desktop) */}
+          <div className="inline-flex items-center rounded-xl border border-zinc-800 bg-zinc-900/90 p-0.5">
+            <button
+              onClick={() => setViewMode(viewMode === "cards" ? "table" : "cards")}
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-300 hover:text-white transition"
+              title="Görünüm Değiştir"
+            >
+              <span>{viewMode === "table" ? "💻 Tablo" : "📱 Kart"}</span>
+            </button>
+          </div>
+
           <TimeframeSelector
             value={timeframe}
             onChange={handleTimeframeChange}
             disabled={refreshing}
             size="sm"
+            label="Varsayılan Analiz Periyodu"
+            description="Takip tablosunun varsayılan mum periyodu"
           />
+          <WatchlistScheduleControl
+            size="sm"
+            market={categoryFilter === "all" ? undefined : categoryFilter}
+          />
+          <MailRecipientsControl size="sm" context="watchlist" />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}
             onIntervalChange={(sec) => setRefreshInterval(sec)}
             onRefresh={() => void refresh(timeframe)}
             isRefreshing={refreshing}
             lastUpdated={updatedAt}
+            market="watchlist"
             storageKey="watchlist_refresh_interval"
             size="md"
             align="right"
           />
         </div>
+      </div>
+
+      {/* Market Category Filter Tabs */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {CATEGORY_TABS.map((tab) => {
+          const count =
+            tab.key === "all"
+              ? entries.length
+              : entries.filter((e) => detectAssetCategory(e.ticker) === tab.key).length;
+          const isActive = categoryFilter === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setCategoryFilter(tab.key)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                isActive
+                  ? "bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm"
+                  : "bg-zinc-900/80 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                  isActive ? "bg-sky-500/30 text-sky-200" : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Notification banner */}
@@ -363,11 +486,16 @@ export default function WatchlistTable() {
       <div className="relative z-20 mb-4 rounded-xl border border-zinc-800 bg-gradient-to-r from-zinc-900/90 via-zinc-900/60 to-zinc-950 p-3 sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-1">
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
-              Listeye Yeni Hisse veya Emtia Ekle
-            </label>
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-1">
+              <label className="text-xs font-medium text-zinc-400">
+                Listeye Yeni Varlık Ekle (BIST, Kripto, Altın, Döviz, ABD)
+              </label>
+              <span className="text-[11px] text-zinc-500">
+                Varsayılan Alarm Periyodu: <strong className="text-amber-300 font-mono">🔔 {TIMEFRAMES[timeframe]?.label ?? timeframe}</strong>
+              </span>
+            </div>
             <WatchlistCombobox
-              onAdd={handleAdd}
+              onAdd={(t, typ, n) => handleAdd(t, typ, n, timeframe)}
               existingTickers={existingTickers}
               disabled={refreshing}
             />
@@ -375,28 +503,227 @@ export default function WatchlistTable() {
 
           {/* Quick recommendations chips */}
           <div className="flex flex-col gap-1.5 lg:items-end">
-            <span className="text-[11px] text-zinc-500">Hızlı öneriler:</span>
+            <span className="text-[11px] text-zinc-500">Hızlı öneriler ({categoryFilter}):</span>
             <div className="flex flex-wrap items-center gap-1.5">
-              {QUICK_SUGGESTIONS.filter(
-                (q) => !existingTickers.includes(q.ticker)
-              ).slice(0, 4).map((sug) => (
-                <button
-                  key={sug.ticker}
-                  type="button"
-                  onClick={() => void handleAdd(sug.ticker, sug.type, sug.name)}
-                  className="rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-0.5 text-xs font-mono text-zinc-400 transition hover:border-sky-500/40 hover:bg-sky-500/10 hover:text-sky-300"
-                >
-                  + {sug.ticker.replace(/\.IS$/, "")}
-                </button>
-              ))}
+              {activeSuggestions
+                .filter((q) => !existingTickers.includes(q.ticker))
+                .slice(0, 4)
+                .map((sug) => (
+                  <button
+                    key={sug.ticker}
+                    type="button"
+                    onClick={() => void handleAdd(sug.ticker, sug.type, sug.name, timeframe)}
+                    className="rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-0.5 text-xs font-mono text-zinc-400 transition hover:border-sky-500/40 hover:bg-sky-500/10 hover:text-sky-300 active:scale-95"
+                  >
+                    + {sug.ticker.replace(/\.IS$/, "")}
+                  </button>
+                ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Table */}
-      <div className="overflow-x-auto rounded-xl border border-zinc-800">
-        <table className="w-full min-w-[760px] text-sm">
+      {/* ================================================================ */}
+      {/* 1. MOBILE RESPONSIVE CARDS VIEW                                 */}
+      {/* Shown on mobile when viewMode is 'auto' or 'cards'               */}
+      {/* ================================================================ */}
+      <div
+        className={`${
+          viewMode === "table" ? "hidden" : viewMode === "cards" ? "block" : "block md:hidden"
+        } space-y-3`}
+      >
+        {visibleEntries.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-800 p-8 text-center text-zinc-500">
+            <p className="text-sm font-medium text-zinc-400">
+              {categoryFilter === "all" ? "Takip listeniz boş" : `Bu kategoride (${categoryFilter}) takip edilen varlık yok`}
+            </p>
+            <p className="mt-1 text-xs text-zinc-600">
+              Yukarıdaki arama kutusundan varlık arayarak listeye ekleyebilirsiniz.
+            </p>
+          </div>
+        ) : (
+          visibleEntries.map((w) => {
+            const row = rows[w.ticker];
+            const data = row?.data;
+            const up = (data?.change ?? 0) >= 0;
+            const isRemoving = removingTicker === w.ticker;
+
+            return (
+              <div
+                key={`card-${w.ticker}`}
+                className={`relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-md backdrop-blur-md transition active:scale-[0.99] ${
+                  isRemoving ? "opacity-30 pointer-events-none" : ""
+                }`}
+              >
+                {/* Top Row: Symbol, Badges, Trash button */}
+                <div className="flex items-start justify-between gap-2 border-b border-zinc-800/70 pb-2.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/symbol/${encodeURIComponent(w.ticker)}`}
+                        className="font-mono text-base font-bold text-zinc-100 hover:text-sky-400 transition"
+                      >
+                        {w.ticker}
+                      </Link>
+                      {renderAssetBadge(w.type)}
+                    </div>
+                    <p className="truncate text-xs text-zinc-400 mt-0.5">
+                      {data?.name ?? w.name ?? (w.type === "gold" ? "Ons Altın Vadeli" : "Varlık")}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {data && <SignalBadge signal={data.signal} size="sm" />}
+                    <button
+                      type="button"
+                      onClick={() => void handleRemove(w.ticker)}
+                      disabled={isRemoving}
+                      className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition"
+                      title="Listeden Kaldır"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Middle Row: Price, 24h Change, Overall Score */}
+                <div className="mt-3 flex items-baseline justify-between">
+                  <div>
+                    <div className="text-xl font-bold tabular-nums text-zinc-100">
+                      {!data ? (
+                        <span className="text-zinc-600 text-sm">Hesaplanıyor…</span>
+                      ) : (
+                        formatPrice(data.price, data.currency)
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {data && (
+                      <span
+                        className={`inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-bold tabular-nums ${
+                          up
+                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                            : "bg-red-500/15 text-red-400 border border-red-500/20"
+                        }`}
+                      >
+                        {formatPercent(data.changePercent)}
+                      </span>
+                    )}
+
+                    {data && (
+                      <span
+                        className={`inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-mono font-bold tabular-nums ${
+                          data.score > 0
+                            ? "bg-emerald-500/10 text-emerald-300"
+                            : data.score < 0
+                            ? "bg-red-500/10 text-red-300"
+                            : "bg-zinc-800 text-zinc-400"
+                        }`}
+                        title="Nihai Karar Destek Skoru"
+                      >
+                        Skor: {formatSigned(data.score)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Row: Technical & Fundamental Scores + Link */}
+                {data && (
+                  <div className="mt-3 flex items-center justify-between border-t border-zinc-800/60 pt-2.5 text-[11px] text-zinc-400">
+                    <div className="flex items-center gap-2">
+                      <span>
+                        Teknik:{" "}
+                        <strong
+                          className={
+                            data.tech.score > 0
+                              ? "text-emerald-400"
+                              : data.tech.score < 0
+                              ? "text-red-400"
+                              : "text-zinc-300"
+                          }
+                        >
+                          {formatSigned(data.tech.score)}
+                        </strong>
+                      </span>
+                      <span>·</span>
+                      <span>
+                        Temel:{" "}
+                        <strong
+                          className={
+                            data.fund && data.fund.score != null
+                              ? data.fund.score > 0
+                                ? "text-emerald-400"
+                                : data.fund.score < 0
+                                ? "text-red-400"
+                                : "text-zinc-300"
+                              : "text-zinc-500"
+                          }
+                        >
+                          {data.fund && data.fund.score != null
+                            ? formatSigned(data.fund.score)
+                            : "yok"}
+                        </strong>
+                      </span>
+                    </div>
+
+                    <Link
+                      href={`/symbol/${encodeURIComponent(w.ticker)}`}
+                      className="font-medium text-sky-400 hover:text-sky-300 transition flex items-center gap-1"
+                    >
+                      <span>Grafik & Analiz</span>
+                      <span>→</span>
+                    </Link>
+                  </div>
+                )}
+
+                {/* Individual Symbol Mail Alarm Timeframe */}
+                <div className="mt-2.5 flex items-center justify-between rounded-lg bg-zinc-950/70 px-2.5 py-1.5 border border-zinc-800 text-xs">
+                  <span className="text-zinc-400 flex items-center gap-1.5 font-medium">
+                    <span className="text-amber-400">🔔</span>
+                    <span>Mail Alarm Periyodu:</span>
+                  </span>
+                  <select
+                    value={w.timeframe || "1d"}
+                    onChange={(e) => void handleItemTimeframeChange(w.ticker, e.target.value as TimeframeKey)}
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-xs font-mono font-medium text-amber-300 hover:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500 transition cursor-pointer"
+                    title="Bu varlık için sinyal değiştiğinde mail gönderilecek mum periyodu"
+                  >
+                    <option value="5m">⚡ 5 Dakika</option>
+                    <option value="10m">⚡ 10 Dakika</option>
+                    <option value="15m">⚡ 15 Dakika</option>
+                    <option value="30m">⏱️ 30 Dakika</option>
+                    <option value="1h">⏱️ 1 Saat</option>
+                    <option value="2h">⏱️ 2 Saat</option>
+                    <option value="4h">⏱️ 4 Saat</option>
+                    <option value="1d">📅 Günlük</option>
+                    <option value="1wk">📅 Haftalık</option>
+                    <option value="1mo">📅 Aylık</option>
+                  </select>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ================================================================ */}
+      {/* 2. DESKTOP / ADVANCED TABLE VIEW                                */}
+      {/* Shown on desktop or when user explicitly toggles table           */}
+      {/* ================================================================ */}
+      <div
+        className={`${
+          viewMode === "cards" ? "hidden" : viewMode === "table" ? "block" : "hidden md:block"
+        } overflow-x-auto rounded-xl border border-zinc-800`}
+      >
+        <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/70 text-left text-xs uppercase tracking-wide text-zinc-500">
               <th className="px-4 py-3 font-medium">Sembol</th>
@@ -405,22 +732,29 @@ export default function WatchlistTable() {
               <th className="px-4 py-3 text-right font-medium">Teknik</th>
               <th className="px-4 py-3 text-right font-medium">Temel</th>
               <th className="px-4 py-3 text-right font-medium">Skor</th>
-              <th className="px-4 py-3 text-right font-medium">Sinyal</th>
+              <th className="px-4 py-3 text-center font-medium">
+                Sinyal ({TIMEFRAMES[timeframe]?.label ?? timeframe})
+              </th>
+              <th className="px-3 py-3 text-center font-medium">
+                🔔 Mail Alarmı
+              </th>
               <th className="px-3 py-3 text-center font-medium w-16">İşlem</th>
             </tr>
           </thead>
           <tbody>
             {entries.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-zinc-500">
-                  <p className="text-sm font-medium text-zinc-400">Takip listeniz boş</p>
+                <td colSpan={9} className="py-12 text-center text-zinc-500">
+                  <p className="text-sm font-medium text-zinc-400">
+                    {categoryFilter === "all" ? "Takip listeniz boş" : `Bu kategoride (${categoryFilter}) takip edilen varlık yok`}
+                  </p>
                   <p className="mt-1 text-xs text-zinc-600">
-                    Yukarıdaki arama kutusundan hisse arayarak listeye ekleyebilirsiniz.
+                    Yukarıdaki arama kutusundan varlık arayarak listeye ekleyebilirsiniz.
                   </p>
                 </td>
               </tr>
             ) : (
-              entries.map((w) => {
+              visibleEntries.map((w) => {
                 const row = rows[w.ticker];
                 const data = row?.data;
                 const up = (data?.change ?? 0) >= 0;
@@ -441,13 +775,9 @@ export default function WatchlistTable() {
                         >
                           {w.ticker}
                         </Link>
-                        {w.type === "gold" && (
-                          <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-[10px] font-medium text-amber-400 border border-amber-500/20">
-                            Altın
-                          </span>
-                        )}
+                        {renderAssetBadge(w.type)}
                         <span className="text-xs text-zinc-500 truncate max-w-[200px]">
-                          {data?.name ?? w.name ?? (w.type === "gold" ? "Ons Altın Vadeli" : "Hisse")}
+                          {data?.name ?? w.name ?? (w.type === "gold" ? "Ons Altın Vadeli" : "Varlık")}
                         </span>
                       </div>
                     </td>
@@ -476,7 +806,7 @@ export default function WatchlistTable() {
                     <td className="px-4 py-3 text-right font-semibold tabular-nums text-zinc-100">
                       {data ? formatSigned(data.score) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-center">
                       {row?.status === "error" ? (
                         <span className="text-xs text-red-500" title={row.error}>
                           veri yok
@@ -486,6 +816,25 @@ export default function WatchlistTable() {
                       ) : (
                         <span className="text-zinc-600">…</span>
                       )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <select
+                        value={w.timeframe || "1d"}
+                        onChange={(e) => void handleItemTimeframeChange(w.ticker, e.target.value as TimeframeKey)}
+                        className="rounded-lg border border-zinc-700 bg-zinc-850 px-2 py-1 text-xs font-mono font-medium text-amber-300 hover:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500 transition cursor-pointer"
+                        title="Bu varlık için AL/SAT durumu değiştiğinde mail gönderilecek mum periyodu"
+                      >
+                        <option value="5m">⚡ 5dk</option>
+                        <option value="10m">⚡ 10dk</option>
+                        <option value="15m">⚡ 15dk</option>
+                        <option value="30m">⏱️ 30dk</option>
+                        <option value="1h">⏱️ 1 Saat</option>
+                        <option value="2h">⏱️ 2 Saat</option>
+                        <option value="4h">⏱️ 4 Saat</option>
+                        <option value="1d">📅 Günlük</option>
+                        <option value="1wk">📅 Haftalık</option>
+                        <option value="1mo">📅 Aylık</option>
+                      </select>
                     </td>
                     <td className="px-3 py-3 text-center">
                       <button
@@ -522,7 +871,6 @@ export default function WatchlistTable() {
         <p>
           💡 Bu liste doğrudan projedeki{" "}
           <strong className="text-zinc-400 font-mono">watchlist.md</strong> dosyasına kaydedilir.
-          Dosyayı el ile açıp düzenleyebilir veya arayüzden yönetebilirsiniz.
         </p>
         <p className="text-zinc-600">
           Karar destek aracıdır, yatırım tavsiyesi değildir.

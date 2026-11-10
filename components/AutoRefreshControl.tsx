@@ -18,6 +18,16 @@ interface AutoRefreshControlProps {
   storageKey?: string;
   size?: "sm" | "md";
   align?: "left" | "right";
+  market?:
+    | "bist"
+    | "crypto"
+    | "commodity_forex"
+    | "us_stocks"
+    | "watchlist"
+    | "bist_analyst"
+    | "bist_valuation"
+    | "us_stocks_analyst"
+    | "us_stocks_valuation";
 }
 
 export default function AutoRefreshControl({
@@ -26,10 +36,12 @@ export default function AutoRefreshControl({
   onRefresh,
   isRefreshing,
   lastUpdated,
-  storageKey = "app_refresh_interval",
+  storageKey,
   size = "md",
   align = "right",
+  market,
 }: AutoRefreshControlProps) {
+  const effectiveStorageKey = storageKey ?? (market ? `app_refresh_interval_${market}` : "app_refresh_interval");
   const [isOpen, setIsOpen] = useState(false);
   const [remaining, setRemaining] = useState<number>(intervalSeconds);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,19 +72,29 @@ export default function AutoRefreshControl({
     }
   }, [isOpen]);
 
-  // Sync initial setting from refresh-settings.md via API
+  const [prevInterval, setPrevInterval] = useState(intervalSeconds);
+  if (intervalSeconds !== prevInterval) {
+    setPrevInterval(intervalSeconds);
+    setRemaining(intervalSeconds);
+  }
+
+  const onIntervalChangeRef = useRef(onIntervalChange);
+  useEffect(() => {
+    onIntervalChangeRef.current = onIntervalChange;
+  }, [onIntervalChange]);
+
+  // Sync initial setting from refresh-settings.md via API once on mount
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/settings/refresh", { cache: "no-store" });
+        const url = market ? `/api/settings/refresh?market=${market}` : "/api/settings/refresh";
+        const res = await fetch(url, { cache: "no-store" });
         if (!active || !res.ok) return;
         const json = await res.json();
-        if (json.ok && json.config?.seconds !== undefined) {
-          const fileSeconds = json.config.seconds as RefreshInterval;
-          if (fileSeconds !== intervalSeconds) {
-            onIntervalChange(fileSeconds);
-          }
+        const targetSeconds = (market && json.config?.markets?.[market]) ?? json.effectiveSeconds ?? json.config?.seconds;
+        if (targetSeconds !== undefined) {
+          onIntervalChangeRef.current(targetSeconds as RefreshInterval);
         }
       } catch {
         // Keep current or fallback
@@ -82,28 +104,27 @@ export default function AutoRefreshControl({
     return () => {
       active = false;
     };
-  }, []); // Run on mount
+  }, [market]);
 
   // Listen to cross-component sync event
   useEffect(() => {
     function handleCrossSync(e: Event) {
       const customEvent = e as CustomEvent<RefreshInterval>;
-      if (typeof customEvent.detail === "number" && customEvent.detail !== intervalSeconds) {
-        onIntervalChange(customEvent.detail);
+      if (typeof customEvent.detail === "number") {
+        onIntervalChangeRef.current(customEvent.detail);
       }
     }
-    window.addEventListener("app-refresh-interval-changed", handleCrossSync);
-    return () => window.removeEventListener("app-refresh-interval-changed", handleCrossSync);
-  }, [intervalSeconds, onIntervalChange]);
+    const eventName = market ? `app-refresh-interval-changed-${market}` : "app-refresh-interval-changed";
+    window.addEventListener(eventName, handleCrossSync);
+    return () => window.removeEventListener(eventName, handleCrossSync);
+  }, [market]);
 
   // Countdown timer effect
   useEffect(() => {
     if (intervalSeconds === 0) {
-      setRemaining(0);
       return;
     }
 
-    setRemaining(intervalSeconds);
     const timer = setInterval(() => {
       setRemaining((prev) => {
         if (prev <= 1) {
@@ -126,12 +147,12 @@ export default function AutoRefreshControl({
 
       // Notify other instances on the screen
       if (typeof window !== "undefined") {
+        const eventName = market ? `app-refresh-interval-changed-${market}` : "app-refresh-interval-changed";
         window.dispatchEvent(
-          new CustomEvent<RefreshInterval>("app-refresh-interval-changed", { detail: val })
+          new CustomEvent<RefreshInterval>(eventName, { detail: val })
         );
         try {
-          if (storageKey) localStorage.setItem(storageKey, String(val));
-          localStorage.setItem("app_refresh_interval", String(val));
+          localStorage.setItem(effectiveStorageKey, String(val));
         } catch {
           // ignore
         }
@@ -142,11 +163,24 @@ export default function AutoRefreshControl({
         const res = await fetch("/api/settings/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ seconds: val }),
+          body: JSON.stringify({ seconds: val, market }),
         });
         const json = await res.json();
         if (res.ok && json.ok) {
-          setSaveSuccessMsg(`✓ refresh-settings.md: "${json.config.label}" kaydedildi`);
+          const opt = REFRESH_INTERVAL_OPTIONS.find((o) => o.value === val);
+          const friendlyMarketLabel =
+            market === "bist_analyst"
+              ? "[BIST ANALİST] "
+              : market === "bist_valuation"
+              ? "[BIST DEĞERLEME] "
+              : market === "us_stocks_analyst"
+              ? "[ABD ANALİST] "
+              : market === "us_stocks_valuation"
+              ? "[ABD DEĞERLEME] "
+              : market
+              ? `[${market.toUpperCase()}] `
+              : "";
+          setSaveSuccessMsg(`✓ ${friendlyMarketLabel}refresh-settings.md: "${opt?.label ?? val}" kaydedildi`);
           setTimeout(() => setSaveSuccessMsg(null), 3500);
         }
       } catch (err) {
@@ -155,7 +189,7 @@ export default function AutoRefreshControl({
         setIsSaving(false);
       }
     },
-    [onIntervalChange, storageKey]
+    [onIntervalChange, effectiveStorageKey, market]
   );
 
   const currentOption =
@@ -176,7 +210,7 @@ export default function AutoRefreshControl({
           className={`group flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 font-medium text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100 ${
             size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-xs sm:text-sm"
           }`}
-          title="Veri yenileme sıklığını ayarla (refresh-settings.md)"
+          title="Canlı Veri Yenileme Sıklığı: Ekranda fiyat ve teknik indikatörlerin otomatik yenilenme süresi (refresh-settings.md)"
         >
           {intervalSeconds > 0 ? (
             <span className="relative flex h-2 w-2">
@@ -187,7 +221,9 @@ export default function AutoRefreshControl({
             <span className="h-2 w-2 rounded-full bg-zinc-600" />
           )}
 
-          <span className="text-zinc-400 font-normal">Yenileme:</span>
+          <span className="text-zinc-400 font-normal">
+            <span className="hidden sm:inline">Canlı Veri </span>Yenileme:
+          </span>
           <span className="font-semibold text-zinc-200">{currentOption.label}</span>
 
           {intervalSeconds > 0 && (
@@ -215,16 +251,16 @@ export default function AutoRefreshControl({
         {/* Dropdown Menu */}
         {isOpen && (
           <div
-            className={`absolute ${alignClass} top-full z-[100] mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-800 bg-zinc-950/98 p-2 shadow-2xl backdrop-blur-xl transition duration-150`}
+            className={`absolute ${alignClass} top-full z-[100] mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-800 bg-zinc-950/98 p-2 shadow-2xl backdrop-blur-xl transition duration-150`}
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800/80 px-2 py-1.5 mb-1.5">
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                  <span>⚡ Veri Yenileme Sıklığı</span>
+                  <span>⚡ Canlı Veri Yenileme Sıklığı</span>
                 </div>
-                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
-                  Kaynak: refresh-settings.md
+                <div className="text-[10px] text-zinc-400 mt-0.5">
+                  Ekranda fiyat ve teknik indikatörlerin otomatik yenilenme süresi (refresh-settings.md)
                 </div>
               </div>
               <span

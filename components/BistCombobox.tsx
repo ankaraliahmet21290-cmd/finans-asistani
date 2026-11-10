@@ -3,6 +3,27 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BIST_COMPANIES, BIST_30_TICKERS, normalizeTurkish, type BistCompany } from "@/lib/bist";
+import { CURATED_MARKET_ITEMS } from "@/lib/markets";
+
+import { findCryptoAsset } from "@/lib/crypto-assets";
+
+const GLOBAL_SEARCH_ITEMS: BistCompany[] = [
+  ...Object.values(CURATED_MARKET_ITEMS).map((item) => {
+    const crypto = item.category === "crypto" ? findCryptoAsset(item.ticker) : undefined;
+    return {
+      code: crypto?.code ?? item.ticker.replace(".IS", "").replace("-USD", "").replace("=F", "").replace("=X", ""),
+      ticker: item.ticker,
+      name: `${item.icon ?? ""} ${item.name}`,
+      city:
+        item.category === "crypto"
+          ? "🪙 Kripto"
+          : item.category === "us_stock"
+          ? "🇺🇸 ABD"
+          : "🥇 Emtia/FX",
+    };
+  }),
+  ...BIST_COMPANIES,
+];
 
 interface BistComboboxProps {
   placeholder?: string;
@@ -11,15 +32,17 @@ interface BistComboboxProps {
   autoNavigate?: boolean;
   onSelect?: (company: BistCompany) => void;
   selectedTicker?: string;
+  market?: "bist" | "crypto" | "us_stocks" | "commodity_forex" | "all";
 }
 
 export default function BistCombobox({
-  placeholder = "BIST şirket ara (kod veya ad: THYAO, Garanti, Ereğli...)",
+  placeholder = "Hisse veya varlık ara (THYAO, Altın, BTC, NVDA...)",
   className = "",
   compact = false,
   autoNavigate = true,
   onSelect,
   selectedTicker,
+  market = "bist",
 }: BistComboboxProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -35,7 +58,7 @@ export default function BistCombobox({
     if (!selectedTicker) return null;
     const clean = selectedTicker.toUpperCase();
     return (
-      BIST_COMPANIES.find(
+      GLOBAL_SEARCH_ITEMS.find(
         (c) => c.ticker.toUpperCase() === clean || c.code.toUpperCase() === clean
       ) ?? null
     );
@@ -45,18 +68,41 @@ export default function BistCombobox({
   const filtered = useMemo(() => {
     const q = normalizeTurkish(query);
     if (!q) {
-      // Return popular BIST 30 tickers when empty
+      if (market === "crypto") {
+        return GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🪙 Kripto");
+      }
+      if (market === "us_stocks") {
+        return GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🇺🇸 ABD");
+      }
+      if (market === "commodity_forex") {
+        return GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🥇 Emtia/FX");
+      }
+      if (market === "all") {
+        return GLOBAL_SEARCH_ITEMS.slice(0, 20);
+      }
+      // Default BIST 30 tickers when empty
       return BIST_30_TICKERS.map((t) =>
         BIST_COMPANIES.find((c) => c.ticker === t)
       ).filter((c): c is BistCompany => Boolean(c));
     }
+
+    const sourceItems =
+      market === "crypto"
+        ? GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🪙 Kripto")
+        : market === "us_stocks"
+        ? GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🇺🇸 ABD")
+        : market === "commodity_forex"
+        ? GLOBAL_SEARCH_ITEMS.filter((c) => c.city === "🥇 Emtia/FX")
+        : market === "bist"
+        ? BIST_COMPANIES
+        : GLOBAL_SEARCH_ITEMS;
 
     const exactCodes: BistCompany[] = [];
     const prefixCodes: BistCompany[] = [];
     const prefixNames: BistCompany[] = [];
     const containsMatches: BistCompany[] = [];
 
-    for (const c of BIST_COMPANIES) {
+    for (const c of sourceItems) {
       const codeNorm = normalizeTurkish(c.code);
       const nameNorm = normalizeTurkish(c.name);
 
@@ -81,8 +127,22 @@ export default function BistCombobox({
       }
     }
 
-    return [...exactCodes, ...prefixCodes, ...prefixNames, ...containsMatches].slice(0, 30);
-  }, [query]);
+    const matches = [...exactCodes, ...prefixCodes, ...prefixNames, ...containsMatches].slice(0, 30);
+    const cleanRaw = query.trim().toUpperCase();
+    if (
+      cleanRaw.match(/^[A-Z]{1,5}(-[A-Z])?$/) &&
+      !matches.some((m) => m.code.toUpperCase() === cleanRaw || m.ticker.toUpperCase() === cleanRaw)
+    ) {
+      matches.push({
+        code: cleanRaw,
+        ticker: cleanRaw,
+        name: `🔍 ${cleanRaw} (ABD Borsası / Wall Street Hissesi)`,
+        city: "🇺🇸 ABD",
+      });
+    }
+
+    return matches;
+  }, [market, query]);
 
   // Click outside listener
   useEffect(() => {
@@ -118,10 +178,6 @@ export default function BistCombobox({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Keep active index in bounds
-  useEffect(() => {
-    setActiveIndex(-1);
-  }, [query]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -206,15 +262,18 @@ export default function BistCombobox({
         <input
           ref={inputRef}
           type="text"
+          role="combobox"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActiveIndex(-1);
             if (!isOpen) setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-expanded={isOpen}
+          aria-controls="bist-combobox-list"
           aria-autocomplete="list"
           className={`w-full rounded-xl border border-zinc-800 bg-zinc-900/90 text-zinc-100 placeholder-zinc-500 shadow-inner backdrop-blur transition focus:border-sky-500/80 focus:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 ${
             compact
@@ -272,7 +331,7 @@ export default function BistCombobox({
               </p>
             </div>
           ) : (
-            <ul ref={listRef} className="space-y-1">
+            <ul id="bist-combobox-list" role="listbox" ref={listRef} className="space-y-1">
               {filtered.map((company, index) => {
                 const isSelected =
                   initialCompany?.code === company.code ||

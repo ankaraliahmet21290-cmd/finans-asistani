@@ -3,11 +3,14 @@ import {
   getRecipientsFromFile,
   addRecipientToFile,
   removeRecipientFromFile,
-  toggleRecipientStatus,
+  updateRecipientInFile,
   isValidEmail,
   RECIPIENTS_FILE_PATH,
 } from "@/lib/mail-recipients-storage";
 import path from "path";
+
+import type { MailIntervalKey } from "@/lib/mail-settings-types";
+import type { MarketScope } from "@/lib/mail-recipients-types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +37,24 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, name, enabled } = body as {
+    const {
+      email,
+      name,
+      enabled,
+      intervalKey,
+      notifyReports,
+      notifyPositions,
+      notifyWatchlist,
+      markets,
+    } = body as {
       email?: string;
       name?: string;
       enabled?: boolean;
+      intervalKey?: MailIntervalKey;
+      notifyReports?: boolean;
+      notifyPositions?: boolean;
+      notifyWatchlist?: boolean;
+      markets?: MarketScope[];
     };
 
     if (!email || typeof email !== "string" || !isValidEmail(email)) {
@@ -50,7 +67,12 @@ export async function POST(req: Request) {
     const updated = await addRecipientToFile({
       email,
       name,
+      intervalKey,
       enabled: enabled !== undefined ? enabled : true,
+      notifyReports,
+      notifyPositions,
+      notifyWatchlist,
+      markets,
     });
 
     const activeEmails = updated.filter((r) => r.enabled).map((r) => r.email);
@@ -116,10 +138,24 @@ export async function DELETE(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { email, enabled, name } = body as {
+    const {
+      email,
+      enabled,
+      name,
+      intervalKey,
+      notifyReports,
+      notifyPositions,
+      notifyWatchlist,
+      markets,
+    } = body as {
       email?: string;
       enabled?: boolean;
       name?: string;
+      intervalKey?: MailIntervalKey;
+      notifyReports?: boolean;
+      notifyPositions?: boolean;
+      notifyWatchlist?: boolean;
+      markets?: MarketScope[];
     };
 
     if (!email || typeof email !== "string") {
@@ -129,17 +165,21 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const updated = await toggleRecipientStatus(
-      email,
-      enabled !== undefined ? enabled : true,
-      name
-    );
+    const updated = await updateRecipientInFile(email, {
+      enabled,
+      name,
+      intervalKey,
+      notifyReports,
+      notifyPositions,
+      notifyWatchlist,
+      markets,
+    });
 
     const activeEmails = updated.filter((r) => r.enabled).map((r) => r.email);
 
     return NextResponse.json({
       ok: true,
-      message: `"${email}" durumu güncellendi (mail-recipients.md).`,
+      message: `"${email}" ayarları güncellendi (mail-recipients.md).`,
       recipients: updated,
       activeEmails,
       totalCount: updated.length,

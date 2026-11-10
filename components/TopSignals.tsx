@@ -5,6 +5,8 @@ import Link from "next/link";
 import SignalBadge from "./SignalBadge";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import TimeframeSelector from "./TimeframeSelector";
+import IndexTypeSelector from "./IndexTypeSelector";
+import { INDEX_TYPES, type IndexTypeKey } from "@/lib/index-types";
 import { formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import type { RankedStock, TopSignalsResponse } from "@/app/api/signals/top/route";
 import type { TimeframeKey } from "@/lib/timeframes";
@@ -165,75 +167,107 @@ function StockRankingCard({
   );
 }
 
-export default function TopSignals() {
+export interface TopSignalsProps {
+  market?: "bist" | "crypto" | "us_stocks" | "commodity_forex";
+  title?: string;
+  subtitle?: string;
+}
+
+export default function TopSignals({
+  market = "bist",
+  title,
+  subtitle,
+}: TopSignalsProps = {}) {
   const [data, setData] = useState<TopSignalsResponse | null>(null);
   const [timeframe, setTimeframe] = useState<TimeframeKey>("1d");
+  const [indexType, setIndexType] = useState<IndexTypeKey>("bist30");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(30);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSignals = useCallback(async (tf?: TimeframeKey, force = false) => {
-    const activeTf = tf ?? timeframe;
-    try {
-      if (force) setRefreshing(true);
-      else setLoading(true);
+  const fetchSignals = useCallback(
+    async (tf: TimeframeKey = timeframe, idx: IndexTypeKey = indexType, force = false) => {
+      try {
+        if (force) setRefreshing(true);
+        else setLoading(true);
 
-      const res = await fetch(`/api/signals/top?timeframe=${activeTf}${force ? "&force=true" : ""}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: TopSignalsResponse = await res.json();
-      setData(json);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sinyaller yüklenemedi");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [timeframe]);
+        const url =
+          market === "bist"
+            ? `/api/signals/top?timeframe=${tf}&indexType=${idx}${force ? "&force=true" : ""}`
+            : `/api/signals/top?market=${market}&timeframe=${tf}${force ? "&force=true" : ""}`;
 
-  // Load saved timeframe from timeframe-settings.md on mount
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: TopSignalsResponse = await res.json();
+        setData(json);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Sinyaller yüklenemedi");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [indexType, market, timeframe]
+  );
+
+  // Load saved timeframe & indexType on mount
   useEffect(() => {
     let active = true;
     (async () => {
+      let savedTf: TimeframeKey = "1d";
+      let savedIdx: IndexTypeKey = "bist30";
+
       try {
-        const res = await fetch("/api/timeframe/settings", { cache: "no-store" });
-        if (res.ok && active) {
-          const json = await res.json();
+        const [tfRes, idxRes] = await Promise.all([
+          fetch("/api/timeframe/settings", { cache: "no-store" }),
+          market === "bist" ? fetch("/api/index-type/settings", { cache: "no-store" }) : Promise.resolve({ ok: false } as Response),
+        ]);
+
+        if (tfRes.ok) {
+          const json = await tfRes.json();
           if (json.settings?.topSignals) {
-            const savedTf = json.settings.topSignals as TimeframeKey;
-            setTimeframe(savedTf);
-            void fetchSignals(savedTf);
-            return;
+            savedTf = json.settings.topSignals as TimeframeKey;
+          }
+        }
+
+        if (idxRes.ok) {
+          const json = await idxRes.json();
+          if (json.settings?.topSignals) {
+            savedIdx = json.settings.topSignals as IndexTypeKey;
           }
         }
       } catch {
-        // fallback
+        // fallback to defaults
       }
-      if (active) void fetchSignals("1d");
+
+      if (active) {
+        setTimeframe(savedTf);
+        setIndexType(savedIdx);
+        void fetchSignals(savedTf, savedIdx, false);
+      }
     })();
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [fetchSignals, market]);
 
   // Periodic auto-refresh
   useEffect(() => {
     if (refreshInterval <= 0) return;
 
     const interval = setInterval(() => {
-      void fetchSignals(timeframe, true);
+      void fetchSignals(timeframe, indexType, true);
     }, refreshInterval * 1000);
 
     return () => clearInterval(interval);
-  }, [fetchSignals, refreshInterval, timeframe]);
+  }, [fetchSignals, indexType, refreshInterval, timeframe]);
 
   const handleTimeframeChange = async (newTf: TimeframeKey) => {
     setTimeframe(newTf);
-    void fetchSignals(newTf, true);
+    void fetchSignals(newTf, indexType, true);
 
     try {
       await fetch("/api/timeframe/settings", {
@@ -246,6 +280,21 @@ export default function TopSignals() {
     }
   };
 
+  const handleIndexTypeChange = async (newKey: IndexTypeKey) => {
+    setIndexType(newKey);
+    void fetchSignals(timeframe, newKey, true);
+
+    try {
+      await fetch("/api/index-type/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panel: "topSignals", indexType: newKey }),
+      });
+    } catch (e) {
+      console.error("[TopSignals] Endeks tipi kaydedilemedi:", e);
+    }
+  };
+
   return (
     <section className="w-full">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -253,14 +302,29 @@ export default function TopSignals() {
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <h2 className="text-xl font-bold tracking-tight text-zinc-100">
-              Lider Sinyaller
+              {title ??
+                (market === "crypto"
+                  ? "Kripto Para Lider Sinyaller"
+                  : market === "us_stocks"
+                  ? "Amerikan Borsası Lider Sinyaller"
+                  : market === "commodity_forex"
+                  ? "Emtia & Döviz Lider Sinyaller"
+                  : "Lider Sinyaller")}
             </h2>
             <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-300">
               {data?.timeframeLabel ?? timeframe}
             </span>
           </div>
           <p className="mt-1 text-xs text-zinc-400">
-            BIST lider hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları ({data?.timeframeLabel ?? "Günlük"})
+            {subtitle ??
+              (market === "crypto"
+                ? "Kripto paralar arasında teknik ve momentum puanına göre en yüksek AL ve SAT adayları"
+                : market === "us_stocks"
+                ? "Amerikan hisseleri arasında analist ve teknik puana göre en yüksek AL ve SAT adayları"
+                : market === "commodity_forex"
+                ? "Emtia, altın ve döviz pariteleri arasında en yüksek AL ve SAT adayları"
+                : `${INDEX_TYPES[indexType].label} hisseleri arasında teknik ve temel puana göre en yüksek AL ve SAT adayları`)}{" "}
+            ({data?.timeframeLabel ?? "Günlük"})
             {data?.updatedAt && (
               <span> · Güncellenme: {new Date(data.updatedAt).toLocaleTimeString("tr-TR")}</span>
             )}
@@ -268,16 +332,26 @@ export default function TopSignals() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {market === "bist" && (
+            <IndexTypeSelector
+              id="top-signals-index-type"
+              value={indexType}
+              onChange={handleIndexTypeChange}
+              disabled={loading || refreshing}
+            />
+          )}
           <TimeframeSelector
             value={timeframe}
             onChange={handleTimeframeChange}
             disabled={loading || refreshing}
             size="sm"
+            label="Varsayılan Analiz Periyodu"
+            description="Lider sinyaller analiz ve tarama periyodu"
           />
           <AutoRefreshControl
             intervalSeconds={refreshInterval}
             onIntervalChange={(sec) => setRefreshInterval(sec)}
-            onRefresh={() => void fetchSignals(timeframe, true)}
+            onRefresh={() => void fetchSignals(timeframe, indexType, true)}
             isRefreshing={loading || refreshing}
             lastUpdated={data?.updatedAt}
             storageKey="top_signals_refresh_interval"

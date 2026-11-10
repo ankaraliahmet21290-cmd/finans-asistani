@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchBistCompanies } from "@/lib/bist";
+import { CURATED_MARKET_ITEMS, detectAssetCategory } from "@/lib/markets";
+import { findCryptoAsset } from "@/lib/crypto-assets";
 import type { AssetType } from "@/lib/types";
 
 interface WatchlistComboboxProps {
@@ -34,9 +36,36 @@ export default function WatchlistCombobox({
     return s;
   }, [existingTickers]);
 
-  // Search results
+  // Search results (including Curated Assets like Gold, BTC, NVDA, USD/TRY)
   const bistResults = useMemo(() => {
-    return searchBistCompanies(query, 25);
+    const q = query.trim().toLowerCase();
+    const curatedMatches = Object.values(CURATED_MARKET_ITEMS)
+      .filter((item) => {
+        if (!q) return false;
+        const crypto = item.category === "crypto" ? findCryptoAsset(item.ticker) : undefined;
+        return (
+          item.ticker.toLowerCase().includes(q) ||
+          item.name.toLowerCase().includes(q) ||
+          (crypto && crypto.code.toLowerCase().includes(q))
+        );
+      })
+      .map((item) => {
+        const crypto = item.category === "crypto" ? findCryptoAsset(item.ticker) : undefined;
+        return {
+          code: crypto?.code ?? item.ticker.replace("-USD", "").replace("=F", "").replace("=X", ""),
+          ticker: item.ticker,
+          name: `${item.icon ?? ""} ${item.name}`,
+          city:
+            item.category === "crypto"
+              ? "🪙 Kripto"
+              : item.category === "us_stock"
+              ? "🇺🇸 ABD"
+              : "🥇 Emtia & FX",
+        };
+      });
+
+    const bResults = searchBistCompanies(query, 20);
+    return [...curatedMatches, ...bResults];
   }, [query]);
 
   // Clean custom ticker interpretation
@@ -50,10 +79,15 @@ export default function WatchlistCombobox({
     );
     if (exactBist) return null;
 
+    const curated = CURATED_MARKET_ITEMS[clean];
     const isGold = clean.includes("GC=F") || clean === "ALTIN" || clean === "GOLD";
-    const type: AssetType = isGold ? "gold" : "stock";
-    const ticker = isGold ? (clean === "ALTIN" || clean === "GOLD" ? "GC=F" : clean) : clean;
-    const name = isGold ? "Ons Altın Vadeli" : `${clean} (Özel Sembol)`;
+    const type: AssetType = isGold ? "gold" : curated ? (curated.category as AssetType) : detectAssetCategory(clean);
+    const ticker = isGold ? "GC=F" : clean;
+    const name = isGold
+      ? "Ons Altın Vadeli"
+      : curated
+      ? curated.name
+      : `${clean} (${type.toUpperCase()})`;
 
     return { ticker, type, name, isExisting: existingSet.has(ticker) };
   }, [query, bistResults, existingSet]);
