@@ -21,7 +21,7 @@ export interface MarketConfig {
 
 import { ALL_CRYPTO_TICKERS, CRYPTO_ASSETS, findCryptoAsset } from "./crypto-assets";
 import { ALL_US_STOCK_TICKERS, US_STOCK_ASSETS, findUsStockAsset } from "./us-stock-assets";
-import { BIST_100_TICKERS } from "./bist";
+import { BIST_100_TICKERS, findBistCompany } from "./bist";
 
 export const MARKETS: readonly MarketConfig[] = [
   {
@@ -119,11 +119,11 @@ export function detectAssetCategory(ticker: string): "stock" | "gold" | "commodi
   if (upper === "SI=F" || upper === "BZ=F" || upper === "CL=F" || upper === "HG=F" || upper === "PL=F") return "commodity";
   if (upper.endsWith("=X") || upper === "DX-Y.NYB" || upper === "^TNX") return "forex";
   if (findCryptoAsset(upper) || upper.endsWith("-USD") || upper.endsWith("-TRY") || upper.endsWith("-USDT")) return "crypto";
-  if (upper.endsWith(".IS")) return "stock";
+  if (upper.endsWith(".IS") || upper.startsWith("BIST:") || findBistCompany(upper)) return "stock";
   if (findUsStockAsset(upper)) return "us_stock";
   if (CURATED_MARKET_ITEMS[upper]?.category === "us_stock") return "us_stock";
   if (upper.match(/^[A-Z]{1,5}(-[A-Z])?$/)) {
-    // 1-5 harfli nokta içermeyen semboller ABD hissesi kabul edilir (AAPL, MSFT, BRK-B vb.)
+    // 1-5 harfli nokta içermeyen ve BIST'te olmayan semboller ABD hissesi kabul edilir
     return "us_stock";
   }
   return "stock";

@@ -69,7 +69,7 @@ for (const c of BIST_COMPANIES) {
 }
 
 export function findBistCompany(query: string): BistCompany | undefined {
-  const clean = query.trim().toUpperCase();
+  const clean = query.trim().toUpperCase().replace(/^BIST:/i, "");
   const withoutIS = clean.replace(/\.IS$/, "");
   const withIS = withoutIS + ".IS";
 
