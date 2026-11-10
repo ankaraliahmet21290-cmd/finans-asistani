@@ -134,15 +134,84 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
   if (error && !currentResult) {
     return (
-      <div className="rounded-2xl border border-red-900/60 bg-red-950/40 p-6 text-sm text-red-300">
-        <p className="font-semibold text-base">Veri alınamadı: {ticker}</p>
-        <p className="mt-1 text-red-400/80">{error}</p>
-        <Link
-          href="/"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 px-4 py-2 text-xs font-medium text-zinc-200 transition hover:bg-zinc-700"
-        >
-          ← Takip listesine dön
-        </Link>
+      <div className="flex flex-col gap-5">
+        {/* Top Header Navigation */}
+        <div className="relative z-30 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Takip Listesine Dön
+          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void fetchTimeframeData(selectedTf, true)}
+              disabled={loadingTf}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-zinc-700 disabled:opacity-50"
+            >
+              {loadingTf ? "Yenileniyor..." : "🔄 Yeniden Dene"}
+            </button>
+          </div>
+        </div>
+
+        {/* Informative Banner */}
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 text-sm text-amber-200 shadow-lg">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">⚡</span>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-300">
+                {ticker} · Canlı TradingView Modu
+              </h3>
+              <p className="mt-1 text-xs text-amber-200/80 leading-relaxed">
+                Bu sembolün yerel temel analiz verileri çekilemedi ({error}). Ancak TradingView canlı fiyat grafiği, tüm çizim araçları ve teknik osilatör ibreleri aşağıda eksiksiz çalışmaktadır.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Timeframe Selector for TradingView */}
+        <div className="flex items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 backdrop-blur-md">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+            Periyot Seçimi:
+          </span>
+          <div className="flex items-center gap-1.5 overflow-x-auto touch-scroll scrollbar-none pb-1 sm:pb-0">
+            {TIMEFRAME_OPTIONS.map((tf) => {
+              const active = selectedTf === tf.key;
+              return (
+                <button
+                  key={tf.key}
+                  onClick={() => setSelectedTf(tf.key)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                    active
+                      ? "border-sky-500 bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-500/20"
+                      : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                  }`}
+                >
+                  <span>{tf.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Live Interactive TradingView Chart */}
+        <TradingViewChart
+          ticker={ticker}
+          type={type}
+          timeframe={selectedTf}
+          height={600}
+        />
+
+        {/* TradingView Technical Analysis Gauge */}
+        <TradingViewTechnicalAnalysis
+          ticker={ticker}
+          type={type}
+          timeframe={selectedTf}
+          height={430}
+        />
       </div>
     );
   }

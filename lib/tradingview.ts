@@ -3,6 +3,9 @@
  * Maps local / Yahoo Finance tickers to official TradingView symbol formats.
  */
 
+import { findUsStockAsset } from "./us-stock-assets";
+import { findBistCompany } from "./bist";
+
 export function toTradingViewSymbol(ticker: string, type?: string): string {
   const clean = (ticker || "").trim().toUpperCase();
 
@@ -31,20 +34,31 @@ export function toTradingViewSymbol(ticker: string, type?: string): string {
   if (clean === "XU100.IS") return "BIST:XU100";
   if (clean === "XU030.IS") return "BIST:XU030";
 
-  // Crypto
-  if (clean === "BTC-USD" || clean === "BTCUSD") return "BINANCE:BTCUSDT";
-  if (clean === "ETH-USD" || clean === "ETHUSD") return "BINANCE:ETHUSDT";
-  if (clean === "SOL-USD" || clean === "SOLUSD") return "BINANCE:SOLUSDT";
+  // All Crypto (e.g. BTC-USD -> BINANCE:BTCUSDT, AVAX-USD -> BINANCE:AVAXUSDT)
+  if (clean.endsWith("-USD")) {
+    const coin = clean.replace(/-USD$/, "");
+    return `BINANCE:${coin}USDT`;
+  }
+  if (clean.endsWith("-USDT")) {
+    const coin = clean.replace(/-USDT$/, "");
+    return `BINANCE:${coin}USDT`;
+  }
+  if (clean === "BTCUSD") return "BINANCE:BTCUSDT";
+  if (clean === "ETHUSD") return "BINANCE:ETHUSDT";
+  if (clean === "SOLUSD") return "BINANCE:SOLUSDT";
 
   // If already prefixed with exchange (e.g. BIST:THYAO, NASDAQ:AAPL)
   if (clean.includes(":")) return clean;
 
-  // Stock fallback: If type is stock and no dot, check if it's likely BIST or US
-  if (type === "stock") {
-    // If 4-5 chars without dot, treat as BIST
-    if (/^[A-Z]{3,5}$/.test(clean)) {
-      return `BIST:${clean}`;
-    }
+  // US Stocks: map to exact exchange (e.g. NASDAQ:AAPL, NYSE:JPM)
+  const us = findUsStockAsset(clean);
+  if (us) {
+    return `${us.exchange}:${us.code}`;
+  }
+
+  // BIST check
+  if (findBistCompany(clean) || type === "stock") {
+    return `BIST:${clean}`;
   }
 
   return clean;

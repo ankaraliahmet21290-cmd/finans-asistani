@@ -4,6 +4,8 @@ import { resolveType } from "@/lib/watchlist";
 import type { TimeframeKey } from "@/lib/types";
 
 import { findBistCompany } from "@/lib/bist";
+import { findUsStockAsset } from "@/lib/us-stock-assets";
+import { findCryptoAsset } from "@/lib/crypto-assets";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "ticker parametresi gerekli" }, { status: 400 });
   }
 
+  const rawTicker = ticker;
+  const isExplicitBist = rawTicker.startsWith("BIST:");
+
   // Normalize TradingView or BIST formats:
   // e.g. "BIST:THYAO" -> "THYAO.IS", "THYAO" -> "THYAO.IS"
   if (ticker.startsWith("BIST:")) {
@@ -41,11 +46,17 @@ export async function GET(req: Request) {
   }
 
   const bist = findBistCompany(ticker);
+  const usStock = findUsStockAsset(ticker);
+  const crypto = findCryptoAsset(ticker);
+
   if (bist) {
     ticker = bist.ticker;
-  } else if (!ticker.includes(".") && !ticker.includes("=") && !ticker.includes("-") && /^[A-Z]{4,5}$/.test(ticker)) {
-    // If it looks like a Turkish ticker
+  } else if (isExplicitBist && !ticker.endsWith(".IS")) {
     ticker = `${ticker}.IS`;
+  } else if (usStock) {
+    ticker = usStock.ticker;
+  } else if (crypto) {
+    ticker = crypto.ticker;
   }
 
   const type = resolveType(ticker, searchParams.get("type"));
