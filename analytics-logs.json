@@ -33558,5 +33558,35 @@
     "id": "evt-1794297394088-vh6t3j",
     "timestamp": 1794297394088,
     "isoTime": "2026-11-10T07:56:34.088Z"
+  },
+  {
+    "ip": "::1",
+    "city": "Yerel (Localhost)",
+    "country": "Türkiye",
+    "countryCode": "TR",
+    "screen": "Hisse Detay: THYAO.IS",
+    "path": "/symbol/THYAO.IS",
+    "action": "page_view",
+    "label": "Sayfa Ziyareti: Hisse Detay: THYAO.IS",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+    "device": "Masaüstü",
+    "id": "evt-1794297643680-e6zhaf",
+    "timestamp": 1794297643680,
+    "isoTime": "2026-11-10T08:00:43.680Z"
+  },
+  {
+    "ip": "::1",
+    "city": "Yerel (Localhost)",
+    "country": "Türkiye",
+    "countryCode": "TR",
+    "screen": "Hisse Detay: THYAO.IS",
+    "path": "/symbol/THYAO.IS",
+    "action": "click",
+    "label": "Tıklama: ⚡TradingViewPRO",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+    "device": "Masaüstü",
+    "id": "evt-1794297645594-barhku",
+    "timestamp": 1794297645594,
+    "isoTime": "2026-11-10T08:00:45.594Z"
   }
 ]

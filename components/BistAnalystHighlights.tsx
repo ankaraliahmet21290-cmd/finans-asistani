@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import SignalBadge from "./SignalBadge";
 import { formatNumber, formatPrice, formatSigned } from "@/lib/format";
@@ -110,7 +110,7 @@ export default function BistAnalystHighlights({
   const [filterMode, setFilterMode] = useState<"leaders" | "top_upside">("leaders");
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(60);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const res = await fetch(`/api/market-summary?market=bist&timeframe=${timeframe}`);
       if (res.ok) {
@@ -122,11 +122,11 @@ export default function BistAnalystHighlights({
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeframe]);
 
   useEffect(() => {
     void loadData();
-  }, [timeframe]);
+  }, [loadData]);
 
   // Load saved refresh setting and mode on mount
   useEffect(() => {
@@ -179,7 +179,7 @@ export default function BistAnalystHighlights({
       void loadData();
     }, refreshInterval * 1000);
     return () => clearInterval(timer);
-  }, [refreshInterval, timeframe]);
+  }, [refreshInterval, loadData]);
 
   // Leaders default 4: THYAO, ASELS, GARAN, TUPRS
   const leaderCodes = ["THYAO", "ASELS", "GARAN", "TUPRS"];
