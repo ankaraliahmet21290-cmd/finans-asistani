@@ -68,17 +68,19 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
   const [chartMode, setChartMode] = useState<"internal" | "tradingview">("internal");
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(() => {
-
     try {
-      const saved = localStorage.getItem("symbol_refresh_interval");
-      if (saved != null) {
-        const parsed = Number(saved) as RefreshInterval;
-        if ([0, 15, 30, 60, 120, 300].includes(parsed)) setRefreshInterval(parsed);
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("symbol_refresh_interval");
+        if (saved != null) {
+          const parsed = Number(saved) as RefreshInterval;
+          if ([0, 15, 30, 60, 120, 300].includes(parsed)) return parsed;
+        }
       }
     } catch {
       // ignore
     }
-  }, []);
+    return 30;
+  });
   const [cache, setCache] = useState<Partial<Record<TimeframeKey, AnalysisResult>>>({});
   const [loadingTf, setLoadingTf] = useState(false);
   const [error, setError] = useState<string | null>(null);
