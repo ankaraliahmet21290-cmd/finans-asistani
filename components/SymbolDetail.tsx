@@ -3,12 +3,15 @@
 import { useEffect, useState, useCallback, useTransition } from "react";
 import Link from "next/link";
 import PriceChart from "./PriceChart";
+import TradingViewChart from "./TradingViewChart";
+import TradingViewTechnicalAnalysis from "./TradingViewTechnicalAnalysis";
 import SignalCard from "./SignalCard";
 import SignalBadge from "./SignalBadge";
 import { MacdChart, RsiChart } from "./IndicatorCharts";
 import AutoRefreshControl, { type RefreshInterval } from "./AutoRefreshControl";
 import { formatNumber, formatPercent, formatPrice, formatSigned } from "@/lib/format";
 import { TIMEFRAMES, type TimeframeKey } from "@/lib/timeframes";
+import { toTradingViewSymbol } from "@/lib/tradingview";
 import type { AnalysisResult, AssetType } from "@/lib/types";
 
 function Panel({
@@ -57,11 +60,12 @@ const TIMEFRAME_OPTIONS: Array<{ key: TimeframeKey; label: string; short: string
   { key: "1mo", label: "Aylık", short: "1A", desc: "Makro trend" },
 ];
 
-type TabType = "hybrid" | "tech" | "fund";
+type TabType = "hybrid" | "tech" | "fund" | "tradingview";
 
 export default function SymbolDetail({ ticker, type }: { ticker: string; type: AssetType }) {
   const [selectedTf, setSelectedTf] = useState<TimeframeKey>("1d");
   const [activeTab, setActiveTab] = useState<TabType>("hybrid");
+  const [chartMode, setChartMode] = useState<"internal" | "tradingview">("internal");
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(() => {
     try {
       if (typeof window !== "undefined") {
@@ -240,7 +244,7 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             {/* Tab 1: Karma Sinyal */}
             <button
               id="tab-btn-hybrid"
@@ -289,6 +293,23 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               <span className="truncate">Temel Sinyal</span>
               <span className="hidden sm:inline-flex">
                 <SignalBadge signal={currentResult.fund?.signal ?? "TUT"} size="sm" />
+              </span>
+            </button>
+
+            {/* Tab 4: TradingView Canlı Grafik & Analiz */}
+            <button
+              id="tab-btn-tradingview"
+              onClick={() => setActiveTab("tradingview")}
+              className={`flex items-center justify-center sm:justify-start gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+                activeTab === "tradingview"
+                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-200 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/30"
+                  : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <span className="text-sm">⚡</span>
+              <span className="truncate">TradingView</span>
+              <span className="inline-flex items-center rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-mono text-emerald-300">
+                PRO
               </span>
             </button>
           </div>
@@ -435,26 +456,70 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
           <Panel
             title={`Karma Görünüm · Mum + SMA50 / SMA200 + Bollinger (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
             badge={
-              <div className="flex flex-wrap gap-3 text-xs text-zinc-400 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-1 w-3.5 bg-[#2962ff] rounded-sm" /> SMA50
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-1 w-3.5 bg-[#ff6d00] rounded-sm" /> SMA200
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-1 w-3.5 bg-[rgba(41,98,255,0.5)] rounded-sm" /> Bollinger (20,2)
-                </span>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400 font-medium">
+                {chartMode === "internal" ? (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-1 w-3.5 bg-[#2962ff] rounded-sm" /> SMA50
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-1 w-3.5 bg-[#ff6d00] rounded-sm" /> SMA200
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-1 w-3.5 bg-[rgba(41,98,255,0.5)] rounded-sm" /> Bollinger (20,2)
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    TradingView Canlı Görünüm
+                  </span>
+                )}
+
+                {/* Chart Mode Toggle */}
+                <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setChartMode("internal")}
+                    className={`rounded px-2.5 py-1 font-semibold transition ${
+                      chartMode === "internal"
+                        ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    Yerel Grafik
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartMode("tradingview")}
+                    className={`flex items-center gap-1 rounded px-2.5 py-1 font-semibold transition ${
+                      chartMode === "tradingview"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <span>⚡ TradingView</span>
+                  </button>
+                </div>
               </div>
             }
           >
-            <PriceChart
-              candles={currentResult.candles}
-              sma50={currentResult.ind.sma50}
-              sma200={currentResult.ind.sma200}
-              bb={currentResult.ind.bb}
-              timeframe={selectedTf}
-            />
+            {chartMode === "tradingview" ? (
+              <TradingViewChart
+                ticker={ticker}
+                type={type}
+                timeframe={selectedTf}
+                height={480}
+              />
+            ) : (
+              <PriceChart
+                candles={currentResult.candles}
+                sma50={currentResult.ind.sma50}
+                sma200={currentResult.ind.sma200}
+                bb={currentResult.ind.bb}
+                timeframe={selectedTf}
+              />
+            )}
           </Panel>
 
           {/* Side-by-Side: Key Tech & Key Fundamental Factors */}
@@ -784,26 +849,70 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
           <Panel
             title={`Fiyat Mum Grafiği · SMA50 / SMA200 & Bollinger (${TIMEFRAMES[selectedTf]?.label ?? selectedTf})`}
             badge={
-              <div className="flex flex-wrap gap-3 text-xs text-zinc-400 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-1 w-3.5 bg-[#2962ff] rounded-sm" /> SMA50
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-1 w-3.5 bg-[#ff6d00] rounded-sm" /> SMA200
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-1 w-3.5 bg-[rgba(41,98,255,0.5)] rounded-sm" /> Bollinger (20,2)
-                </span>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400 font-medium">
+                {chartMode === "internal" ? (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-1 w-3.5 bg-[#2962ff] rounded-sm" /> SMA50
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-1 w-3.5 bg-[#ff6d00] rounded-sm" /> SMA200
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-1 w-3.5 bg-[rgba(41,98,255,0.5)] rounded-sm" /> Bollinger (20,2)
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    TradingView Canlı Görünüm
+                  </span>
+                )}
+
+                {/* Chart Mode Toggle */}
+                <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950 p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setChartMode("internal")}
+                    className={`rounded px-2.5 py-1 font-semibold transition ${
+                      chartMode === "internal"
+                        ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    Yerel Grafik
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartMode("tradingview")}
+                    className={`flex items-center gap-1 rounded px-2.5 py-1 font-semibold transition ${
+                      chartMode === "tradingview"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <span>⚡ TradingView</span>
+                  </button>
+                </div>
               </div>
             }
           >
-            <PriceChart
-              candles={currentResult.candles}
-              sma50={currentResult.ind.sma50}
-              sma200={currentResult.ind.sma200}
-              bb={currentResult.ind.bb}
-              timeframe={selectedTf}
-            />
+            {chartMode === "tradingview" ? (
+              <TradingViewChart
+                ticker={ticker}
+                type={type}
+                timeframe={selectedTf}
+                height={480}
+              />
+            ) : (
+              <PriceChart
+                candles={currentResult.candles}
+                sma50={currentResult.ind.sma50}
+                sma200={currentResult.ind.sma200}
+                bb={currentResult.ind.bb}
+                timeframe={selectedTf}
+              />
+            )}
           </Panel>
 
           {/* Indicator Panels: RSI & MACD */}
@@ -1330,6 +1439,138 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
               </Panel>
             </>
           )}
+        </div>
+      )}
+
+      {/* TAB CONTENT 4: TRADINGVIEW (CANLI / İNTERAKTİF GRAFİK & ANALİZ) */}
+      {activeTab === "tradingview" && (
+        <div className="flex flex-col gap-5 animate-in fade-in duration-300">
+          {/* Top Info Banner */}
+          <section className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-zinc-900/60 to-zinc-900/40 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    TradingView Entegrasyonu
+                  </span>
+                  <span className="rounded bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] text-emerald-300 border border-emerald-500/30">
+                    {toTradingViewSymbol(ticker, type)}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-zinc-100">
+                  {currentResult.name} · Profesyonel İnteraktif Grafik & Teknik Görünüm
+                </h3>
+                <p className="mt-1 text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                  TradingView’in tüm çizim araçları, hacim profilleri ve teknik osilatörleriyle doğrudan bu ekranda analiz yapabilirsiniz.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={`https://tr.tradingview.com/chart/?symbol=${encodeURIComponent(
+                    toTradingViewSymbol(ticker, type)
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/25"
+                >
+                  <span>TradingView.com&apos;da Aç</span>
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </section>
+
+          {/* Full Advanced TradingView Chart */}
+          <TradingViewChart
+            ticker={ticker}
+            type={type}
+            timeframe={selectedTf}
+            height={560}
+          />
+
+          {/* Lower Grid: TradingView Technical Gauge vs Finans Asistanı Algorithm */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            {/* Left: TradingView Technical Analysis Gauge */}
+            <TradingViewTechnicalAnalysis
+              ticker={ticker}
+              type={type}
+              timeframe={selectedTf}
+              height={420}
+            />
+
+            {/* Right: Finans Asistanı Model Karşılaştırması */}
+            <Panel
+              title="Finans Asistanı Algoritma Özeti"
+              subtitle="Kendi iç modelimizin sinyal ve risk parametreleri"
+              badge={<SignalBadge signal={currentResult.signal} size="md" />}
+            >
+              <div className="space-y-4 text-xs sm:text-sm">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-center">
+                    <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Karma Skor</span>
+                    <span className={`font-mono text-base font-bold ${
+                      currentResult.score > 0 ? "text-emerald-400" : currentResult.score < 0 ? "text-red-400" : "text-zinc-400"
+                    }`}>
+                      {formatSigned(currentResult.score)}
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-center">
+                    <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Teknik Skor</span>
+                    <span className={`font-mono text-base font-bold ${
+                      currentResult.tech.score > 0 ? "text-emerald-400" : currentResult.tech.score < 0 ? "text-red-400" : "text-zinc-400"
+                    }`}>
+                      {formatSigned(currentResult.tech.score)}
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-center">
+                    <span className="text-[10px] text-zinc-500 uppercase font-semibold block">Temel Skor</span>
+                    <span className={`font-mono text-base font-bold ${
+                      (currentResult.fund?.score ?? 0) > 0 ? "text-emerald-400" : (currentResult.fund?.score ?? 0) < 0 ? "text-red-400" : "text-zinc-400"
+                    }`}>
+                      {currentResult.fund?.score != null ? formatSigned(currentResult.fund.score) : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Algoritmik Karar:</span>
+                    <span className="font-semibold text-zinc-100">{currentResult.hybridAssessment?.label ?? "Dengeli"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Trend Gücü (ADX 14):</span>
+                    <span className="font-mono font-semibold text-zinc-200">
+                      {currentResult.tech.trendStrength?.adx ?? "—"} ({currentResult.tech.trendStrength?.regime ?? "Normal"})
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Dinamik Stop-Loss:</span>
+                    <span className="font-mono font-semibold text-red-400">
+                      {currentResult.tech.volatility?.stopLoss != null
+                        ? formatPrice(currentResult.tech.volatility.stopLoss, currentResult.currency)
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Dinamik Kâr Al (Hedef):</span>
+                    <span className="font-mono font-semibold text-emerald-400">
+                      {currentResult.tech.volatility?.takeProfit != null
+                        ? formatPrice(currentResult.tech.volatility.takeProfit, currentResult.currency)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-sky-900/30 bg-sky-950/20 p-3 text-xs text-zinc-300 leading-relaxed">
+                  ℹ️ <strong>İki Farklı Bakış Açısı:</strong> Soldaki TradingView ibresi TradingView&apos;in standart osilatör ve hareketli ortalama ağırlıklarını gösterirken, sağdaki Finans Asistanı modeli Warren Buffett temel rasyoları ile çoklu periyot teknik analizini birleştirmektedir.
+                </div>
+              </div>
+            </Panel>
+          </div>
         </div>
       )}
 

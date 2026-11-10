@@ -4,7 +4,7 @@ import type { AnalysisResult } from "@/lib/types";
 
 interface SignalCardProps {
   result: AnalysisResult;
-  activeTab?: "hybrid" | "tech" | "fund";
+  activeTab?: "hybrid" | "tech" | "fund" | "tradingview";
 }
 
 export default function SignalCard({ result, activeTab = "hybrid" }: SignalCardProps) {
@@ -36,6 +36,11 @@ export default function SignalCard({ result, activeTab = "hybrid" }: SignalCardP
           result.fundamentals?.pb != null ? result.fundamentals.pb.toFixed(2) : "—"
         }${result.fundamentals?.peg != null ? ` · PEG: ${result.fundamentals.peg.toFixed(2)}` : ""}`
       : "Temel analiz verisi mevcut değil (Altın)";
+  } else if (activeTab === "tradingview") {
+    displaySignal = result.signal;
+    displayScore = result.score;
+    scoreTitle = "TradingView Canlı Görünüm & Model Skoru";
+    scoreSub = `TradingView gelişmiş grafiği aktif · Karma Model Skoru: ${formatSigned(result.score)} (${result.signal})`;
   }
 
   return (
