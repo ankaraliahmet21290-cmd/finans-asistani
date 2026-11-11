@@ -272,6 +272,14 @@ export default function MobileNavigation() {
                           <span className="text-base">🇺🇸</span>
                           <span>ABD Borsası</span>
                         </Link>
+                        <Link
+                          href="/tradingview"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="col-span-2 flex items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/15 p-2.5 text-xs font-semibold text-sky-200 transition hover:border-sky-400 hover:bg-sky-500/25"
+                        >
+                          <span className="text-base">⚡</span>
+                          <span>TradingView Canlı Terminali</span>
+                        </Link>
                       </div>
                     </div>
 

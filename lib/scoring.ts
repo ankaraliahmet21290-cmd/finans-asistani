@@ -18,6 +18,8 @@ const last = <T>(arr: readonly T[] | undefined, n = 1): T | undefined =>
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
+export const SIGNAL_THRESHOLD = 0.25;
+
 export function technicalScore(
   closes: number[],
   ind: Indicators,
@@ -30,8 +32,9 @@ export function technicalScore(
 
   // --- KATEGORİ 1: ANA TREND & HAREKETLİ ORTALAMALAR (Kategori Ağırlığı: %35) ---
 
-  // 1. Fiyat / SMA 200 Rejimi (Ağırlık: 1.2)
+  // 1. Fiyat / SMA 200 Rejimi (Ağırlık: 1.2) (200 bar oluşmamışsa SMA50 ile desteklenir)
   const sma200 = last(ind.sma200);
+  const sma50ForTrend = last(ind.sma50);
   if (price != null && sma200 != null) {
     if (price > sma200) {
       items.push({
@@ -48,6 +51,24 @@ export function technicalScore(
         weight: 1.2,
         category: "trend",
         detail: "Fiyat SMA200'ün altında → uzun vadeli makro ayı piyasası bölgesi",
+      });
+    }
+  } else if (price != null && sma50ForTrend != null) {
+    if (price > sma50ForTrend) {
+      items.push({
+        name: "Fiyat / SMA50",
+        point: 0.8,
+        weight: 1.0,
+        category: "trend",
+        detail: "Fiyat SMA50'nin üstünde → uzun vadeli ana yükseliş yapısı",
+      });
+    } else {
+      items.push({
+        name: "Fiyat / SMA50",
+        point: -0.8,
+        weight: 1.0,
+        category: "trend",
+        detail: "Fiyat SMA50'nin altında → uzun vadeli ana düşüş yapısı",
       });
     }
   }
@@ -387,13 +408,16 @@ export function technicalScore(
   const bb = last(ind.bb);
   const bbPrev = last(ind.bb, 2);
   if (price != null && bb) {
+    const bandwidth = bb.middle > 0 ? (bb.upper - bb.lower) / bb.middle : 0;
+    const isSqueeze = bandwidth > 0 && bandwidth < 0.05; // %5'in altı volatilite sıkışması
+
     if (price < bb.lower) {
       items.push({
         name: "Bollinger(20,2)",
         point: 1,
         weight: 0.8,
         category: "volume",
-        detail: "Fiyat alt bandın altında (istatistiksel aşırı satım)",
+        detail: `Fiyat alt bandın altında (istatistiksel aşırı satım)${isSqueeze ? " [Bant Sıkışması]" : ""}`,
       });
     } else if (price > bb.upper) {
       items.push({
@@ -401,7 +425,7 @@ export function technicalScore(
         point: -1,
         weight: 0.8,
         category: "volume",
-        detail: "Fiyat üst bandın üstünde (istatistiksel aşırı alım)",
+        detail: `Fiyat üst bandın üstünde (istatistiksel aşırı alım)${isSqueeze ? " [Bant Sıkışması]" : ""}`,
       });
     } else if (pricePrev != null && bbPrev && pricePrev < bbPrev.lower && price >= bb.lower) {
       items.push({
@@ -419,13 +443,21 @@ export function technicalScore(
         category: "volume",
         detail: "Fiyat üst banttan içeri döndü → kâr satışı teyidi",
       });
+    } else if (isSqueeze) {
+      items.push({
+        name: "Bollinger(20,2)",
+        point: 0.2,
+        weight: 0.5,
+        category: "volume",
+        detail: `Bollinger volatilite sıkışması (Bant Genişliği: %${(bandwidth * 100).toFixed(1)}) → yön patlaması hazırlığı`,
+      });
     } else {
       items.push({
         name: "Bollinger(20,2)",
         point: 0,
         weight: 0.4,
         category: "volume",
-        detail: "Fiyat bant sınırları içinde olağan dalgalanmada",
+        detail: `Fiyat bant sınırları içinde olağan dalgalanmada (Bant Genişliği: %${(bandwidth * 100).toFixed(1)})`,
       });
     }
   }
@@ -464,7 +496,7 @@ export function technicalScore(
   const normalizedScore = activeWeightSum > 0 ? totalWeightedScore / activeWeightSum : 0;
   const clampedScore = Math.max(-1, Math.min(1, normalizedScore));
   const roundedScore = Math.round(clampedScore * 100) / 100;
-  const signal: Signal = roundedScore >= 0.25 ? "AL" : roundedScore <= -0.25 ? "SAT" : "TUT";
+  const signal: Signal = roundedScore >= SIGNAL_THRESHOLD ? "AL" : roundedScore <= -SIGNAL_THRESHOLD ? "SAT" : "TUT";
 
   // --- ATR (14) - Dinamik Risk & Stop-Loss Hesabı ---
   let volatility: VolatilityRisk | undefined;
@@ -809,7 +841,7 @@ export function fundamentalScore(f: Fundamentals, isBank: boolean = false): Fund
 
   const rawScore = activeWeightSum > 0 ? totalWeightedScore / activeWeightSum : null;
   const score = rawScore != null ? Math.round(rawScore * 100) / 100 : null;
-  const signal: Signal = score == null ? "TUT" : score >= 0.25 ? "AL" : score <= -0.25 ? "SAT" : "TUT";
+  const signal: Signal = score == null ? "TUT" : score >= SIGNAL_THRESHOLD ? "AL" : score <= -SIGNAL_THRESHOLD ? "SAT" : "TUT";
 
   return { score, signal, metrics, categoryScores };
 }
@@ -860,7 +892,7 @@ export function finalSignal(
   const { techWeight, fundWeight } = getTimeframeWeights(timeframe, fund != null);
   const raw = fund == null ? tech : techWeight * tech + fundWeight * fund;
   const score = Math.round(raw * 100) / 100;
-  const signal: Signal = score >= 0.28 ? "AL" : score <= -0.28 ? "SAT" : "TUT";
+  const signal: Signal = score >= SIGNAL_THRESHOLD ? "AL" : score <= -SIGNAL_THRESHOLD ? "SAT" : "TUT";
   return { score, signal, techWeight, fundWeight } as const;
 }
 

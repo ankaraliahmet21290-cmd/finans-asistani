@@ -296,9 +296,31 @@ export async function scanCategorizedSignals(
     // 2. Scan each ticker for all timeframes with bounded concurrency
     await mapWithLimit(universe, SCAN_CONCURRENCY, async (ticker) => {
       const fund = fundMap.get(ticker);
+      const tickerSignals: TimeframeStockSignal[] = [];
+
       for (const tf of timeframes) {
         const r = await analyzeTimeframe(ticker, tf, fund, preferDirect);
-        if (!r) continue;
+        if (r) tickerSignals.push(r);
+      }
+
+      // Günlük (1d) ana trend sinyali referansı
+      const dailySignal = tickerSignals.find((s) => s.timeframe === "1d");
+      const dailyDir = dailySignal ? dailySignal.signal : null;
+
+      for (const r of tickerSignals) {
+        // İntraday / kısa periyotlar için ana trend uyumu uyarısı/teyidi
+        if (["5m", "10m", "15m", "30m", "1h", "2h", "4h"].includes(r.timeframe) && dailyDir) {
+          if (r.signal === "AL" && dailyDir === "SAT") {
+            r.reasons.unshift("⚠️ Günlük (1G) ana trend SAT baskısında (Tepki Alımı)");
+          } else if (r.signal === "AL" && dailyDir === "AL") {
+            r.reasons.unshift("✨ Günlük (1G) ana trend AL ile tam uyumlu");
+          } else if (r.signal === "SAT" && dailyDir === "AL") {
+            r.reasons.unshift("⚠️ Günlük (1G) ana trend AL bölgesinde (Kısa Düzeltme)");
+          } else if (r.signal === "SAT" && dailyDir === "SAT") {
+            r.reasons.unshift("✨ Günlük (1G) ana trend SAT ile tam uyumlu");
+          }
+        }
+
         const cat = categories[r.timeframe as CategoryTimeframeKey];
         if (!cat) continue;
         cat.items.push(r);

@@ -67,6 +67,13 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
   const [activeTab, setActiveTab] = useState<TabType>("hybrid");
 
   const [chartMode, setChartMode] = useState<"internal" | "tradingview">("internal");
+  const [tvTicker, setTvTicker] = useState(ticker);
+  const [tvType, setTvType] = useState<AssetType>(type);
+
+  useEffect(() => {
+    setTvTicker(ticker);
+    setTvType(type);
+  }, [ticker, type]);
   const [refreshInterval, setRefreshInterval] = useState<RefreshInterval>(() => {
     try {
       if (typeof window !== "undefined") {
@@ -199,16 +206,20 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
         {/* Live Interactive TradingView Chart */}
         <TradingViewChart
-          ticker={ticker}
-          type={type}
+          ticker={tvTicker}
+          type={tvType}
           timeframe={selectedTf}
           height={600}
+          onSymbolChange={(newTicker, newType) => {
+            setTvTicker(newTicker);
+            if (newType) setTvType(newType as AssetType);
+          }}
         />
 
         {/* TradingView Technical Analysis Gauge */}
         <TradingViewTechnicalAnalysis
-          ticker={ticker}
-          type={type}
+          ticker={tvTicker}
+          type={tvType}
           timeframe={selectedTf}
           height={430}
         />
@@ -1747,34 +1758,42 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
       {activeTab === "tradingview" && (
         <div className="flex flex-col gap-5 animate-in fade-in duration-300">
           {/* Top Info Banner */}
-          <section className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-zinc-900/60 to-zinc-900/40 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+          <section className="rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-950/40 via-zinc-900/60 to-zinc-900/40 p-4 sm:p-5 shadow-lg backdrop-blur-md">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                    TradingView Entegrasyonu
+                  <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
+                    TradingView Canlı Terminali
                   </span>
-                  <span className="rounded bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] text-emerald-300 border border-emerald-500/30">
-                    {toTradingViewSymbol(ticker, type)}
+                  <span className="rounded bg-sky-500/15 px-2 py-0.5 font-mono text-[11px] text-sky-300 border border-sky-500/30">
+                    {toTradingViewSymbol(tvTicker, tvType)}
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-zinc-100">
-                  {currentResult.name} · Profesyonel İnteraktif Grafik & Teknik Görünüm
+                <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+                  <span>{tvTicker} · Profesyonel İnteraktif Grafik & Teknik Görünüm</span>
                 </h3>
                 <p className="mt-1 text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                  TradingView’in tüm çizim araçları, hacim profilleri ve teknik osilatörleriyle doğrudan bu ekranda analiz yapabilirsiniz.
+                  TradingView’in tüm çizim araçları, hacim profilleri ve teknik osilatörleriyle doğrudan bu ekranda analiz yapabilirsiniz. Yukarıdaki arama çubuğu ve hızlı erişim butonlarıyla <strong>istediğiniz herhangi bir hisse veya varlığı</strong> TradingView üzerinden görüntüleyebilirsiniz.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {tvTicker !== ticker && (
+                  <Link
+                    href={`/symbol/${encodeURIComponent(tvTicker)}`}
+                    className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/25 shadow-sm"
+                  >
+                    <span>📊 {tvTicker} Analiz Sayfasına Git →</span>
+                  </Link>
+                )}
                 <a
                   href={`https://tr.tradingview.com/chart/?symbol=${encodeURIComponent(
-                    toTradingViewSymbol(ticker, type)
+                    toTradingViewSymbol(tvTicker, tvType)
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/25"
+                  className="flex items-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3.5 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700"
                 >
                   <span>TradingView.com&apos;da Aç</span>
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1787,18 +1806,23 @@ export default function SymbolDetail({ ticker, type }: { ticker: string; type: A
 
           {/* Full Advanced TradingView Chart */}
           <TradingViewChart
-            ticker={ticker}
-            type={type}
+            ticker={tvTicker}
+            type={tvType}
             timeframe={selectedTf}
-            height={560}
+            height={580}
+            allowSearch={true}
+            onSymbolChange={(newTicker, newType) => {
+              setTvTicker(newTicker);
+              if (newType) setTvType(newType as AssetType);
+            }}
           />
 
           {/* Lower Grid: TradingView Technical Gauge vs Finans Asistanı Algorithm */}
           <div className="grid gap-5 lg:grid-cols-2">
             {/* Left: TradingView Technical Analysis Gauge */}
             <TradingViewTechnicalAnalysis
-              ticker={ticker}
-              type={type}
+              ticker={tvTicker}
+              type={tvType}
               timeframe={selectedTf}
               height={420}
             />

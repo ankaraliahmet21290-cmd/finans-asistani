@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, memo } from "react";
-import { toTradingViewSymbol, toTradingViewInterval } from "@/lib/tradingview";
+import { toTradingViewSymbol, toTradingViewTechnicalInterval } from "@/lib/tradingview";
 
 interface TradingViewTechnicalAnalysisProps {
   ticker: string;
@@ -17,10 +17,7 @@ function TradingViewTechnicalAnalysisComponent({
   height = 430,
 }: TradingViewTechnicalAnalysisProps) {
   const tvSymbol = toTradingViewSymbol(ticker, type);
-  const tvInterval = toTradingViewInterval(timeframe);
-
-  const widgetInterval =
-    tvInterval === "D" ? "1D" : tvInterval === "W" ? "1W" : tvInterval === "M" ? "1M" : `${tvInterval}m`;
+  const widgetInterval = toTradingViewTechnicalInterval(timeframe);
 
   const iframeSrc = useMemo(() => {
     const config = {
@@ -34,9 +31,9 @@ function TradingViewTechnicalAnalysisComponent({
       locale: "tr",
       colorTheme: "dark",
     };
-    return `https://www.tradingview-widget.com/embed-widget/technical-analysis/?locale=tr#${encodeURIComponent(
-      JSON.stringify(config)
-    )}`;
+    return `https://www.tradingview-widget.com/embed-widget/technical-analysis/?locale=tr&tvwidgetsymbol=${encodeURIComponent(
+      tvSymbol
+    )}#${encodeURIComponent(JSON.stringify(config))}`;
   }, [tvSymbol, widgetInterval]);
 
   return (
@@ -49,7 +46,8 @@ function TradingViewTechnicalAnalysisComponent({
               TradingView Teknik Analiz İbresi
             </h4>
             <p className="text-[11px] text-zinc-400">
-              TradingView osilatörleri ve hareketli ortalamalarının anlık al/sat özeti ({tvSymbol})
+              TradingView osilatörleri ve hareketli ortalamalarının anlık al/sat özeti (
+              <span className="font-mono text-sky-400 font-semibold">{tvSymbol}</span>)
             </p>
           </div>
         </div>

@@ -48,7 +48,7 @@ export default function AppHeader() {
 
         {/* Desktop Search Bar (hidden on mobile) */}
         <div className="hidden md:block flex-1 max-w-md mx-4">
-          <BistCombobox compact placeholder="Hisse veya varlık ara (⌘K)..." autoNavigate={true} />
+          <BistCombobox compact placeholder="Hisse veya varlık ara (⌘K)..." autoNavigate={true} market="all" />
         </div>
 
         {/* Desktop Guide Links & Market Status (hidden on mobile) */}
@@ -64,6 +64,17 @@ export default function AppHeader() {
             className="shrink-0 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-300 transition hover:border-indigo-400 hover:bg-indigo-500/20"
           >
             📊 Teknik Detay
+          </Link>
+          <Link
+            href="/tradingview"
+            className={`shrink-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+              pathname === "/tradingview"
+                ? "border-sky-500/60 bg-gradient-to-r from-sky-500/25 to-indigo-500/25 text-sky-200 shadow-sm"
+                : "border-sky-500/30 bg-sky-500/10 text-sky-300 hover:border-sky-400 hover:bg-sky-500/20"
+            }`}
+          >
+            <span className="text-sm">⚡</span>
+            <span>TradingView</span>
           </Link>
           <Link
             href="/analitik"
@@ -169,6 +180,25 @@ export default function AppHeader() {
                 </Link>
               );
             })}
+
+            {/* Dedicated TradingView Market Tab */}
+            <Link
+              href="/tradingview"
+              className={`group relative flex shrink-0 items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                pathname === "/tradingview"
+                  ? "border border-sky-500/50 bg-gradient-to-r from-sky-500/25 via-indigo-500/20 to-violet-500/25 text-sky-200 shadow-sm shadow-sky-500/10"
+                  : "border border-transparent text-zinc-400 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-zinc-200"
+              }`}
+            >
+              <span className="text-sm">⚡</span>
+              <span>TradingView Terminali</span>
+              <span className="rounded-full bg-sky-500/20 border border-sky-500/30 px-1.5 py-0.2 text-[9px] font-mono text-sky-300">
+                Canlı
+              </span>
+              {pathname === "/tradingview" && (
+                <span className="absolute -bottom-1.5 left-3 right-3 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-indigo-500" />
+              )}
+            </Link>
           </nav>
 
           {/* Quick Info text on desktop right */}

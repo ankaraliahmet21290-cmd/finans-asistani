@@ -115,21 +115,21 @@ export default function TeknikDetayKilavuzuPage() {
               <span key="al" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 🟢 AL
               </span>,
-              <code key="s1" className="text-emerald-300 font-mono font-bold">Skor ≥ +0.28</code>,
+              <code key="s1" className="text-emerald-300 font-mono font-bold">Skor ≥ +0.25</code>,
               "Teknik momentum ve bilanço verileri yukarı yönlü hareketi teyit ediyor. Alım iştahı güçlü.",
             ],
             [
               <span key="tut" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
                 🟡 TUT
               </span>,
-              <code key="s2" className="text-amber-300 font-mono font-bold">-0.28 &lt; Skor &lt; +0.28</code>,
+              <code key="s2" className="text-amber-300 font-mono font-bold">-0.25 &lt; Skor &lt; +0.25</code>,
               "Belirgin bir trend veya rasyo avantajı yok. Konsolidasyon, yatay piyasa veya bekle-gör bölgesi.",
             ],
             [
               <span key="sat" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
                 🔴 SAT
               </span>,
-              <code key="s3" className="text-red-300 font-mono font-bold">Skor ≤ -0.28</code>,
+              <code key="s3" className="text-red-300 font-mono font-bold">Skor ≤ -0.25</code>,
               "Teknik göstergeler aşırı satış/düşüş trendi baskısı veriyor veya şirket çarpanları aşırı primli/zararda.",
             ],
           ]}

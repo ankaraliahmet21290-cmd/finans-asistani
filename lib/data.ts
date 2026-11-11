@@ -208,8 +208,8 @@ async function fetchBaseChart(ticker: string, base: "5m" | "1h" | "1d"): Promise
   return cached(
     `base_chart:${actualTicker}:${base}`,
     async () => {
-      // 5m: 30 gün (yeterli bar derinliği), 1h: 180 gün (SMA200 için >200 bar), 1d: 1500 gün (haftalık SMA200 için >200 hafta)
-      const days = base === "5m" ? 30 : base === "1h" ? 180 : 1500;
+      // 5m: 30 gün (yeterli bar derinliği), 1h: 180 gün (SMA200 için >200 bar), 1d: 2500 gün (haftalık SMA200 için >200 hafta)
+      const days = base === "5m" ? 30 : base === "1h" ? 180 : 2500;
       const period1 = new Date(Date.now() - days * 24 * 3600 * 1000);
 
       const res = await fetchWithRetry(() => yf.chart(actualTicker, { period1, interval: base }));
@@ -337,10 +337,10 @@ export async function getCandles(
         };
       }
       if (tf === "30m") {
-        const raw = await fetchDirectChart(ticker, "30m", 60);
+        const raw = await fetchDirectChart(actualTicker, "30m", 60);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -350,10 +350,11 @@ export async function getCandles(
         };
       }
       if (tf === "1wk") {
-        const raw = await fetchDirectChart(ticker, "1wk", 730);
+        // 2200 gün (~314 hafta) ile SMA200 (>200 hafta) eksiksiz hesaplanır
+        const raw = await fetchDirectChart(actualTicker, "1wk", 2200);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -363,10 +364,11 @@ export async function getCandles(
         };
       }
       if (tf === "1mo") {
-        const raw = await fetchDirectChart(ticker, "1mo", 1460);
+        // 5500 gün (~180 ay) ile SMA50/EMA50 ve uzun vadeli trend göstergeleri eksiksiz hesaplanır
+        const raw = await fetchDirectChart(actualTicker, "1mo", 5500);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -376,10 +378,10 @@ export async function getCandles(
         };
       }
       if (tf === "5m") {
-        const raw = await fetchDirectChart(ticker, "5m", 14);
+        const raw = await fetchDirectChart(actualTicker, "5m", 14);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -389,10 +391,10 @@ export async function getCandles(
         };
       }
       if (tf === "1h") {
-        const raw = await fetchDirectChart(ticker, "1h", 90);
+        const raw = await fetchDirectChart(actualTicker, "1h", 90);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -402,10 +404,11 @@ export async function getCandles(
         };
       }
       if (tf === "1d") {
-        const raw = await fetchDirectChart(ticker, "1d", 400);
+        // 900 gün (~620 işlem günü) ile SMA200 ve uzun vadeli döngü güvenle hesaplanır
+        const raw = await fetchDirectChart(actualTicker, "1d", 900);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -416,11 +419,11 @@ export async function getCandles(
       }
       // Yahoo'nun doğrudan sağlamadığı 10m, 2h, 4h periyotları için en yakın temel periyottan aggregate et
       if (tf === "10m") {
-        const raw = await fetchDirectChart(ticker, "5m", 30);
+        const raw = await fetchDirectChart(actualTicker, "5m", 30);
         const aggregated = aggregateCandlesByMinutes(raw.candles, 10);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -430,11 +433,11 @@ export async function getCandles(
         };
       }
       if (tf === "2h") {
-        const raw = await fetchDirectChart(ticker, "1h", 120);
+        const raw = await fetchDirectChart(actualTicker, "1h", 120);
         const aggregated = aggregateCandlesByMinutes(raw.candles, 120);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
@@ -444,11 +447,11 @@ export async function getCandles(
         };
       }
       if (tf === "4h") {
-        const raw = await fetchDirectChart(ticker, "1h", 180);
+        const raw = await fetchDirectChart(actualTicker, "1h", 180);
         const aggregated = aggregateCandlesByMinutes(raw.candles, 240);
         return {
-          ticker,
-          name: raw.meta.longName || raw.meta.shortName || ticker,
+          ticker: actualTicker,
+          name: raw.meta.longName || raw.meta.shortName || actualTicker,
           currency: raw.meta.currency || "TRY",
           timeframe: tf,
           regularMarketPrice: raw.meta.regularMarketPrice ?? null,
