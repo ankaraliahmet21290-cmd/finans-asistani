@@ -10,14 +10,14 @@ Fiyat Stop-Loss veya Kâr Al seviyesine ulaştığında otomatik e-posta alarmı
 - **Emtia & FX Alarm Sıklığı:** 5m
 - **ABD Borsası Alarm Sıklığı:** 15m
 - **Sadece Seans İçi:** Evet
-- **Son Kontrol:** 2026-11-10T07:43:47.790Z
-- **Son Alarm:** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** —
+- **Son Kontrol:** 2026-11-17T11:36:57.298Z
+- **Son Alarm:** —
 
 ## Aktif Pozisyonlar
 
 | Sembol | Kod | Periyot | Alış Fiyatı | Alış Tarihi | Stop-Loss | Kâr Al | Durum | Not |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| THYAO.IS | THYAO | 1h | 290.50 | 2026-10-25 | 278.20 | 311.00 | Stop-Loss Tetiklendi | Örnek pozisyon kaydı |
+| THYAO.IS | THYAO | 1h | 325.00 | 2026-11-17 | 321.15 | 331.41 | Aktif |  |
 
 > **Nasıl Çalışır?**
 > 1. Sayfadan hisse eklediğinizde veya periyot seçtiğinizde bu dosyaya otomatik satır eklenir.

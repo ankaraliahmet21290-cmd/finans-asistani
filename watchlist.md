@@ -10,12 +10,12 @@ Arayüz üzerinden veya doğrudan bu dosya düzenlenerek varlık eklenip çıkar
 - **Emtia & FX Takip Sıklığı:** 15m
 - **ABD Borsası Takip Sıklığı:** 30m
 - **Yalnızca Seans İçi:** Evet
-- **Son Kontrol:** 2026-11-11T07:11:59.394Z
+- **Son Kontrol:** 2026-11-17T11:29:55.646Z
 - **Son Sinyal Değişimi:** —
 
 | Sembol | Tür | Ad | Periyot |
 | --- | --- | --- | --- |
-| THYAO.IS | stock | Türk Hava Yolları | 1d |
-| ASELS.IS | stock | Aselsan | 1d |
+| THYAO.IS | stock | Türk Hava Yolları | 1h |
+| ASELS.IS | stock | Aselsan | 1h |
 | AAPL | stock | Apple Inc. | 1d |
 | GC=F | gold | Ons Altın Vadeli | 1d |

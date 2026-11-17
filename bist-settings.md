@@ -25,4 +25,4 @@ Arayüz üzerinden sektör veya filtre seçildiğinde bu dosya otomatik güncell
 - **GYO & Gayrimenkul** (`gyo`): Gayrimenkul yatırım ortaklıkları ve inşaat
 - **Diğer** (`diger`): Diğer sektörlerde faaliyet gösteren şirketler
 
-*Son Güncelleme: 2026-10-26T17:48:08.642Z*
+*Son Güncelleme: 2026-11-17T11:32:53.953Z*
