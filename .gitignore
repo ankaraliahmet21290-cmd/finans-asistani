@@ -45,3 +45,6 @@ next-env.d.ts
 # cache & runtime logs
 .cache/
 analytics-logs.json
+
+# IDEs
+.idea/
